@@ -20,6 +20,12 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QInputDialog,
     QDialog,
+    QDialogButtonBox,
+    QCheckBox,
+    QSpinBox,
+    QDoubleSpinBox,
+    QScrollArea,
+    QTabWidget,
 )
 from PyQt6.QtGui import QImage, QPixmap
 
@@ -123,7 +129,21 @@ class ConfigController(QWidget):
         layout.addLayout(json_layout)
 
         # 3. Table widget to display the configuration parameters loaded from the JSON
-        layout.addWidget(QLabel('Experiment Config:'))
+        config_label = QLabel('Experiment Config:')
+        config_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
+        layout.addWidget(config_label)
+        
+        # Add description text
+        description = QLabel("Edit parameters directly in the table below, or use the Advanced Editor for specialized widgets")
+        description.setWordWrap(True)
+        layout.addWidget(description)
+        
+        # Add button for advanced parameter editor
+        self.advanced_editor_button = QPushButton("Advanced Parameter Editor")
+        layout.addWidget(self.advanced_editor_button)
+        self.advanced_editor_button.clicked.connect(self.show_advanced_editor)
+        
+        # Configuration table
         self.config_table = QTableWidget()
         self.config_table.setEditTriggers(QTableWidget.AllEditTriggers)
         self.config_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -299,42 +319,134 @@ class ConfigController(QWidget):
 
         if json_path_input and os.path.isfile(json_path_input):
             try:
+                # Load the JSON configuration
                 self.config.load_json(json_path_input)
-                # Refresh the GUI table
-                # FIXME: This implicitly assumes mmc1 is the Dhyana core with the arduino-switch device
+                
+                # Setup configuration (configures engines, etc.)
+                self.config.setup_configuration(json_path_input)
+                
+                # Refresh the GUI table with the new parameters
                 self._refresh_config_table()
+                
+                # Show a success message
+                QMessageBox.information(self, "Configuration Loaded", 
+                                      f"Successfully loaded configuration from:\n{json_path_input}")
             except Exception as e:
-                print(f"Trouble updating ExperimentConfig from AcquisitionEngine:\n{json_path_input}\nConfiguration not updated.")
-                print(e) 
+                error_msg = f"Trouble updating ExperimentConfig:\n{json_path_input}\nConfiguration not updated."
+                print(f"{error_msg}\n{e}")
+                QMessageBox.critical(self, "Error Loading Configuration", error_msg)
 
     def _on_table_edit(self, row, column):
         """Update the configuration parameters when the table is edited."""
+        # Only process edits to the value column (column 1)
+        if column != 1:
+            return
+            
         try:
+            # Get parameter key and new value
             if self.config_table.item(row, 0) and self.config_table.item(row, 1):
                 key = self.config_table.item(row, 0).text()
-                value = self.config_table.item(row, 1).text()
-                self.config.update_parameter(key, value)
-            self.configUpdated.emit(self.config) # EMIT SIGNAL TO LISTENERS                
+                value_str = self.config_table.item(row, 1).text()
+                
+                # Get parameter type and try to convert the value accordingly
+                type_str = self.config_table.item(row, 2).text() if self.config_table.item(row, 2) else None
+                
+                # Convert the value string based on its type
+                if type_str == 'bool':
+                    # Handle boolean values
+                    value = value_str.lower() in ('true', 'yes', 't', 'y', '1')
+                elif type_str == 'int':
+                    # Handle integer values
+                    try:
+                        value = int(value_str)
+                    except ValueError:
+                        QMessageBox.warning(self, "Invalid Value", 
+                                          f"'{value_str}' is not a valid integer for parameter '{key}'.")
+                        return
+                elif type_str == 'float':
+                    # Handle float values
+                    try:
+                        value = float(value_str)
+                    except ValueError:
+                        QMessageBox.warning(self, "Invalid Value", 
+                                          f"'{value_str}' is not a valid float for parameter '{key}'.")
+                        return
+                elif type_str == 'list':
+                    # Handle list values
+                    try:
+                        import json
+                        value = json.loads(value_str)
+                        if not isinstance(value, list):
+                            value = [value]
+                    except json.JSONDecodeError:
+                        # If not valid JSON, try simple comma-separated list
+                        value = [item.strip() for item in value_str.split(',')]
+                else:
+                    # For all other types, use the string value as is
+                    value = value_str
+                
+                # Update the parameter directly through the dynamic property system
+                setattr(self.config, key, value)
+                
+                # Emit signal to notify other components of the change
+                self.configUpdated.emit(self.config)
+                
         except Exception as e:
-            print(f"Error updating config from table: check AcquisitionEngine._on_table_edit()\n{e}")
+            error_msg = f"Error updating parameter: {e}"
+            print(error_msg)
+            QMessageBox.critical(self, "Error Updating Parameter", error_msg)
 
     def _refresh_config_table(self):
         """Refresh the configuration table to reflect current parameters."""
-        df = self.config.dataframe
+        # Get UI schema which contains enhanced parameter information
+        schema = self.config.get_ui_schema()
+        
+        # Convert schema to a DataFrame-like structure for display
+        parameters = []
+        values = []
+        descriptions = []
+        types = []
+        
+        for key, info in schema.items():
+            parameters.append(key)
+            values.append(str(info['value']))
+            descriptions.append(info['description'])
+            types.append(info['type'])
+        
+        # Prepare table
         self.config_table.blockSignals(True)  # Prevent signals while updating the table
         self.config_table.clear()
-        self.config_table.setRowCount(len(df))
-        self.config_table.setColumnCount(len(df.columns))
-        self.config_table.setHorizontalHeaderLabels(df.columns.tolist())
-
-        for i, row in df.iterrows():
-            for j, (col_name, value) in enumerate(row.items()):
-                item = QTableWidgetItem(str(value))
-                self.config_table.setItem(i, j, item)
-
+        self.config_table.setRowCount(len(parameters))
+        self.config_table.setColumnCount(4)  # Parameter, Value, Type, Description
+        self.config_table.setHorizontalHeaderLabels(["Parameter", "Value", "Type", "Description"])
+        
+        # Fill table with data
+        for i in range(len(parameters)):
+            # Parameter name - read only
+            param_item = QTableWidgetItem(parameters[i])
+            param_item.setFlags(param_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.config_table.setItem(i, 0, param_item)
+            
+            # Value - editable
+            value_item = QTableWidgetItem(values[i])
+            self.config_table.setItem(i, 1, value_item)
+            
+            # Type - read only
+            type_item = QTableWidgetItem(types[i])
+            type_item.setFlags(type_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.config_table.setItem(i, 2, type_item)
+            
+            # Description - read only
+            desc_item = QTableWidgetItem(descriptions[i])
+            desc_item.setFlags(desc_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.config_table.setItem(i, 3, desc_item)
+        
+        # Resize columns to content
+        self.config_table.resizeColumnsToContents()
         self.config_table.blockSignals(False)  # Re-enable signals
-
-        self.configUpdated.emit(self.config) # EMIT SIGNAL TO LISTENERS
+        
+        # Emit signal to listeners
+        self.configUpdated.emit(self.config)
         
     def _test_led(self):
         """
@@ -370,7 +482,209 @@ class ConfigController(QWidget):
             note_with_timestamp = f"{time}: {text}"
             self.config.notes.append(note_with_timestamp)
 
+    def show_advanced_editor(self):
+        """
+        Show the advanced parameter editor dialog.
+        """
+        dialog = ParameterEditorDialog(self.config, self)
+        if dialog.exec() == QDialog.Accepted:
+            # Refresh the config table to reflect any changes
+            self._refresh_config_table()
+            # Notify other components
+            self.configUpdated.emit(self.config)
+
     # ----------------------------------------------------------------------------------------------- #
+
+class ParameterEditorDialog(QDialog):
+    """
+    Advanced parameter editor dialog that creates appropriate widgets for
+    different parameter types based on the UI schema.
+    """
+    
+    def __init__(self, config, parent=None):
+        super().__init__(parent)
+        self.config = config
+        self.schema = config.get_ui_schema()
+        self.widgets = {}
+        
+        self.setWindowTitle("Advanced Parameter Editor")
+        self.setMinimumWidth(600)
+        self.setMinimumHeight(400)
+        
+        # Create layout
+        main_layout = QVBoxLayout(self)
+        
+        # Add tabs for different parameter categories
+        self.tabs = QTabWidget()
+        main_layout.addWidget(self.tabs)
+        
+        # Group parameters by category
+        categories = {}
+        for key, info in self.schema.items():
+            category = info.get('category', 'general')
+            if category not in categories:
+                categories[category] = []
+            categories[category].append((key, info))
+        
+        # Create a tab for each category
+        for category, params in categories.items():
+            tab = QWidget()
+            tab_layout = QVBoxLayout(tab)
+            
+            # Add scrollable area for many parameters
+            scroll = QWidget()
+            scroll_layout = QVBoxLayout(scroll)
+            
+            # Add parameter widgets
+            for key, info in params:
+                self._add_parameter_widget(scroll_layout, key, info)
+            
+            # Make scroll area scrollable if needed
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
+            scroll_area.setWidget(scroll)
+            
+            tab_layout.addWidget(scroll_area)
+            self.tabs.addTab(tab, category.capitalize())
+        
+        # Add buttons
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        main_layout.addWidget(button_box)
+    
+    def _add_parameter_widget(self, layout, key, info):
+        """
+        Add an appropriate widget for the parameter based on its UI schema.
+        """
+        # Create container for the parameter
+        container = QWidget()
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(0, 10, 0, 10)
+        
+        # Create label with parameter name and description
+        label = QLabel(f"<b>{key}</b>")
+        if info.get('description'):
+            label.setToolTip(info.get('description'))
+        container_layout.addWidget(label)
+        
+        # Create appropriate widget based on ui_widget type
+        widget_type = info.get('ui_widget', 'text')
+        value = info.get('value')
+        
+        if widget_type == 'check':
+            # Boolean checkbox
+            widget = QCheckBox("Enabled")
+            widget.setChecked(bool(value))
+            widget.stateChanged.connect(lambda state, k=key: self._on_check_changed(k, state))
+        
+        elif widget_type == 'combo':
+            # Dropdown select
+            widget = QComboBox()
+            options = info.get('options', [])
+            if options:
+                widget.addItems([str(opt) for opt in options])
+                if value is not None:
+                    index = widget.findText(str(value))
+                    if index >= 0:
+                        widget.setCurrentIndex(index)
+            widget.currentTextChanged.connect(lambda text, k=key: self._on_combo_changed(k, text))
+        
+        elif widget_type == 'spin':
+            # Numeric spinner
+            if isinstance(value, float) or info.get('type') == float:
+                widget = QDoubleSpinBox()
+                widget.setDecimals(3)
+                step = info.get('step', 0.1)
+            else:
+                widget = QSpinBox()
+                step = info.get('step', 1)
+            
+            # Set limits if specified
+            min_val = info.get('min_value')
+            if min_val is not None:
+                widget.setMinimum(float(min_val) if isinstance(min_val, str) else min_val)
+            else:
+                widget.setMinimum(-1000000)
+                
+            max_val = info.get('max_value')
+            if max_val is not None:
+                widget.setMaximum(float(max_val) if isinstance(max_val, str) else max_val)
+            else:
+                widget.setMaximum(1000000)
+            
+            # Set step size
+            widget.setSingleStep(float(step) if isinstance(step, str) else step)
+            
+            # Set current value
+            if value is not None:
+                widget.setValue(float(value) if isinstance(value, str) else value)
+            
+            widget.valueChanged.connect(lambda val, k=key: self._on_spin_changed(k, val))
+        
+        elif widget_type == 'list':
+            # List editor
+            widget = QLineEdit()
+            if isinstance(value, list):
+                # Convert list to comma-separated string
+                widget.setText(", ".join(str(item) for item in value))
+            else:
+                widget.setText(str(value))
+            widget.editingFinished.connect(lambda k=key, w=widget: self._on_list_changed(k, w.text()))
+        
+        else:
+            # Default text input
+            widget = QLineEdit()
+            widget.setText(str(value) if value is not None else "")
+            widget.editingFinished.connect(lambda k=key, w=widget: self._on_text_changed(k, w.text()))
+        
+        # Add widget to container
+        container_layout.addWidget(widget)
+        
+        # If there's a description, add it as a label
+        if info.get('description'):
+            desc_label = QLabel(info.get('description'))
+            desc_label.setStyleSheet("color: gray; font-size: 10px;")
+            desc_label.setWordWrap(True)
+            container_layout.addWidget(desc_label)
+        
+        # Store widget for later reference
+        self.widgets[key] = widget
+        
+        # Add container to layout
+        layout.addWidget(container)
+    
+    def _on_check_changed(self, key, state):
+        """Handle checkbox state change."""
+        value = state == Qt.CheckState.Checked
+        setattr(self.config, key, value)
+    
+    def _on_combo_changed(self, key, text):
+        """Handle combobox selection change."""
+        setattr(self.config, key, text)
+    
+    def _on_spin_changed(self, key, value):
+        """Handle spinner value change."""
+        setattr(self.config, key, value)
+    
+    def _on_text_changed(self, key, text):
+        """Handle text field editing."""
+        setattr(self.config, key, text)
+    
+    def _on_list_changed(self, key, text):
+        """Handle list field editing."""
+        # Parse comma-separated list
+        items = [item.strip() for item in text.split(',')]
+        setattr(self.config, key, items)
+    
+    def accept(self):
+        """Save all changes when dialog is accepted."""
+        # All changes have already been applied during editing
+        super().accept()
+        
+    def reject(self):
+        """Discard changes when dialog is canceled."""
+        super().reject()
 
 
 
