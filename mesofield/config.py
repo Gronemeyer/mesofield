@@ -264,7 +264,7 @@ class ExperimentConfig(ConfigRegister):
             'num_trials': self.num_trials,
             'save_path': self.psychopy_save_path
         }
-    
+        
     @property
     def led_pattern(self) -> list[str]:
         """Get the LED pattern."""
@@ -316,7 +316,7 @@ class ExperimentConfig(ConfigRegister):
         self.logger.info(f"Loading configuration from: {file_path}")
         try:
             with open(file_path, 'r') as f:
-                data = json.load(f)
+                loaded_config = json.load(f)
             self.logger.info("Successfully loaded configuration JSON")
         except FileNotFoundError:
             self.logger.error(f"Configuration file not found: {file_path}")
@@ -326,12 +326,12 @@ class ExperimentConfig(ConfigRegister):
             return
 
         self._json_file_path = file_path #store the json filepath
-        self.display_keys = data.get("DisplayKeys")
+        self.display_keys = loaded_config.get("DisplayKeys")
         # Detect new style JSON with 'Configuration' and 'Subjects'
         self.subjects = {}
 
-        if "Configuration" in data and "Subjects" in data:
-            config_params = data.get("Configuration", {})
+        if "Configuration" in loaded_config and "Subjects" in loaded_config:
+            config_params = loaded_config.get("Configuration", {})
             for key, value in config_params.items():
                 self.set(key, value)
             if config_params.get("experiment_directory"):
@@ -341,26 +341,24 @@ class ExperimentConfig(ConfigRegister):
             #     self.register_parameter("task", config_params.get("task"), list, "Task identifier", "experiment")
             #     # set the first task in the list as task
             #     self.set("task", config_params.get("task")[0])
-            self.subjects = data.get("Subjects", {})
+            self.subjects = loaded_config.get("Subjects", {})
             if self.subjects:
                 first = next(iter(self.subjects.keys()))
                 self.select_subject(first)
         else:
             # legacy flat structure
-            for key, value in data.items():
+            for key, value in loaded_config.items():
                 self.set(key, value)
-
-    def register_parameter(self, key, default=None, type_hint=None, description="", category="general"):
-        """Register a new parameter with metadata.
         
-        Args:
-            key: Parameter key
-            default: Default value
-            type_hint: Type of the parameter
-            description: Description of the parameter
-            category: Category for the parameter
-        """
-        self.register(key, default, type_hint, description, category)
+        if "Plugins" in loaded_config:
+            self.plugins: dict = loaded_config.get("Plugins", {})
+            for plugin in self.plugins:
+                if self.plugins.get(plugin, {}).get('enabled') is True:
+                    self.register(plugin, 
+                                self.plugins.get(plugin, {}).get('config'), 
+                                dict, 
+                                f"{plugin} plugin configuration", 
+                                "plugins")
 
     def auto_increment_session(self) -> None:
         """Increment the session number in the config and persist it to the JSON file."""

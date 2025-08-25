@@ -28,6 +28,37 @@
             "weight": "25.94"
         }
     },
+    "Plugins": {
+        "psychopy": {
+            "enabled": false,
+            "config": {
+                "some_setting": "value"
+            }
+        },
+        "mouseportal": {
+            "enabled": true,
+            "config": {
+                "env_path": "C:/dev/mesofield/venv/Scripts/python.exe",
+                "script_path": "C:/dev/mouseportal/runportal.py",
+                "window_width": 1920,
+                "window_height": 1080,
+                "segment_length": 10.0,
+                "corridor_width": 8.0,
+                "wall_height": 10.0,
+                "num_segments": 50,
+                "camera_height": 2.0,
+                "speed_scaling": 5.0,
+                "left_wall_texture": "assets/test3.png",
+                "right_wall_texture": "assets/test3.png",
+                "floor_texture": "assets/black.png",
+                "ceiling_texture": "assets/white.png",
+                "data_logging_file": "maze_data.csv",
+                "fog_density": 0.06,
+                "serial_port": "COM6",
+                "event_log_file": "events_log.csv"
+            }
+        }
+    },
     "DisplayKeys": [
         "subject",
         "session",
