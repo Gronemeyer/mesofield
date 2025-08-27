@@ -1,4 +1,7 @@
 import os
+import json
+import subprocess
+import time
 from datetime import datetime
 import threading
 import numpy as np
@@ -31,6 +34,8 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from mesofield.config import ExperimentConfig
     from mesofield.protocols import Procedure
+
+from mesofield.subprocesses.mouseportal import MousePortal
 
 from mesofield.gui import ConfigTableModel
 from .dynamic_controller import DynamicController
@@ -171,6 +176,33 @@ class ConfigController(QWidget):
         self.add_note_button = QPushButton("Add Note")
         layout.addWidget(self.add_note_button)
 
+        # Button to launch external MousePortal subprocess
+        self.mouseportal_button = QPushButton("Launch MousePortal")
+        layout.addWidget(self.mouseportal_button)
+
+        # Simple prototype button to launch runportal.py directly
+        self.prototype_portal_button = QPushButton("Launch Portal (Prototype)")
+        self.prototype_portal_button.setStyleSheet("""
+            QPushButton {
+            background-color: #2E7D32; /* Green background */
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            }
+            QPushButton:hover {
+            background-color: #388E3C;
+            }
+            QPushButton:pressed {
+            background-color: #1B5E20;
+            }
+        """)
+        layout.addWidget(self.prototype_portal_button)
+
+        # Keep reference to process instance
+        self._mouseportal_process: Optional[MousePortal] = None
+        self._prototype_process = None  # Can be subprocess.Popen, bool, or None
+
         # Dynamic hardware-specific controls
         self.dynamic_controller = DynamicController(self.procedure.config, parent=self)
         layout.addWidget(self.dynamic_controller)
@@ -181,6 +213,8 @@ class ConfigController(QWidget):
         self.subject_dropdown.currentIndexChanged.connect(self._change_subject) # When the subject is changed, update the config form
         self.record_button.clicked.connect(self.record)
         self.add_note_button.clicked.connect(self._add_note)
+        self.mouseportal_button.clicked.connect(self._toggle_mouseportal)
+        self.prototype_portal_button.clicked.connect(self._toggle_prototype_portal)
         self.open_bids_button.clicked.connect(self._open_bids_directory)
 
         # Connect dynamic controls using constants defined in DynamicController
@@ -313,6 +347,53 @@ class ConfigController(QWidget):
         PUlse the nidaq device to test its functionality.
         """
         self.procedure.config.hardware.get_device('nidaq').start()
+
+    def _toggle_mouseportal(self) -> None:
+        """Launch or terminate the external MousePortal process."""
+        if self._mouseportal_process is None:
+            self._mouseportal_process = MousePortal(
+                self.config, data_manager=getattr(self.procedure, "data", None)
+            )
+
+        if self._mouseportal_process.is_running:
+            self._mouseportal_process.end()
+            self.mouseportal_button.setText("Launch MousePortal")
+        else:
+            self._mouseportal_process.start()
+            self.mouseportal_button.setText("End MousePortal")
+
+    def _toggle_prototype_portal(self) -> None:
+        """Minimal MousePortal launcher."""
+        if self._prototype_process:
+            # Send escape key to terminate MousePortal
+            try:
+                if hasattr(self._prototype_process, 'stdin') and self._prototype_process.stdin:
+                    self._prototype_process.stdin.write(b'\x1b')  # ESC key
+                    self._prototype_process.stdin.flush()
+                self._prototype_process.terminate()  # Backup termination
+            except:
+                pass  # Ignore errors
+            self._prototype_process = None
+            self.prototype_portal_button.setText("Launch Portal (Prototype)")
+            return
+        
+        # Get paths from config
+        cfg = self.config.plugins["mouseportal"]["config"]
+        python_exe = cfg["env_path"]
+        script_path = cfg["script_path"]
+        
+        # Create config file
+        runtime_path = os.path.join(os.getcwd(), "mouseportal_runtime.json")
+        with open(runtime_path, "w") as f:
+            json.dump({k: v for k, v in cfg.items() if k not in ["env_path", "script_path"]}, f)
+        
+        # Launch it (non-blocking) with stdin pipe for sending commands
+        self._prototype_process = subprocess.Popen([python_exe, script_path, "--cfg", runtime_path], 
+                                                  cwd=os.path.dirname(script_path),
+                                                  creationflags=subprocess.CREATE_NEW_CONSOLE,
+                                                  stdin=subprocess.PIPE)
+        
+        self.prototype_portal_button.setText("Stop Portal (Prototype)")
     # ----------------------------------------------------------------------------------------------- #
 
 
