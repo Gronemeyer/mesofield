@@ -206,6 +206,9 @@ class ConfigController(QWidget):
         
         # MousePortal control widget
         self.mouseportal_controller: Optional[MousePortalController] = None
+        
+        # MousePortal control widget
+        self.mouseportal_controller: Optional[MousePortalController] = None
 
         # Dynamic hardware-specific controls
         self.dynamic_controller = DynamicController(self.procedure.config, parent=self)
@@ -357,7 +360,10 @@ class ConfigController(QWidget):
         if self._mouseportal_process is None:
             self._mouseportal_process = MousePortal(
                 self.config, data_manager=getattr(self.procedure, "data", None), parent=self
+                self.config, data_manager=getattr(self.procedure, "data", None), parent=self
             )
+            # Set up output callback to connect with controller
+            self._mouseportal_process.set_output_callback(self._on_mouseportal_output)
             # Set up output callback to connect with controller
             self._mouseportal_process.set_output_callback(self._on_mouseportal_output)
 
@@ -367,6 +373,48 @@ class ConfigController(QWidget):
         else:
             self._mouseportal_process.start()
             self.mouseportal_button.setText("End MousePortal")
+            
+            # Update controller if it exists
+            if self.mouseportal_controller:
+                self.mouseportal_controller.set_mouseportal_process(self._mouseportal_process)
+
+    def _open_mouseportal_controller(self) -> None:
+        """Open the MousePortal controller window."""
+        if self.mouseportal_controller is None:
+            self.mouseportal_controller = MousePortalController(
+                self._mouseportal_process, 
+                config=self.config,  # Pass config for prototype launcher
+                parent=None  # No parent for independent window
+            )
+            
+            # Position the controller window offset from the main window
+            try:
+                main_window = self.window()
+                if main_window:
+                    main_geometry = main_window.geometry()
+                    controller_x = main_geometry.x() + main_geometry.width() + 20
+                    controller_y = main_geometry.y()
+                    self.mouseportal_controller.move(controller_x, controller_y)
+                else:
+                    # Default position if main window not available
+                    self.mouseportal_controller.move(800, 100)
+            except Exception:
+                # Fallback position
+                self.mouseportal_controller.move(800, 100)
+        
+        # Always update the process reference in case it changed
+        if self._mouseportal_process:
+            self.mouseportal_controller.set_mouseportal_process(self._mouseportal_process)
+            
+        self.mouseportal_controller.show()
+        self.mouseportal_controller.raise_()
+        self.mouseportal_controller.activateWindow()
+
+    def _on_mouseportal_output(self, line: str) -> None:
+        """Handle output from MousePortal subprocess."""
+        # Forward to controller if it exists
+        if self.mouseportal_controller:
+            self.mouseportal_controller._log_output(f"Output: {line}")
             
             # Update controller if it exists
             if self.mouseportal_controller:
