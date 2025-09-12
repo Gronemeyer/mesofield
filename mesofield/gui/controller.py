@@ -360,6 +360,7 @@ class ConfigController(QWidget):
         if self._mouseportal_process is None:
             self._mouseportal_process = MousePortal(
                 self.config, data_manager=getattr(self.procedure, "data", None), parent=self
+                self.config, data_manager=getattr(self.procedure, "data", None), parent=self
             )
             # Set up output callback to connect with controller
             self._mouseportal_process.set_output_callback(self._on_mouseportal_output)
