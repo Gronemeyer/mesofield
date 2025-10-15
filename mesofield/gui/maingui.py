@@ -23,6 +23,7 @@ from mesofield.gui.controller import ConfigController
 from mesofield.gui.speedplotter import EncoderWidget
 from mesofield.config import ExperimentConfig
 from mesofield.protocols import Procedure
+from PyQt6.QtWidgets import QMessageBox
 
 class MainWindow(QMainWindow):
     def __init__(self, procedure: Procedure, display_keys=None):
@@ -184,7 +185,52 @@ class MainWindow(QMainWindow):
     def _update_config(self, config):
         self.config = config
                 
-    def _on_pause(self, state: bool) -> None:
+    # def _on_pause(self, state: bool) -> None:
+
+    #============================== Signal Handlers ========================#
+    def _on_proc_started(self) -> None:
+        self.statusBar().showMessage("Recording started")
+        try:
+            self.config_controller.record_button.setEnabled(False)
+            self.config_controller.setDisabled(True)
+        except Exception:
+            pass
+
+    def _on_hw_initialized(self, ok: bool) -> None:
+        if ok:
+            self.statusBar().showMessage("Hardware initialized")
+            try:
+                self.config_controller.record_button.setEnabled(True)
+                self.config_controller.setDisabled(False)
+            except Exception:
+                pass
+        else:
+            self.statusBar().showMessage("Hardware initialization failed")
+            try:
+                self.config_controller.record_button.setEnabled(False)
+            except Exception:
+                pass
+
+    def _on_data_saved(self) -> None:
+        self.statusBar().showMessage("Data saved")
+
+    def _on_proc_finished(self) -> None:
+        self.statusBar().showMessage("Recording finished")
+        try:
+            self.config_controller.record_button.setEnabled(True)
+            self.config_controller.setDisabled(False)
+        except Exception:
+            pass
+
+    def _on_proc_error(self, msg: str) -> None:
+        self.statusBar().showMessage(f"Error: {msg}")
+        try:
+            QMessageBox.critical(self, "Procedure Error", msg)
+            self.config_controller.record_button.setEnabled(True)
+            self.config_controller.setDisabled(False)
+        except Exception:
+            pass
+
         """Called when the MDA is paused."""
 
 

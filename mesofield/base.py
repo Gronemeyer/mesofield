@@ -7,6 +7,7 @@ with the Mesofield configuration and hardware management systems.
 
 import os
 from datetime import datetime
+import importlib
 
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, Type
@@ -101,9 +102,19 @@ class Procedure:
             self.config.hardware.initialize(self.config)
             self.data = DataManager(self.h5_path)
             self.logger.info("Hardware initialized successfully")
+            # notify any connected GUIs that hardware is ready
+            try:
+                self.events.hardware_initialized.emit(True)
+            except Exception:
+                pass
             
         except RuntimeError as e:  # pragma: no cover - initialization failures
             self.logger.error(f"Failed to initialize hardware: {e}")
+            try:
+                self.events.hardware_initialized.emit(False)
+                self.events.procedure_error.emit(str(e))
+            except Exception:
+                pass
             
     # ------------------------------------------------------------------
     #TODO: Connect an update event from the GUI controller with this method
@@ -142,6 +153,11 @@ class Procedure:
         self.data.start_queue_logger()
         
         try:
+            # signal that the procedure is starting
+            try:
+                self.events.procedure_started.emit()
+            except Exception:
+                pass
             self.hardware.cameras[0].core.mda.events.sequenceFinished.connect(self._cleanup_procedure) #type: ignore
 
             if self.config.get("start_on_trigger", False):
@@ -154,6 +170,10 @@ class Procedure:
                 cam.start()
         except Exception as e:  # pragma: no cover - hardware errors
             self.logger.error(f"Error during experiment: {e}")
+            try:
+                self.events.procedure_error.emit(str(e))
+            except Exception:
+                pass
             raise
 
     # ------------------------------------------------------------------
@@ -171,6 +191,10 @@ class Procedure:
         # persist any modified configuration values back to the JSON file
         self.config.save_json()
         self.logger.info("Data saved successfully")
+        try:
+            self.events.data_saved.emit()
+        except Exception:
+            pass
 
 
     # ------------------------------------------------------------------
@@ -190,8 +214,16 @@ class Procedure:
             self.save_data()
             if hasattr(self, "data_manager"):
                 self.data.update_database()
+            try:
+                self.events.procedure_finished.emit()
+            except Exception:
+                pass
         except Exception as e:  # pragma: no cover - cleanup failure
             self.logger.error(f"Error during cleanup: {e}")
+            try:
+                self.events.procedure_error.emit(str(e))
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------
 
@@ -206,11 +238,25 @@ class Procedure:
             return self.data.read_database(key)
         return None
 
-
-
+# Utility: resolve Procedure subclass from import string
+def resolve_procedure_class(identifier: str | Type[Procedure]) -> Type[Procedure]:
+    """Resolve a Procedure subclass from 'module:Class' or 'module.Class'."""
+    if isinstance(identifier, type) and issubclass(identifier, Procedure):
+        return identifier
+    if not isinstance(identifier, str):
+        raise TypeError("procedure_class must be a class or import string")
+    if ":" in identifier:
+        mod_name, cls_name = identifier.split(":", 1)
+    else:
+        mod_name, cls_name = identifier.rsplit(".", 1)
+    module = importlib.import_module(mod_name)
+    cls = getattr(module, cls_name)
+    if not isinstance(cls, type) or not issubclass(cls, Procedure):
+        raise TypeError(f"Resolved object {identifier} is not a Procedure subclass")
+    return cls
 
 # Factory function for creating procedures
-def create_procedure(procedure_class: Type[Procedure],
+def create_procedure(procedure_class: Type[Procedure] | str,
                     experiment_id: str = "default",
                     experimentor: str = "researcher",
                     hardware_yaml: str = "hardware.yaml",
@@ -241,7 +287,8 @@ def create_procedure(procedure_class: Type[Procedure],
         custom_parameters=custom_parameters
     )
     
-    return procedure_class(config)
+    ProcClass = resolve_procedure_class(procedure_class)
+    return ProcClass(config)
 
 
 # Legacy constants for backward compatibility
