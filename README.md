@@ -139,7 +139,7 @@ class SerialSensor(DataAcquisitionDevice):
         return float(self.ser.readline())
 ```
 
-Register the class with `mesofield.DeviceRegistry.register("sensor")` and add an
+Register the class with `mesofield.io.devices.DeviceRegistry.register("sensor")` and add an
 entry to your `hardware.yaml` so that `HardwareManager` can instantiate it.
 
 ## Threading Models

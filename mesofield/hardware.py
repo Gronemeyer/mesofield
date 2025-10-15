@@ -150,13 +150,8 @@ class HardwareManager():
                     baudrate=params.get('baudrate'),
                 )
             output = params.get('output', {})
-            self.encoder.path_args = {
-                'suffix': output.get('suffix', 'encoder'),
-                'extension': output.get('file_type', getattr(self.encoder, 'file_type', 'csv')),
-                'bids_type': output.get('bids_type', getattr(self.encoder, 'bids_type', None))
-            }
-            self.encoder.file_type = self.encoder.path_args['extension']
-            self.encoder.bids_type = self.encoder.path_args['bids_type']
+            self.encoder.file_type = output.get('file_type')
+            self.encoder.bids_type = output.get('bids_type')
             self.devices["encoder"] = self.encoder
 
 
@@ -166,13 +161,8 @@ class HardwareManager():
         for cfg in self.yaml.get("cameras", []):
             cam = CameraClass(cfg)
             output = cfg.get('output', {})
-            cam.path_args = {
-                'suffix': output.get('suffix', cam.name),
-                'extension': output.get('file_type', getattr(cam, 'file_type', 'ome.tiff')),
-                'bids_type': output.get('bids_type', getattr(cam, 'bids_type', None))
-            }
-            cam.file_type = cam.path_args['extension']
-            cam.bids_type = cam.path_args['bids_type']
+            cam.file_type = output.get('file_type')
+            cam.bids_type = output.get('bids_type')
             setattr(self, cam.id, cam)
             self.devices[cam.id] = cam
             cams.append(cam)
