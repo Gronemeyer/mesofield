@@ -89,11 +89,11 @@ class MMCamera(DataProducer, HardwareDevice):
         Expects to be given `ExperimentConfig.build_sequence` method, which provides an MDA sequence
         for the camera. This is only applicable for the Micromanager backend.
         """
-        if self.backend == "micromanager":
+        try:
             self.sequence = build_mda(self)
             self.logger.info("MDA sequence set for Micromanager backend.")
-        else:
-            self.logger.warning("Setting sequence is not supported for OpenCV backend.")
+        except Exception:
+            self.logger.warning(f"{Exception} Setting sequence for {self.camera_device}.")
 
     def initialize(self):
         for dev_id, props in self.properties.items():

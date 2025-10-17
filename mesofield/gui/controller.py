@@ -57,11 +57,21 @@ class ConfigFormWidget(QWidget):
             elif type_hint is bool:
                 editor = QCheckBox()
                 editor.setChecked(bool(value))
-                editor.toggled.connect(lambda checked, k=key: self._registry.set(k, checked))
-            elif type_hint is list: #create a dropdown for keys registered in the ExperimentConfig as list types
+                editor.stateChanged.connect(lambda val, k=key: self._registry.set(k, val))
+            elif type_hint is list:
                 editor = QComboBox()
-                editor.addItems(value)
-                editor.currentTextChanged.connect(lambda text, k=key: self._registry.set(k, text))
+                items = value or []
+                editor.addItems(items)
+                # default to first item
+                if items:
+                    editor.setCurrentIndex(0)
+
+                # rotate selected item to top of list
+                def _on_list_changed(idx, k=key, items=items):
+                    rotated = items[idx:] + items[:idx]
+                    self._registry.set(k, rotated)
+
+                editor.currentIndexChanged.connect(_on_list_changed)
             else:
                 editor = QLineEdit()
                 editor.setText(str(value))
