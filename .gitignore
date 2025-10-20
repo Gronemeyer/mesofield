@@ -2,7 +2,9 @@
 /data/
 /logs/
 /mesofield/logs/
+/tests/sample_experiment/data/
 ./hardware.yaml
+*.h5
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

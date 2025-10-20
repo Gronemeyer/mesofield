@@ -1,6 +1,7 @@
 VALID_BACKENDS = {"micromanager", "opencv"}
 
-from typing import Dict, Any, List, Optional, Type, TypeVar, Callable
+from typing import Dict, Any, List, Optional, Type, TypeVar, Callable, cast
+import textwrap
 import yaml
 
 from mesofield.protocols import HardwareDevice, DataProducer
@@ -71,7 +72,8 @@ class HardwareManager():
             raise FileNotFoundError(f"Cannot find config file at: {path}")
 
         with open(path, "r", encoding="utf-8") as file:
-            params = yaml.safe_load(file) or {}
+            contents = file.read()
+            params = cast(Dict[str, Any], yaml.safe_load(textwrap.dedent(contents)) or {})
 
         return params
 

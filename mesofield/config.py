@@ -136,6 +136,7 @@ class ExperimentConfig(ConfigRegister):
             raise
         
         self.notes: list = []
+        self.plugins: dict = {}
 
     def _register_default_parameters(self):
         """Register default parameters in the registry."""
@@ -147,6 +148,7 @@ class ExperimentConfig(ConfigRegister):
         self.register("duration", 60, int, "Sequence duration in seconds", "experiment")
         self.register("trial_duration", None, int, "Trial duration in seconds", "experiment")
         self.register("psychopy_filename", "experiment.py", str, "PsychoPy experiment filename", "experiment")
+        self.register("plugins", {}, dict, "Plugin configuration mappings", "plugins")
 
     @property
     def _cores(self):# -> tuple[CMMCorePlus, ...]:
@@ -192,7 +194,7 @@ class ExperimentConfig(ConfigRegister):
         return int(self.get("duration"))
     
     @property
-    def trial_duration(self) -> int:
+    def trial_duration(self) -> int | None:
         """Get the trial duration in seconds."""
         trial_dur = self.get("trial_duration")
         return int(trial_dur) if trial_dur is not None else None
@@ -215,7 +217,7 @@ class ExperimentConfig(ConfigRegister):
 
         # convert to a datetime.timedelta and build the time_plan
         time_plan = TIntervalLoops(
-            interval=0,
+            interval=datetime.timedelta(seconds=0),
             loops=loops,
             prioritize_duration=False
         )
@@ -351,14 +353,19 @@ class ExperimentConfig(ConfigRegister):
                 self.set(key, value)
         
         if "Plugins" in loaded_config:
-            self.plugins: dict = loaded_config.get("Plugins", {})
+            self.plugins = loaded_config.get("Plugins", {})
             for plugin in self.plugins:
                 if self.plugins.get(plugin, {}).get('enabled') is True:
-                    self.register(plugin, 
-                                self.plugins.get(plugin, {}).get('config'), 
-                                dict, 
-                                f"{plugin} plugin configuration", 
-                                "plugins")
+                    self.register(
+                        plugin,
+                        self.plugins.get(plugin, {}).get('config'),
+                        dict,
+                        f"{plugin} plugin configuration",
+                        "plugins",
+                    )
+        else:
+            self.plugins = {}
+        self.set("plugins", self.plugins)
 
     def auto_increment_session(self) -> None:
         """Increment the session number in the config and persist it to the JSON file."""

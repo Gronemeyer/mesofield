@@ -3,7 +3,7 @@
         "experimenter": "developer",
         "protocol": "DEV",
         "experiment_directory": "C:/dev/mesofield/tests/sample_experiment",
-        "hardware_config_file": "C:/dev/mesofield/tests/dev.yaml",
+        "hardware_config_file": "C:/dev/mesofield/tests/sample_experiment/dev.yaml",
         "database_path": "C:/dev/mesofield/tests/sample_experiment/test_db.h5",
         "duration": 10,
         "start_on_trigger": false
@@ -14,7 +14,7 @@
             "genotype": "aldh1l1-gcamp8s",
             "DOB": "2025-01-02",
             "DOS": "2025-06-20",
-            "session": "06",
+            "session": "08",
             "task": "widefield",
             "weight": "20.30"
         },
@@ -38,7 +38,7 @@
         "mouseportal": {
             "enabled": true,
             "config": {
-                "env_path": "C:/dev/mesofield/venv/Scripts/python.exe",
+                "env_path": "C:/Users/SIPE_LAB/.conda/envs/mouse-portal",
                 "script_path": "C:/dev/mouseportal/runportal.py",
                 "window_width": 1920,
                 "window_height": 1080,
@@ -54,7 +54,7 @@
                 "ceiling_texture": "assets/white.png",
                 "data_logging_file": "maze_data.csv",
                 "fog_density": 0.06,
-                "serial_port": "COM6",
+                "serial_port": "COM7",
                 "event_log_file": "events_log.csv"
             }
         }

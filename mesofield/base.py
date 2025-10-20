@@ -16,6 +16,7 @@ from mesofield.hardware import HardwareManager
 from mesofield.data.manager import DataManager
 from mesofield.utils._logger import get_logger
 from mesofield.data.writer import CustomWriter
+from mesofield.subprocesses.mouseportal import MousePortal
 from PyQt6.QtCore import QObject, pyqtSignal
 
 class ProcedureSignals(QObject):
@@ -67,6 +68,7 @@ class Procedure:
 
         self.logger = get_logger(f"PROCEDURE.{self.experiment_id}")
         self.logger.info(f"Initialized procedure: {self.experiment_id}")
+        self._mouseportal: Optional[MousePortal] = None
         self.initialize_hardware()
         
         if procedure_config.json_config:
@@ -100,6 +102,8 @@ class Procedure:
         try:
             self.config.hardware.initialize(self.config)
             self.data = DataManager(self.h5_path)
+            self.data.setup(self.config)
+            self.ensure_mouseportal()
             self.logger.info("Hardware initialized successfully")
             
         except RuntimeError as e:  # pragma: no cover - initialization failures
@@ -124,7 +128,8 @@ class Procedure:
         """Run any pre-experiment setup logic."""
         self.logger.info("Running pre-experiment setup")
 
-        self.data.setup(self.config)
+        if getattr(self.data, "save", None) is None:
+            self.data.setup(self.config)
         if not self.data.devices:
             self.data.register_devices(self.config.hardware.devices.values())
 
@@ -159,7 +164,8 @@ class Procedure:
     # ------------------------------------------------------------------
     def save_data(self) -> None:
         mgr = getattr(self, "data_manager", self.data)
-        self.hardware.cameras[1].core.stopSequenceAcquisition() #type: ignore
+        if len(self.hardware.cameras) > 1:
+            self.hardware.cameras[1].core.stopSequenceAcquisition()  # type: ignore[attr-defined]
         for cam in self.hardware.cameras:
             cam.stop()
         mgr.save.configuration()
@@ -167,7 +173,7 @@ class Procedure:
         mgr.save.all_hardware()
         mgr.save.save_timestamps(self.experiment_id, self.start_time, self.stopped_time)
         mgr.update_database()
-        #self.config.auto_increment_session()
+        self.config.auto_increment_session()
         # persist any modified configuration values back to the JSON file
         self.config.save_json()
         self.logger.info("Data saved successfully")
@@ -182,14 +188,22 @@ class Procedure:
     def _cleanup_procedure(self):
         self.logger.info("Cleanup Procedure")
         try:
-            self.hardware.cameras[1].core.stopSequenceAcquisition()
-            self.hardware.cameras[0].core.mda.events.sequenceFinished.disconnect(self._cleanup_procedure)
+            if len(self.hardware.cameras) > 1:
+                self.hardware.cameras[1].core.stopSequenceAcquisition()  # type: ignore[attr-defined]
+            if self.hardware.cameras:
+                self.hardware.cameras[0].core.mda.events.sequenceFinished.disconnect(self._cleanup_procedure)  # type: ignore[attr-defined]
             self.hardware.stop()
             self.data.stop_queue_logger()
             self.stopped_time = datetime.now()
             self.save_data()
             if hasattr(self, "data_manager"):
                 self.data.update_database()
+            if self._mouseportal:
+                try:
+                    self._mouseportal.stop_trial()
+                except Exception:
+                    pass
+                self._mouseportal.shutdown()
         except Exception as e:  # pragma: no cover - cleanup failure
             self.logger.error(f"Error during cleanup: {e}")
 
@@ -205,6 +219,42 @@ class Procedure:
         if hasattr(self, "data_manager"):
             return self.data.read_database(key)
         return None
+
+    # ------------------------------------------------------------------
+    # MousePortal integration
+    # ------------------------------------------------------------------
+    def ensure_mouseportal(self) -> Optional[MousePortal]:
+        """Create or return the MousePortal handler if the plugin is enabled."""
+        plugin_cfg = getattr(self.config, "plugins", {}).get("mouseportal")
+        if not plugin_cfg or not plugin_cfg.get("enabled", False):
+            return None
+
+        if self._mouseportal is None:
+            data_manager = getattr(self, "data", None)
+            if data_manager is None:
+                self.logger.warning("MousePortal requested before DataManager initialization")
+                return None
+            self._mouseportal = MousePortal(self.config, data_manager=data_manager)
+        return self._mouseportal
+
+    @property
+    def mouseportal(self) -> Optional[MousePortal]:
+        return self.ensure_mouseportal()
+
+    def start_mouseportal(self) -> bool:
+        portal = self.ensure_mouseportal()
+        if portal is None:
+            self.logger.warning("MousePortal plugin not enabled; cannot start handler")
+            return False
+        return portal.start()
+
+    def stop_mouseportal(self) -> None:
+        if self._mouseportal:
+            self._mouseportal.shutdown()
+
+    def mouseportal_running(self) -> bool:
+        portal = self._mouseportal
+        return bool(portal and portal.is_running)
 
 
 

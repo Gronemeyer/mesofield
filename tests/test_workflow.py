@@ -1,4 +1,5 @@
 import json
+import textwrap
 import time
 from pathlib import Path
 from datetime import datetime
@@ -65,6 +66,7 @@ class DummyCamera:
         return True
 
     def save_data(self, path=None):
+        assert path is not None
         Path(path).write_text("camera")
 
     def get_data(self):
@@ -93,6 +95,7 @@ class DummyEncoder:
         return True
 
     def save_data(self, path=None):
+        assert path is not None
         Path(path).write_text("encoder")
 
     def get_data(self):
@@ -102,6 +105,7 @@ class DummyEncoder:
 # patch DataSaver.writer_for to avoid heavy dependencies
 def _dummy_writer_for(self: DataSaver, camera: DummyCamera):
     path = self.cfg.make_path(camera.name, "dat", camera.bids_type)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     camera.output_path = path
     self.paths.writers[camera.name] = path
     Path(path).write_text("data")
@@ -138,16 +142,18 @@ def test_procedure_workflow(tmp_path, monkeypatch):
 
     hw_path = tmp_path / "hardware.yaml"
     hw_path.write_text(
-        """
-        memory_buffer_size: 1
-        encoder:
-        type: wheel
-        port: COM1
-        cameras:
-        - id: cam1
-            name: cam1
-            backend: dummy
-        """
+        textwrap.dedent(
+            """
+            memory_buffer_size: 1
+            encoder:
+              type: wheel
+              port: COM1
+            cameras:
+              - id: cam1
+                name: cam1
+                backend: dummy
+            """
+        )
     )
 
     cfg_json = tmp_path / "config.json"

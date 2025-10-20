@@ -174,8 +174,23 @@ class DataSaver:
             with open(path, "w") as f:
                 f.write("\n".join(self.cfg.notes))
             self.logger.info(f"Notes saved to {path}")
+            self.cfg.notes.clear()  # Clear notes after saving
         except Exception as e:
             self.logger.error(f"Error saving notes: {e}")
+
+    def writer_for(self, camera: Any) -> Any:
+        """Prepare and return a writer for the provided camera device."""
+        if not hasattr(camera, "set_writer"):
+            raise AttributeError("camera does not implement set_writer")
+
+        camera.set_writer(self.cfg.make_path)
+        writer = getattr(camera, "writer", None)
+        output_path = getattr(camera, "output_path", None)
+
+        name = getattr(camera, "name", getattr(camera, "device_id", "camera"))
+        if output_path:
+            self.paths.writers[name] = output_path
+        return writer
 
     def save_timestamps(self, id, start_time, stop_time) -> None:
         path = self.paths.timestamps
@@ -401,5 +416,8 @@ class DataManager:
     def read_database(self, key: str = "datapaths") -> Optional[pd.DataFrame]:
         """Read a DataFrame from the underlying :class:`H5Database`."""
         if self.base:
-            return self.base.read(key)
+            result = self.base.read(key)
+            if isinstance(result, pd.Series):
+                return result.to_frame().T
+            return result
         return None
