@@ -80,7 +80,7 @@ def setup_stimulation(self):
 Use the command line interface to launch Mesofield with your custom procedure:
 
 ```bash
-python -m mesofield --procedure-class my_module.MyCustomProcedure --experiment-id exp_001
+python -m mesofield launch --config path/to/config.json --procedure my_module:MyCustomProcedure
 ```
 
 ### Procedure Configuration

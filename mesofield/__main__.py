@@ -45,7 +45,8 @@ def cli():
 
 @cli.command()
 @click.option('--config', required=True, help='Path to experiment JSON configuration')
-def launch(config):
+@click.option('--procedure', required=False, help='Import path to Procedure subclass, e.g., mypkg.mymod:MyProc')
+def launch(config, procedure):
     import json
     import time
     
@@ -121,8 +122,7 @@ def launch(config):
     experimentor = cfg.get('experimenter', 'researcher')
 
     time.sleep(2) #give the splash screen a moment to show :)
-    procedure = create_procedure(
-        Procedure,
+    procedure = create_procedure((procedure or Procedure),
         experiment_id=experiment_id,
         experimentor=experimentor,
         hardware_yaml=hardware_yaml,
@@ -215,7 +215,7 @@ def get_fps(params):
     sequence = MDASequence(time_plan={"interval": 0, "loops": num_frames})
 
     # ask user for desired duration (in seconds)
-    duration = float(input("Enter duration in seconds for file‐size estimate: "))
+    duration = float(input("Enter duration in seconds for fileÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âsize estimate: "))
     num_animals = int(input("Enter number of animals: "))
     num_sessions = int(input("Enter number of sessions: "))
 
@@ -253,7 +253,7 @@ def get_fps(params):
     deltas = [(t2 - t1).total_seconds() for t1, t2 in zip(times[:-1], times[1:])]
     fps = 1 / np.mean(deltas)
 
-    # estimate file size for the user‐specified duration
+    # estimate file size for the userÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âspecified duration
     estimated_frames = int(fps * duration)
     estimated_bytes = img_size * estimated_frames
     estimated_mb = estimated_bytes / (1024**2)
@@ -312,3 +312,5 @@ def convert_h264(dir, pattern):
 
 if __name__ == "__main__":
     cli()
+
+
