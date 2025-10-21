@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 )
 
 from mesofield.subprocesses.mouseportal import MousePortal
+from mesofield.gui import portal_protocol
 
 
 class MousePortalController(QWidget):

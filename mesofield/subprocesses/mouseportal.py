@@ -26,6 +26,7 @@ from PyQt6.QtCore import QProcess
 
 from mesofield.protocols import DataProducer
 from mesofield.utils._logger import get_logger
+import mesofield.gui.portal_protocol as portal_protocol
 
 if TYPE_CHECKING:  # pragma: no cover - for type checking only
     from mesofield.config import ExperimentConfig
@@ -486,8 +487,16 @@ class MousePortal(DataProducer):
         return f"mp-{self._request_counter:05d}"
 
     def send_command(self, command: str, **payload: Any) -> None:
-        message: Dict[str, Any] = {"command": command, "request_id": self._next_request_id()}
-        message.update(payload)
+        request_id = self._next_request_id()
+        message = portal_protocol.build_command_message(command, request_id=request_id, payload=payload)
+
+        ok, issues, _ = portal_protocol.validate_command_payload(message["command"], message)
+        if not ok:
+            self.logger.warning(
+                "MousePortal command %s payload missing fields: %s",
+                message["command"],
+                ", ".join(issues),
+            )
 
         sent_via_socket = False
         if self.socket_client and self.socket_client.is_connected():
@@ -495,23 +504,27 @@ class MousePortal(DataProducer):
             sent_via_socket = True
         elif self.is_running:
             timestamp = time.time()
-            tokens = [command]
-            if command == "start_trial":
-                trial_type = message.get("trial_type") or message.get("mode")
+            tokens = [message["command"]]
+            if message["command"] == "start_trial":
+                trial_type = portal_protocol.first_present(message, "trial_type", "mode")
                 if trial_type:
                     tokens.append(str(trial_type))
             tokens.append(str(timestamp))
             self.process.write((" ".join(tokens) + "\n").encode("utf-8"))
             message.setdefault("client_time", timestamp)
         else:
-            self.logger.warning("MousePortal not running; dropping command %s", command)
+            self.logger.warning("MousePortal not running; dropping command %s", message["command"])
+
+        payload_snapshot = {
+            k: v for k, v in message.items() if k not in {"type", "command", "request_id"}
+        }
 
         self._record_message(
             {
                 "type": "command",
-                "command": command,
-                "payload": {k: v for k, v in message.items() if k not in {"command", "request_id"}},
-                "request_id": message["request_id"],
+                "command": message["command"],
+                "payload": payload_snapshot,
+                "request_id": message.get("request_id"),
                 "transport": "socket" if sent_via_socket else "stdin",
             },
             source="command",
@@ -567,6 +580,15 @@ class MousePortal(DataProducer):
     # Message handling
     # ------------------------------------------------------------------
     def _handle_socket_payload(self, message: Dict[str, Any]) -> None:
+        msg_type_value = message.get("type")
+        if msg_type_value != "command":
+            ok, issues, spec = portal_protocol.validate_message(message, portal_protocol.PORTAL_TO_HOST)
+            if not ok:
+                self.logger.debug(
+                    "MousePortal message validation issue (%s): %s",
+                    msg_type_value,
+                    ", ".join(issues),
+                )
         msg_type = message.get("type")
         if msg_type == "client_status":
             self._socket_status = message
