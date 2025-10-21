@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from pathlib import Path
 import sys
 import types
 from typing import Any, cast
@@ -85,3 +86,29 @@ def test_experiment_config_registers_plugins(monkeypatch: pytest.MonkeyPatch, tm
     assert cfg.get("plugins") == cfg.plugins
     assert "mouseportal" in cfg.plugins
     assert cfg.plugins["mouseportal"]["enabled"] is True
+
+
+def test_mouseportal_expands_asset_dir_paths(tmp_path: Path) -> None:
+    assets_dir = tmp_path / "assets"
+    assets_dir.mkdir()
+
+    cfg_ns = _make_dummy_config(tmp_path)
+    plugin_cfg = cfg_ns.plugins["mouseportal"]["config"]
+    plugin_cfg.update(
+        {
+            "asset_dir": str(assets_dir),
+            "left_wall_texture": "left.png",
+            "right_wall_texture": "right.png",
+            "ceiling_texture": "ceiling.png",
+            "floor_texture": "floor.png",
+        }
+    )
+
+    portal = MousePortal(cast(ExperimentConfig, cfg_ns), launch_process=False)
+
+    expected_asset_dir = Path(assets_dir).resolve()
+    assert portal.cfg["asset_dir"] == expected_asset_dir.as_posix()
+    assert portal.cfg["left_wall_texture"] == (expected_asset_dir / "left.png").as_posix()
+    assert portal.cfg["right_wall_texture"] == (expected_asset_dir / "right.png").as_posix()
+    assert portal.cfg["ceiling_texture"] == (expected_asset_dir / "ceiling.png").as_posix()
+    assert portal.cfg["floor_texture"] == (expected_asset_dir / "floor.png").as_posix()

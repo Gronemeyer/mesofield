@@ -19,6 +19,7 @@ import socket
 import sys
 import threading
 import time
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
 
 from PyQt6.QtCore import QProcess
@@ -298,6 +299,23 @@ class MousePortal(DataProducer):
         }
         runtime.setdefault("socket_host", "127.0.0.1")
         runtime.setdefault("socket_port", 8765)
+
+        asset_dir = runtime.get("asset_dir")
+        if asset_dir:
+            asset_dir_path = Path(asset_dir).expanduser().resolve()
+            runtime["asset_dir"] = asset_dir_path.as_posix()
+            texture_keys = (
+                "left_wall_texture",
+                "right_wall_texture",
+                "ceiling_texture",
+                "floor_texture",
+            )
+            for key in texture_keys:
+                path_value = runtime.get(key)
+                if isinstance(path_value, str) and path_value and not os.path.isabs(path_value):
+                    runtime[key] = (asset_dir_path / path_value).expanduser().resolve().as_posix()
+                elif isinstance(path_value, str) and path_value:
+                    runtime[key] = Path(path_value).expanduser().resolve().as_posix()
         return runtime
 
     def _resolve_python_executable(self, env_entry: Optional[str]) -> str:
