@@ -154,7 +154,7 @@ class Procedure:
                 self.psychopy_process.start()
 
             self.start_time = datetime.now()
-            self.hardware.encoder.start_recording()
+            #self.hardware.encoder.start_recording()
             for cam in self.hardware.cameras:
                 cam.start()
         except Exception as e:  # pragma: no cover - hardware errors

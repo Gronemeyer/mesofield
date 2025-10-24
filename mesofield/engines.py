@@ -34,7 +34,8 @@ class MesoEngine(MDAEngine):
         
     def set_config(self, cfg) -> None:
         self._config: ExperimentConfig = cfg
-        self._encoder = cfg.hardware.encoder
+        if hasattr(cfg.hardware, 'encoder'):
+            self._encoder = cfg.hardware.encoder
     
     def setup_sequence(self, sequence: useq.MDASequence) -> SummaryMetaV1 | None:
         """Perform setup required before the sequence is executed."""

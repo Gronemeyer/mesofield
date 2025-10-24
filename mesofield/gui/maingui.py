@@ -38,7 +38,7 @@ class MainWindow(QMainWindow):
         #============================== Widgets =============================#
         self.acquisition_gui = MDA(self.procedure.config)
         self.config_controller = ConfigController(self.procedure, display_keys=self.display_keys)
-        self.encoder_widget = EncoderWidget(self.procedure.config)
+        #self.encoder_widget = EncoderWidget(self.procedure.config)
         self.initialize_console(self.procedure) # Initialize the IPython console
         #--------------------------------------------------------------------#
 
@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
         mda_layout.addLayout(top_row)
 
         # Encoder widget below the top row
-        mda_layout.addWidget(self.encoder_widget)
+        #mda_layout.addWidget(self.encoder_widget)
         
         # embed console into a dock at the bottom
         self.console_dock = QDockWidget("Mesofield IPython Console", self)
