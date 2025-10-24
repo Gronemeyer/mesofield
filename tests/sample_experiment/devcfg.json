@@ -5,7 +5,7 @@
         "experiment_directory": "C:/dev/mesofield/tests/sample_experiment",
         "hardware_config_file": "C:/dev/mesofield/tests/sample_experiment/dev.yaml",
         "database_path": "C:/dev/mesofield/tests/sample_experiment/test_db.h5",
-        "duration": 10,
+        "duration": 100,
         "start_on_trigger": false
     },
     "Subjects": {
@@ -14,7 +14,7 @@
             "genotype": "aldh1l1-gcamp8s",
             "DOB": "2025-01-02",
             "DOS": "2025-06-20",
-            "session": "08",
+            "session": "11",
             "task": "widefield",
             "weight": "20.30"
         },
@@ -61,7 +61,52 @@
                 "data_logging_file": "maze_data.csv",
                 "fog_density": 0.06,
                 "serial_port": "COM7",
-                "event_log_file": "events_log.csv"
+                "event_log_file": "events_log.csv",
+                "experiment": {
+                    "trial_count": 3,
+                    "trial_duration": 20.0,
+                    "inter_trial_interval": 5.0,
+                    "mode": "closed_loop",
+                    "auto_start": true,
+                    "auto_advance": true,
+                    "trials": [
+                        {
+                            "label": "baseline",
+                            "mode": "closed_loop",
+                            "duration": 20.0
+                        },
+                        {
+                            "label": "open_loop_gain",
+                            "mode": "open_loop",
+                            "duration": 25.0,
+                            "segments": [
+                                {
+                                    "duration": 5.0,
+                                    "gain": 1.0,
+                                    "bias": 0.0,
+                                    "label": "warmup"
+                                },
+                                {
+                                    "duration": 15.0,
+                                    "gain": 0.0,
+                                    "bias": 4.0,
+                                    "label": "stim"
+                                },
+                                {
+                                    "duration": 5.0,
+                                    "gain": 1.0,
+                                    "bias": 0.0,
+                                    "label": "cooldown"
+                                }
+                            ]
+                        },
+                        {
+                            "label": "recovery",
+                            "mode": "closed_loop",
+                            "duration": 30.0
+                        }
+                    ]
+                }
             }
         }
     },
