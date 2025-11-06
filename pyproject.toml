@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mesofield"
-version = "1.2.1"
+version = "2025.11.06"
 description = "Mesofield is an open-source image acquisition Python software package build for the Sipe Laboratory at Pennsylvania State University."
 readme = "README.md"
 requires-python = ">=3.10"

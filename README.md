@@ -46,6 +46,12 @@ An attemp tat universal logging and exception handling has been made;
 all logs and uncaught exceptions are written to `logs/mesofield.log`
 using a standardized logger.
 
+## Versioning
+
+Mesofield follows Calendar Versioning (`YYYY.MM.DD`). When preparing a release,
+update the version string in both `pyproject.toml` and `mesofield/VERSION` so
+packaging metadata and runtime checks stay aligned.
+
 ## Development Setup
 
 ```bash
