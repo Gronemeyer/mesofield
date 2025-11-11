@@ -3,7 +3,9 @@ import textwrap
 import time
 from pathlib import Path
 from datetime import datetime
+import sys
 import types
+from typing import Any, Dict, Optional
 
 import pandas as pd
 import pytest
@@ -217,3 +219,165 @@ def test_procedure_workflow(tmp_path, monkeypatch):
     assert data["Subjects"]["SUBJ1"]["session"] == "02"
     # subject-only keys should not be written to the Configuration block
     assert "sex" not in data["Configuration"]
+
+
+def test_procedure_compiles_experiment_plan(tmp_path, monkeypatch):
+    class DummyPortal:
+        def __init__(self, config, data_manager=None, *_, **__):
+            self.config = config
+            self.data_manager = data_manager
+            self.cfg: Dict[str, Any] = {}
+            self.plan_summary: Optional[Dict[str, Any]] = None
+            self.is_running = False
+
+        def set_cfg(self, cfg: Dict[str, Any]) -> None:
+            self.cfg = dict(cfg)
+            self.plan_summary = cfg.get("compiled_plan") if isinstance(cfg, dict) else None
+
+        def start(self) -> bool:
+            self.is_running = True
+            return True
+
+        def stop_trial(self) -> None:  # pragma: no cover - behaviour trivial
+            pass
+
+        def shutdown(self) -> None:
+            self.is_running = False
+
+    # Register dummy devices
+    DeviceRegistry._registry["camera"] = DummyCamera
+    DeviceRegistry._registry["encoder"] = DummyEncoder
+    monkeypatch.setattr(DataSaver, "writer_for", _dummy_writer_for)
+    monkeypatch.setattr("mesofield.hardware.SerialWorker", DummyEncoder)
+    monkeypatch.setattr("mesofield.hardware.EncoderSerialInterface", DummyEncoder)
+    monkeypatch.setattr("mesofield.subprocesses.mouseportal.MousePortal", DummyPortal)
+    monkeypatch.setattr("mesofield.base.MousePortal", DummyPortal)
+
+    hw_path = tmp_path / "hardware.yaml"
+    hw_path.write_text(
+        textwrap.dedent(
+            """
+            memory_buffer_size: 1
+            encoder:
+              type: wheel
+              port: COM1
+            cameras:
+              - id: cam1
+                name: cam1
+                backend: dummy
+            """
+        )
+    )
+
+    experiment_definition = {
+        "schema_version": 0.1,
+        "rng_seed": 7,
+        "timing": {
+            "warn_threshold_ms": 5,
+            "trace_generators": False,
+        },
+        "blocks": [
+            {
+                "name": "show_texture_block",
+                "policy": "sequential",
+                "repeats": 1,
+                "trials": [
+                    {
+                        "name": "show_twice",
+                        "routines": [
+                            {
+                                "action": "show_image",
+                                "image_path": "test_texture.png",
+                                "duration_seconds": 2.0,
+                            },
+                            {
+                                "action": "wait",
+                                "duration_seconds": 1.0,
+                            },
+                            {
+                                "action": "show_image",
+                                "image_path": "test_texture.png",
+                                "duration_seconds": 2.0,
+                            },
+                        ],
+                    }
+                ],
+            },
+            {
+                "name": "wait_for_space_block",
+                "policy": "sequential",
+                "repeats": 1,
+                "trials": [
+                    {
+                        "name": "wait_for_spacebar",
+                        "routines": [
+                            {
+                                "action": "wait_for_key",
+                                "key_name": "space",
+                            }
+                        ],
+                    }
+                ],
+            },
+        ],
+    }
+
+    portal_script = tmp_path / "runportal.py"
+    portal_script.write_text("print('noop')\n")
+
+    cfg_json = tmp_path / "config.json"
+    json.dump(
+        {
+            "Configuration": {
+                "experimenter": "tester",
+                "protocol": "exp-plan",
+                "experiment_directory": str(tmp_path),
+                "hardware_config_file": str(hw_path),
+                "database_path": str(tmp_path / "db.h5"),
+                "duration": 1,
+                "start_on_trigger": False,
+            },
+            "Subjects": {
+                "SUBJ1": {
+                    "sex": "F",
+                    "genotype": "test",
+                    "DOB": "2024-01-01",
+                    "DOS": "2024-01-02",
+                    "session": "01",
+                    "task": "wf",
+                }
+            },
+            "Plugins": {
+                "mouseportal": {
+                    "enabled": True,
+                    "config": {
+                        "env_path": sys.executable,
+                        "script_path": str(portal_script),
+                        "experiment": experiment_definition,
+                    },
+                }
+            },
+            "DisplayKeys": ["duration", "start_on_trigger", "task", "session"],
+        },
+        cfg_json.open("w"),
+    )
+
+    pcfg = ProcedureConfig(
+        experiment_id="exp-plan",
+        experimentor="tester",
+        hardware_yaml=str(hw_path),
+        data_dir=str(tmp_path),
+        json_config=str(cfg_json),
+    )
+
+    proc = DummyProcedure(pcfg)
+
+    assert proc.experiment_plan_payload
+    trials = proc.experiment_plan_payload.get("trials", [])
+    assert trials and trials[0]["label"] == "show_twice"
+    assert proc.experiment_metadata.get("required_keys") == ["space"]
+
+    portal = proc.mouseportal
+    assert portal is not None
+    assert portal.plan_summary
+    assert portal.plan_summary["trials"][0]["label"] == "show_twice"

@@ -12,6 +12,7 @@ providing a JSON socket protocol interface that can be consumed both by
 the GUI controller widget and the data pipeline.
 """
 
+import copy
 import json
 import os
 import queue
@@ -20,19 +21,36 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Sequence, TYPE_CHECKING, cast
 
 from PyQt6.QtCore import QProcess
 
 from mesofield.protocols import DataProducer
 from mesofield.utils._logger import get_logger
-import mesofield.gui.portal_protocol as portal_protocol
+import mesofield.subprocesses.portal_protocol as portal_protocol
 
 if TYPE_CHECKING:  # pragma: no cover - for type checking only
     from mesofield.config import ExperimentConfig
     from mesofield.data.manager import DataManager
+    from mesofield.plugins import PluginManager
 
-__all__ = ["MousePortal"]
+
+def _is_plugin_manager(candidate: Any) -> bool:
+    """Best-effort duck-typing check to detect the plugin manager."""
+
+    return all(
+        hasattr(candidate, attr)
+        for attr in ("get_settings", "is_enabled", "get_plugin_payload")
+    )
+
+__all__ = [
+    "MousePortal",
+    "mouseportal_enabled",
+    "build_mouseportal_payload",
+    "ensure_mouseportal",
+    "shutdown_mouseportal",
+    "drive_mouseportal_trials",
+]
 
 
 class Event:
@@ -233,10 +251,21 @@ class MousePortal(DataProducer):
         self._registered_with_manager = False
         self.launch_process = launch_process
 
-        plugin_cfg = (
-            getattr(config, "plugins", {}).get("mouseportal", {}).get("config", {})
-        )
+        plugins = getattr(config, "plugins", None)
+        if _is_plugin_manager(plugins):
+            manager = cast(Any, plugins)
+            settings = manager.get_settings("mouseportal") or {}
+            plugin_cfg = settings.get("config") if isinstance(settings, dict) else {}
+        elif isinstance(plugins, dict):
+            plugin_cfg = plugins.get("mouseportal", {}).get("config", {})
+        else:
+            plugin_cfg = {}
+
+        if not isinstance(plugin_cfg, dict):
+            plugin_cfg = {}
+
         self._plugin_cfg = dict(plugin_cfg)
+        self.plan_summary = plugin_cfg.get("compiled_plan")
 
         self.python_executable = self._resolve_python_executable(plugin_cfg.get("env_path"))
         self.script_path = self._resolve_script_path(plugin_cfg.get("script_path", "runportal.py"))
@@ -352,6 +381,8 @@ class MousePortal(DataProducer):
         return script
 
     def set_cfg(self, cfg: Dict[str, Any]) -> None:
+        self._plugin_cfg = dict(cfg)
+        self.plan_summary = cfg.get("compiled_plan") if isinstance(cfg, dict) else None
         self.cfg = self._prepare_runtime_config(cfg)
         self._refresh_host_port()
 
@@ -542,6 +573,91 @@ class MousePortal(DataProducer):
         self.send_command("mark_event", name=label)
 
     # ------------------------------------------------------------------
+    # Experiment plan helpers
+    # ------------------------------------------------------------------
+    def load_experiment_plan(
+        self,
+        plan: Mapping[str, Any],
+        *,
+        plan_id: Optional[str] = None,
+        default_mode: Optional[str] = None,
+        auto_start: Optional[bool] = None,
+        auto_advance: Optional[bool] = None,
+        inter_trial_interval: Optional[float] = None,
+    ) -> None:
+        payload: Dict[str, Any] = {"plan": plan}
+        if plan_id is not None:
+            payload["plan_id"] = plan_id
+        if default_mode is not None:
+            payload["default_mode"] = default_mode
+        if auto_start is not None:
+            payload["auto_start"] = auto_start
+        if auto_advance is not None:
+            payload["auto_advance"] = auto_advance
+        if inter_trial_interval is not None:
+            payload["inter_trial_interval"] = inter_trial_interval
+        self.send_command("load_experiment_plan", **payload)
+
+    def run_experiment(
+        self,
+        *,
+        restart: Optional[bool] = None,
+        overrides: Optional[Mapping[str, Any]] = None,
+        trial_overrides: Optional[Sequence[Mapping[str, Any]]] = None,
+        plan_id: Optional[str] = None,
+    ) -> None:
+        payload: Dict[str, Any] = {}
+        if restart is not None:
+            payload["restart"] = restart
+        if overrides:
+            payload["overrides"] = dict(overrides)
+        if trial_overrides:
+            payload["trial_overrides"] = list(trial_overrides)
+        if plan_id is not None:
+            payload["plan_id"] = plan_id
+        self.send_command("run_experiment", **payload)
+
+    def pause_experiment(self, *, reason: Optional[str] = None, plan_id: Optional[str] = None) -> None:
+        payload: Dict[str, Any] = {}
+        if reason is not None:
+            payload["reason"] = reason
+        if plan_id is not None:
+            payload["plan_id"] = plan_id
+        self.send_command("pause_experiment", **payload)
+
+    def resume_experiment(
+        self,
+        *,
+        overrides: Optional[Mapping[str, Any]] = None,
+        trial_overrides: Optional[Sequence[Mapping[str, Any]]] = None,
+        plan_id: Optional[str] = None,
+    ) -> None:
+        payload: Dict[str, Any] = {}
+        if overrides:
+            payload["overrides"] = dict(overrides)
+        if trial_overrides:
+            payload["trial_overrides"] = list(trial_overrides)
+        if plan_id is not None:
+            payload["plan_id"] = plan_id
+        self.send_command("resume_experiment", **payload)
+
+    def abort_experiment(
+        self,
+        *,
+        reason: Optional[str] = None,
+        clear_plan: Optional[bool] = None,
+        plan_id: Optional[str] = None,
+    ) -> None:
+        payload: Dict[str, Any] = {}
+        if reason is not None:
+            payload["reason"] = reason
+        if clear_plan is not None:
+            payload["clear_plan"] = clear_plan
+        if plan_id is not None:
+            payload["plan_id"] = plan_id
+        self.send_command("abort_experiment", **payload)
+
+    # ------------------------------------------------------------------
     # Process output handlers
     # ------------------------------------------------------------------
     def set_output_callback(self, cb: Optional[Callable[[str], None]]) -> None:
@@ -674,4 +790,127 @@ class MousePortal(DataProducer):
             return self._ui_messages.get_nowait()
         except queue.Empty:
             return None
+
+
+# ----------------------------------------------------------------------
+# Convenience helpers for experiment orchestration
+# ----------------------------------------------------------------------
+def mouseportal_enabled(config: "ExperimentConfig") -> bool:
+    manager = getattr(config, "plugins", None)
+    if _is_plugin_manager(manager):
+        manager_obj = cast(Any, manager)
+        return manager_obj.is_enabled("mouseportal")
+    if isinstance(manager, dict):
+        entry = manager.get("mouseportal")
+        return bool(isinstance(entry, dict) and entry.get("enabled"))
+    return False
+
+
+def build_mouseportal_payload(config: "ExperimentConfig") -> Dict[str, Any]:
+    manager = getattr(config, "plugins", None)
+
+    if _is_plugin_manager(manager):
+        manager_obj = cast(Any, manager)
+        payload = manager_obj.get_plugin_payload(
+            "mouseportal",
+            getattr(config, "experiment_plan_payload", None),
+        )
+        if payload is not None:
+            return copy.deepcopy(payload)
+        entry = manager_obj.get_settings("mouseportal") or {}
+    else:
+        plugins = manager if isinstance(manager, dict) else {}
+        entry = plugins.get("mouseportal") if isinstance(plugins, dict) else {}
+
+    base_cfg = entry.get("config") if isinstance(entry, dict) else {}
+    derived: Dict[str, Any] = copy.deepcopy(base_cfg) if isinstance(base_cfg, dict) else {}
+
+    plan_payload = config.experiment_plan_payload
+    if isinstance(plan_payload, dict) and plan_payload:
+        derived["compiled_plan"] = copy.deepcopy(plan_payload)
+    return derived
+
+
+def ensure_mouseportal(
+    config: "ExperimentConfig",
+    *,
+    data_manager: Optional["DataManager"] = None,
+    portal: Optional[MousePortal] = None,
+    logger=None,
+) -> Optional[MousePortal]:
+    if not mouseportal_enabled(config):
+        shutdown_mouseportal(portal, logger=logger)
+        return None
+
+    instance = portal
+    if instance is None:
+        try:
+            instance = MousePortal(config, data_manager=data_manager)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            target_logger = logger or get_logger("MousePortal")
+            target_logger.warning("MousePortal creation failed: %s", exc)
+            return None
+
+    try:
+        cfg = build_mouseportal_payload(config)
+        instance.set_cfg(cfg)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        target_logger = logger or get_logger("MousePortal")
+        target_logger.warning("MousePortal configuration failed: %s", exc)
+
+    return instance
+
+
+def shutdown_mouseportal(portal: Optional[MousePortal], *, logger=None) -> None:
+    if portal is None:
+        return
+    try:
+        portal.shutdown()
+    except Exception as exc:  # pragma: no cover - defensive logging
+        target_logger = logger or get_logger("MousePortal")
+        target_logger.warning("MousePortal shutdown failed: %s", exc)
+
+
+def drive_mouseportal_trials(
+    portal: Optional[MousePortal],
+    trials: Iterable[Any],
+    *,
+    logger=None,
+    startup_delay: float = 0.5,
+) -> None:
+    sequence = list(trials)
+    if portal is None or not sequence:
+        return
+
+    time.sleep(max(0.0, float(startup_delay)))
+
+    for trial in sequence:
+        label = getattr(trial, "label", "trial")
+        mode = getattr(trial, "mode", None) or label
+        try:
+            portal.start_trial(mode)
+            if logger:
+                logger.info("MousePortal trial started: %s (mode=%s)", label, mode)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            target_logger = logger or get_logger("MousePortal")
+            target_logger.warning("MousePortal failed to start trial %s: %s", label, exc)
+            continue
+
+        duration = getattr(trial, "duration", None)
+        if duration is None:
+            if logger:
+                logger.info(
+                    "MousePortal trial '%s' has no fixed duration; awaiting manual control",
+                    label,
+                )
+            break
+
+        time.sleep(max(0.0, float(duration)))
+        try:
+            portal.stop_trial()
+            if logger:
+                logger.info("MousePortal trial stopped: %s", label)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            target_logger = logger or get_logger("MousePortal")
+            target_logger.warning("MousePortal failed to stop trial %s: %s", label, exc)
 

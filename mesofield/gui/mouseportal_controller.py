@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (
 )
 
 from mesofield.subprocesses.mouseportal import MousePortal
-from mesofield.gui import portal_protocol
+from mesofield.subprocesses import portal_protocol
 
 
 class MousePortalController(QWidget):
@@ -100,9 +100,9 @@ class MousePortalController(QWidget):
     def _load_config(self) -> None:
         if not self.config or not getattr(self.config, "plugins", None):
             return
-        try:
-            cfg = self.config.plugins["mouseportal"]["config"]
-        except KeyError:
+        settings = self.config.plugins.get_settings("mouseportal")
+        cfg = settings.get("config") if isinstance(settings, dict) else None
+        if not isinstance(cfg, dict):
             return
 
         runtime_cfg = {

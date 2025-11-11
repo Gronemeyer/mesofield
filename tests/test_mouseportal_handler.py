@@ -83,9 +83,9 @@ def test_experiment_config_registers_plugins(monkeypatch: pytest.MonkeyPatch, tm
     cfg = ExperimentConfig(str(config_path))
     cfg.load_json(str(Path(__file__).with_name("devcfg.json")))
 
-    assert cfg.get("plugins") == cfg.plugins
-    assert "mouseportal" in cfg.plugins
-    assert cfg.plugins["mouseportal"]["enabled"] is True
+    assert cfg.get("plugins") == cfg.plugins.settings
+    assert "mouseportal" in cfg.plugins.settings
+    assert cfg.plugins.is_enabled("mouseportal")
 
 
 def test_mouseportal_expands_asset_dir_paths(tmp_path: Path) -> None:
@@ -93,7 +93,12 @@ def test_mouseportal_expands_asset_dir_paths(tmp_path: Path) -> None:
     assets_dir.mkdir()
 
     cfg_ns = _make_dummy_config(tmp_path)
-    plugin_cfg = cfg_ns.plugins["mouseportal"]["config"]
+    plugins = cfg_ns.plugins
+    if hasattr(plugins, "get_settings"):
+        plugin_settings = plugins.get_settings("mouseportal") or {}
+        plugin_cfg = plugin_settings.setdefault("config", {})
+    else:
+        plugin_cfg = plugins["mouseportal"]["config"]
     plugin_cfg.update(
         {
             "asset_dir": str(assets_dir),

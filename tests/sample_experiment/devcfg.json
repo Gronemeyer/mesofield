@@ -14,7 +14,7 @@
             "genotype": "aldh1l1-gcamp8s",
             "DOB": "2025-01-02",
             "DOS": "2025-06-20",
-            "session": "11",
+            "session": "16",
             "task": "widefield",
             "weight": "20.30"
         },
@@ -38,7 +38,7 @@
         "mouseportal": {
             "enabled": true,
             "config": {
-                "env_path": "C:/Users/SIPE_LAB/.conda/envs/mouse-portal",
+                "env_path": "C:/dev/mouseportal/.conda/python.exe",
                 "script_path": "C:/dev/mouseportal/runportal.py",
                 "window_width": 1920,
                 "window_height": 1080,
@@ -63,47 +63,66 @@
                 "serial_port": "COM7",
                 "event_log_file": "events_log.csv",
                 "experiment": {
-                    "trial_count": 3,
-                    "trial_duration": 20.0,
-                    "inter_trial_interval": 5.0,
-                    "mode": "closed_loop",
-                    "auto_start": true,
+                    "plan_id": "SAMPLE-PLAN",
+                    "name": "Sample Experiment Plan",
+                    "schema_version": 0.1,
+                    "rng_seed": 7,
+                    "default_mode": "closed_loop",
+                    "auto_start": false,
                     "auto_advance": true,
-                    "trials": [
+                    "inter_trial_interval": 1.5,
+                    "metadata": {
+                        "investigators": [
+                            "Example Researcher"
+                        ],
+                        "notes": "Used for protocol integration tests."
+                    },
+                    "timing": {
+                        "warn_threshold_ms": 5,
+                        "trace_generators": false
+                    },
+                    "blocks": [
                         {
-                            "label": "baseline",
-                            "mode": "closed_loop",
-                            "duration": 20.0
-                        },
-                        {
-                            "label": "open_loop_gain",
-                            "mode": "open_loop",
-                            "duration": 25.0,
-                            "segments": [
+                            "name": "show_texture_block",
+                            "policy": "sequential",
+                            "repeats": 1,
+                            "trials": [
                                 {
-                                    "duration": 5.0,
-                                    "gain": 1.0,
-                                    "bias": 0.0,
-                                    "label": "warmup"
-                                },
-                                {
-                                    "duration": 15.0,
-                                    "gain": 0.0,
-                                    "bias": 4.0,
-                                    "label": "stim"
-                                },
-                                {
-                                    "duration": 5.0,
-                                    "gain": 1.0,
-                                    "bias": 0.0,
-                                    "label": "cooldown"
+                                    "name": "show_twice",
+                                    "routines": [
+                                        {
+                                            "action": "show_image",
+                                            "image_path": "test_texture.png",
+                                            "duration_seconds": 2.0
+                                        },
+                                        {
+                                            "action": "wait",
+                                            "duration_seconds": 1.0
+                                        },
+                                        {
+                                            "action": "show_image",
+                                            "image_path": "test_texture.png",
+                                            "duration_seconds": 2.0
+                                        }
+                                    ]
                                 }
                             ]
                         },
                         {
-                            "label": "recovery",
-                            "mode": "closed_loop",
-                            "duration": 30.0
+                            "name": "wait_for_space_block",
+                            "policy": "sequential",
+                            "repeats": 1,
+                            "trials": [
+                                {
+                                    "name": "wait_for_spacebar",
+                                    "routines": [
+                                        {
+                                            "action": "wait_for_key",
+                                            "key_name": "space"
+                                        }
+                                    ]
+                                }
+                            ]
                         }
                     ]
                 }

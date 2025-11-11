@@ -5,18 +5,21 @@ This module provides base classes that implement the Procedure protocol and inte
 with the Mesofield configuration and hardware management systems.
 """
 
+from __future__ import annotations
+
 import os
+import time
 from datetime import datetime
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 from mesofield.config import ExperimentConfig
 from mesofield.hardware import HardwareManager
 from mesofield.data.manager import DataManager
 from mesofield.utils._logger import get_logger
-from mesofield.data.writer import CustomWriter
 from mesofield.subprocesses.mouseportal import MousePortal
+from mesofield.protocols.experiment_logic import StructuredTrial
 from PyQt6.QtCore import QObject, pyqtSignal
 
 class ProcedureSignals(QObject):
@@ -68,11 +71,13 @@ class Procedure:
 
         self.logger = get_logger(f"PROCEDURE.{self.experiment_id}")
         self.logger.info(f"Initialized procedure: {self.experiment_id}")
-        self._mouseportal: Optional[MousePortal] = None
+
         self.initialize_hardware()
-        
+
         if procedure_config.json_config:
             self.setup_configuration(procedure_config.json_config)
+        else:
+            self._refresh_experiment_plan()
     # ------------------------------------------------------------------
     # Convenience accessors
 
@@ -83,7 +88,27 @@ class Procedure:
     @property
     def hardware(self) -> HardwareManager:
         return self.config.hardware
-    
+
+    @property
+    def experiment_definition(self) -> Optional[Dict[str, Any]]:
+        definition = self.config.experiment_definition
+        return definition if isinstance(definition, dict) else None
+
+    @property
+    def experiment_trials(self) -> List[Any]:
+        trials = self.config.experiment_trials
+        return trials if isinstance(trials, list) else []
+
+    @property
+    def experiment_metadata(self) -> Dict[str, Any]:
+        metadata = self.config.experiment_metadata
+        return metadata if isinstance(metadata, dict) else {}
+
+    @property
+    def experiment_plan_payload(self) -> Dict[str, Any]:
+        payload = self.config.experiment_plan_payload
+        return payload if isinstance(payload, dict) else {}
+
     # ------------------------------------------------------------------
     # Core business logic
     def initialize_hardware(self) -> None:
@@ -103,7 +128,7 @@ class Procedure:
             self.config.hardware.initialize(self.config)
             self.data = DataManager(self.h5_path)
             self.data.setup(self.config)
-            self.ensure_mouseportal()
+            self.config.plugins.refresh(data_manager=self.data)
             self.logger.info("Hardware initialized successfully")
             
         except RuntimeError as e:  # pragma: no cover - initialization failures
@@ -118,12 +143,19 @@ class Procedure:
         
         NOTE: This method is called by the ConfigController in the GUI whenever a json configuration file is picked
         """
-        if json_config:
-            self.config.load_json(json_config)
-            self.config.hardware._configure_engines(self.config)
+        if not json_config:
+            return
+        self.config.load_json(json_config)
+        self.config.hardware._configure_engines(self.config)
+        self._refresh_experiment_plan()
+
+    def _refresh_experiment_plan(self) -> None:
+        self.config.refresh_experiment_plan()
+        data_manager = getattr(self, "data", None)
+        self.config.plugins.refresh(data_manager=data_manager)
 
     # ------------------------------------------------------------------
-    
+
     def prerun(self) -> None:
         """Run any pre-experiment setup logic."""
         self.logger.info("Running pre-experiment setup")
@@ -135,6 +167,9 @@ class Procedure:
 
         self.data.start_queue_logger()
 
+        self.config.plugins.refresh(data_manager=self.data)
+        self.config.plugins.start()
+
         for cam in self.hardware.cameras:
             cam.set_writer(self.config.make_path)
             cam.set_sequence(self.config.build_sequence)
@@ -145,6 +180,28 @@ class Procedure:
 
         self.prerun()
         self.data.start_queue_logger()
+
+        self._log_experiment_plan()
+
+        portal = self.config.plugins.get("mouseportal")
+        portal_ready = False
+        if isinstance(portal, MousePortal):
+            self.logger.info("Waiting for MousePortal connection...")
+            portal_ready = self._wait_for_mouseportal_connection(portal)
+            if portal_ready:
+                self.logger.info("MousePortal connection established.")
+            else:
+                self.logger.warning("MousePortal did not report ready within the timeout; continuing without synchronization.")
+        else:
+            portal = None
+
+        manual_trial = self._first_manual_trial()
+        should_wait_for_manual = bool(portal and portal_ready and manual_trial)
+        if manual_trial and not should_wait_for_manual:
+            self.logger.info(
+                "Manual trial '%s' detected but skipping synchronized start.",
+                manual_trial.label,
+            )
         
         try:
             self.hardware.cameras[0].core.mda.events.sequenceFinished.connect(self._cleanup_procedure) #type: ignore
@@ -153,10 +210,28 @@ class Procedure:
                 self.psychopy_process = self._launch_psychopy()
                 self.psychopy_process.start()
 
-            self.start_time = datetime.now()
-            #self.hardware.encoder.start_recording()
-            for cam in self.hardware.cameras:
-                cam.start()
+            if should_wait_for_manual and portal and manual_trial:
+                portal.drain_messages()
+                self.config.plugins.drive()
+                required_keys = self.experiment_metadata.get("required_keys") or ["space"]
+                self.logger.info(
+                    "Awaiting manual trigger '%s' (keys: %s)...",
+                    manual_trial.label,
+                    ", ".join(required_keys),
+                )
+                if not self._wait_for_manual_trial_completion(portal, manual_trial):
+                    self.logger.warning(
+                        "Manual trigger '%s' was not observed before timeout; proceeding with acquisition.",
+                        manual_trial.label,
+                    )
+                self.start_time = datetime.now()
+                for cam in self.hardware.cameras:
+                    cam.start()
+            else:
+                self.start_time = datetime.now()
+                for cam in self.hardware.cameras:
+                    cam.start()
+                self.config.plugins.drive()
         except Exception as e:  # pragma: no cover - hardware errors
             self.logger.error(f"Error during experiment: {e}")
             raise
@@ -198,12 +273,7 @@ class Procedure:
             self.save_data()
             if hasattr(self, "data_manager"):
                 self.data.update_database()
-            if self._mouseportal:
-                try:
-                    self._mouseportal.stop_trial()
-                except Exception:
-                    pass
-                self._mouseportal.shutdown()
+            self.config.plugins.shutdown()
         except Exception as e:  # pragma: no cover - cleanup failure
             self.logger.error(f"Error during cleanup: {e}")
 
@@ -224,21 +294,15 @@ class Procedure:
     # MousePortal integration
     # ------------------------------------------------------------------
     def ensure_mouseportal(self) -> Optional[MousePortal]:
-        """Create or return the MousePortal handler if the plugin is enabled."""
-        plugin_cfg = getattr(self.config, "plugins", {}).get("mouseportal")
-        if not plugin_cfg or not plugin_cfg.get("enabled", False):
-            return None
-
-        if self._mouseportal is None:
-            data_manager = getattr(self, "data", None)
-            if data_manager is None:
-                self.logger.warning("MousePortal requested before DataManager initialization")
-                return None
-            self._mouseportal = MousePortal(self.config, data_manager=data_manager)
-        return self._mouseportal
+        data_manager = getattr(self, "data", None)
+        portal = self.config.plugins.ensure("mouseportal", data_manager=data_manager)
+        return portal if isinstance(portal, MousePortal) else None
 
     @property
     def mouseportal(self) -> Optional[MousePortal]:
+        controller = self.config.plugins.get("mouseportal")
+        if isinstance(controller, MousePortal):
+            return controller
         return self.ensure_mouseportal()
 
     def start_mouseportal(self) -> bool:
@@ -246,15 +310,144 @@ class Procedure:
         if portal is None:
             self.logger.warning("MousePortal plugin not enabled; cannot start handler")
             return False
-        return portal.start()
+        try:
+            return bool(portal.start())
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.error(f"MousePortal failed to start: {exc}")
+            return False
 
     def stop_mouseportal(self) -> None:
-        if self._mouseportal:
-            self._mouseportal.shutdown()
+        portal = self.config.plugins.get("mouseportal")
+        if isinstance(portal, MousePortal):
+            self.config.plugins.shutdown_one("mouseportal")
 
     def mouseportal_running(self) -> bool:
-        portal = self._mouseportal
-        return bool(portal and portal.is_running)
+        portal = self.config.plugins.get("mouseportal")
+        return bool(isinstance(portal, MousePortal) and portal.is_running)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+    def _log_experiment_plan(self) -> None:
+        trials = self.experiment_trials
+        if not trials:
+            self.logger.info("No compiled experiment trials available.")
+            return
+
+        self.logger.info("Experiment plan contains %d trial(s):", len(trials))
+        for trial in trials:
+            duration_text = "manual" if trial.duration is None else f"{trial.duration:.2f}s"
+            mode_text = trial.mode or "unspecified"
+            self.logger.info(
+                "  #%d %s (mode=%s, duration=%s)",
+                trial.sequence_index,
+                trial.label,
+                mode_text,
+                duration_text,
+            )
+
+        required_keys = self.experiment_metadata.get("required_keys")
+        if required_keys:
+            self.logger.info("Manual trigger keys required: %s", ", ".join(required_keys))
+
+    def _wait_for_mouseportal_connection(self, portal: MousePortal, timeout: float = 20.0) -> bool:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            status = portal.status()
+            socket_info = status.get("socket") or {}
+            if str(socket_info.get("status", "")).lower() == "connected":
+                return True
+            if not status.get("process_running") and not portal.is_running:
+                break
+            time.sleep(0.2)
+        return False
+
+    def _first_manual_trial(self) -> Optional[StructuredTrial]:
+        for trial in self.experiment_trials:
+            if getattr(trial, "duration", None) is None:
+                return trial
+        return None
+
+    def _wait_for_manual_trial_completion(
+        self,
+        portal: MousePortal,
+        trial: StructuredTrial,
+        *,
+        timeout: float = 300.0,
+    ) -> bool:
+        label = (trial.label or "").strip()
+        if not label:
+            return False
+
+        target_label = label.lower()
+        target_start = f"trial_start:{target_label}"
+        target_end = f"trial_end:{target_label}"
+        deadline = time.time() + timeout
+        seen_start = False
+
+        def status_implies_completion(status_message: Dict[str, Any]) -> bool:
+            trial_info = status_message.get("trial")
+            current_label = str(trial_info.get("label") or "").lower() if isinstance(trial_info, dict) else ""
+            trial_mode = str(status_message.get("trial_mode") or "").lower()
+            plan_state = str(status_message.get("plan_state") or "").lower()
+            state_field = str(status_message.get("state") or "").lower()
+            remaining_field = status_message.get("remaining_trials")
+            try:
+                remaining_trials = int(remaining_field) if remaining_field is not None else None
+            except (TypeError, ValueError):
+                remaining_trials = None
+
+            if current_label == target_label and trial_mode == "idle":
+                return True
+            if remaining_trials == 0 and plan_state in {"idle", "loaded", "complete", "completed"}:
+                return True
+            if state_field == "idle" and plan_state in {"", "idle", "loaded"} and remaining_trials in (None, 0):
+                return True
+            return False
+
+        while time.time() < deadline:
+            entry = portal.get_message()
+            if entry is None:
+                if seen_start:
+                    snapshot = portal.status().get("last_status") or {}
+                    if isinstance(snapshot, dict) and status_implies_completion(snapshot):
+                        self.logger.info(
+                            "MousePortal manual trial '%s' completed (status snapshot).",
+                            label,
+                        )
+                        return True
+                time.sleep(0.1)
+                continue
+
+            while entry is not None:
+                message = entry.get("message")
+                if isinstance(message, dict):
+                    msg_type = str(message.get("type") or "").lower()
+                    if msg_type == "event":
+                        name = str(message.get("name") or "").lower()
+                        if name == target_start:
+                            seen_start = True
+                            self.logger.info("MousePortal manual trial '%s' started.", label)
+                        elif name == target_end or (seen_start and "space" in name):
+                            self.logger.info("MousePortal manual trial '%s' completed.", label)
+                            return True
+                    elif msg_type == "status":
+                        trial_info = message.get("trial")
+                        if isinstance(trial_info, dict):
+                            current_label = str(trial_info.get("label") or "").lower()
+                            trial_mode = str(message.get("trial_mode") or "").lower()
+                            if current_label == target_label and trial_mode == "idle" and seen_start:
+                                self.logger.info("MousePortal manual trial '%s' completed (status).", label)
+                                return True
+                        if seen_start and status_implies_completion(message):
+                            self.logger.info(
+                                "MousePortal manual trial '%s' completed (plan state).",
+                                label,
+                            )
+                            return True
+                entry = portal.get_message()
+
+        return False
 
 
 

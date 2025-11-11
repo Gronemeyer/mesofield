@@ -1,17 +1,23 @@
+import copy
 import os
 import json
 import datetime
-from typing import Dict, Any, List, Optional, Type, TypeVar, Callable
+from typing import Dict, Any, List, Optional, Type, Callable, Iterable
 
 import pandas as pd
 import useq
 from useq import TIntervalLoops
 
 from mesofield.hardware import HardwareManager
+from mesofield.plugins import PluginManager
 from mesofield.protocols import DataProducer
 from mesofield.utils._logger import get_logger
 
-T = TypeVar('T')
+try:  # Structured experiment planner helpers
+    from mesofield.protocols.experiment_logic import StructuredTrial, build_structured_trials
+except Exception:  # pragma: no cover - optional dependency
+    StructuredTrial = None  # type: ignore[assignment]
+    build_structured_trials = None  # type: ignore[assignment]
 
 # Configuration Registry pattern
 class ConfigRegister:
@@ -87,8 +93,6 @@ class ConfigRegister:
     def clear(self) -> None:
         """Clear all configurations."""
         self._registry.clear()
-
-
 class ExperimentConfig(ConfigRegister):
     """## Generate and store parameters using a configuration registry. 
     
@@ -116,13 +120,22 @@ class ExperimentConfig(ConfigRegister):
         # Initialize logging first
         self.logger = get_logger(__name__)
         self.logger.info(f"Initializing ExperimentConfig with hardware path: {path}")
-        
+
         # Initialize the configuration registry
         self._json_file_path = ''
         self._save_dir = ''
         self.subjects: Dict[str, Dict[str, Any]] = {}
         self.selected_subject: str | None = None
         self.display_keys: List[str] | None = None
+        self.notes: List[str] = []
+        self.plugins = PluginManager(self)
+        self.plugins.register_mouseportal_hooks()
+
+        # Experiment plan state populated from plugin definitions
+        self.experiment_definition: Optional[Dict[str, Any]] = None
+        self.experiment_trials: List[StructuredTrial] = []  # type: ignore[assignment]
+        self.experiment_metadata: Dict[str, Any] = {}
+        self.experiment_plan_payload: Dict[str, Any] = {}
 
         # Register common configuration parameters with defaults and types
         self._register_default_parameters()
@@ -134,9 +147,6 @@ class ExperimentConfig(ConfigRegister):
         except Exception as e:
             self.logger.error(f"Failed to initialize hardware: {e}")
             raise
-        
-        self.notes: list = []
-        self.plugins: dict = {}
 
     def _register_default_parameters(self):
         """Register default parameters in the registry."""
@@ -352,20 +362,21 @@ class ExperimentConfig(ConfigRegister):
             for key, value in loaded_config.items():
                 self.set(key, value)
         
-        if "Plugins" in loaded_config:
-            self.plugins = loaded_config.get("Plugins", {})
-            for plugin in self.plugins:
-                if self.plugins.get(plugin, {}).get('enabled') is True:
-                    self.register(
-                        plugin,
-                        self.plugins.get(plugin, {}).get('config'),
-                        dict,
-                        f"{plugin} plugin configuration",
-                        "plugins",
-                    )
-        else:
-            self.plugins = {}
-        self.set("plugins", self.plugins)
+        raw_plugins = loaded_config.get("Plugins", {})
+        self.plugins.load_settings(raw_plugins)
+
+        for name, entry in self.plugins.settings.items():
+            if entry.get("enabled"):
+                self.register(
+                    name,
+                    entry.get("config", {}),
+                    dict,
+                    f"{name} plugin configuration",
+                    "plugins",
+                )
+
+        self.set("plugins", self.plugins.settings)
+        self.refresh_experiment_plan()
 
     def auto_increment_session(self) -> None:
         """Increment the session number in the config and persist it to the JSON file."""
@@ -456,5 +467,82 @@ class ExperimentConfig(ConfigRegister):
                 self.logger.error(f"Failed to update session in JSON file: {e}")
         # else:
         #     self.logger.warning("No JSON file to update; _json_file_path not set or file missing")
+
+    # ------------------------------------------------------------------
+    # Plugin helpers
+    # ------------------------------------------------------------------
+
+    def update_plugin(self, name: str, payload: Dict[str, Any]) -> None:
+        self.plugins.update_plugin_entry(name, payload)
+        self.set("plugins", self.plugins.settings)
+        self.refresh_experiment_plan()
+        self.plugins.refresh()
+
+    # ------------------------------------------------------------------
+    # Experiment plan helpers
+    # ------------------------------------------------------------------
+
+    def refresh_experiment_plan(self) -> None:
+        definition = self.plugins.get_plugin_definition()
+        self.experiment_definition = definition
+        self.experiment_trials = []
+        self.experiment_metadata = {}
+        self.experiment_plan_payload = {}
+
+        if not definition:
+            return
+
+        if build_structured_trials is None:
+            self.experiment_plan_payload = {"definition": copy.deepcopy(definition)}
+            return
+
+        try:
+            trials, metadata = build_structured_trials(definition)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            self.logger.warning("Failed to compile experiment definition: %s", exc)
+            self.experiment_plan_payload = {
+                "definition": copy.deepcopy(definition),
+                "compile_error": str(exc),
+            }
+            return
+
+        self.experiment_trials = trials  # type: ignore[assignment]
+
+        plan_id = None
+        if isinstance(definition, dict):
+            for key in ("plan_id", "id", "name"):
+                value = definition.get(key)
+                if value:
+                    plan_id = str(value)
+                    break
+        if not plan_id:
+            plan_id = f"{self.subject}-{self.session}-{self.task}"
+
+        metadata_copy = copy.deepcopy(metadata)
+        metadata_copy.setdefault("plan_id", plan_id)
+
+        self.experiment_metadata = metadata_copy
+
+        self.experiment_plan_payload = {
+            "definition": copy.deepcopy(definition),
+            "metadata": metadata_copy,
+            "plan_id": plan_id,
+            "trials": [
+                {
+                    "sequence_index": trial.sequence_index,
+                    "label": trial.label,
+                    "mode": trial.mode,
+                    "duration": trial.duration,
+                    "block_name": trial.block_name,
+                    "routines": copy.deepcopy(trial.routines),
+                }
+                for trial in trials
+            ],
+        }
+
+        self.plugins.refresh()
+
+    def get_compiled_trials(self) -> List[StructuredTrial]:  # type: ignore[override]
+        return list(self.experiment_trials)
 
 
