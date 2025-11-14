@@ -7,7 +7,7 @@ import types
 import pandas as pd
 import pytest
 
-from mesofield.base import Procedure, ProcedureConfig
+from mesofield.base import Procedure
 from mesofield.config import ExperimentConfig
 from mesofield.data.manager import DataManager, DataSaver
 from mesofield import DeviceRegistry
@@ -65,6 +65,8 @@ class DummyCamera:
         return True
 
     def save_data(self, path=None):
+        if path is None:
+            raise ValueError("camera save_data requires a path")
         Path(path).write_text("camera")
 
     def get_data(self):
@@ -93,6 +95,8 @@ class DummyEncoder:
         return True
 
     def save_data(self, path=None):
+        if path is None:
+            raise ValueError("encoder save_data requires a path")
         Path(path).write_text("encoder")
 
     def get_data(self):
@@ -110,18 +114,25 @@ def _dummy_writer_for(self: DataSaver, camera: DummyCamera):
 
 class DummyProcedure(Procedure):
     def run(self):
-        self.data.start_queue_logger()
+        self.prerun()
+        if self.data is None:
+            raise RuntimeError("Data manager not initialized")
+
+        writer_for = getattr(self.data.save, "writer_for")  # type: ignore[attr-defined]
         for cam in self.hardware.cameras:
-            self.data.save.writer_for(cam)
+            writer_for(cam)
             cam.start()
+
         self.hardware.encoder.start()
         self.start_time = datetime.now()
         self.data.queue.push("cam1", "frame")
         self.data.queue.push("encoder", 1)
         time.sleep(0.1)
+
         self.hardware.encoder.stop()
         for cam in self.hardware.cameras:
             cam.stop()
+
         self.stopped_time = datetime.now()
         self.data.stop_queue_logger()
         self.save_data()
@@ -151,39 +162,25 @@ def test_procedure_workflow(tmp_path, monkeypatch):
     )
 
     cfg_json = tmp_path / "config.json"
-    json.dump({
-        "Configuration": {
-            "experimenter": "tester",
-            "protocol": "exp1",
-            "experiment_directory": str(tmp_path),
-            "hardware_config_file": str(hw_path),
-            "database_path": str(tmp_path / "db.h5"),
-            "duration": 1,
-            "start_on_trigger": False,
-            "led_pattern": ["4", "4"]
-        },
-        "Subjects": {
-            "SUBJ1": {
-                "sex": "F",
-                "genotype": "test",
-                "DOB": "2024-01-01",
-                "DOS": "2024-01-02",
-                "session": "01",
-                "task": "wf"
-            }
-        },
-        "DisplayKeys": ["duration", "start_on_trigger", "task", "session"]
-    }, cfg_json.open("w"))
+    config_data = {
+        "subject": "SUBJ1",
+        "session": "01",
+        "task": "wf",
+        "experimenter": "tester",
+        "protocol": "exp1",
+        "experiment_directory": str(tmp_path),
+        "hardware_config_file": str(hw_path),
+        "database_path": str(tmp_path / "db.h5"),
+        "duration": 1,
+        "start_on_trigger": False,
+        "led_pattern": ["4", "4"],
+        "DisplayKeys": ["duration", "start_on_trigger", "task", "session"],
+    }
+    json.dump(config_data, cfg_json.open("w"), indent=4)
 
-    pcfg = ProcedureConfig(
-        experiment_id="exp1",
-        experimentor="tester",
-        hardware_yaml=str(hw_path),
-        data_dir=str(tmp_path),
-        json_config=str(cfg_json),
-    )
+    config = ExperimentConfig.from_file(str(cfg_json))
 
-    proc = DummyProcedure(pcfg)
+    proc = DummyProcedure(config)
 
     # configuration loaded
     assert len(proc.hardware.devices) == 2
@@ -208,6 +205,5 @@ def test_procedure_workflow(tmp_path, monkeypatch):
     # configuration JSON updated with incremented session
     with open(cfg_json) as f:
         data = json.load(f)
-    assert data["Subjects"]["SUBJ1"]["session"] == "02"
-    # subject-only keys should not be written to the Configuration block
-    assert "sex" not in data["Configuration"]
+    assert data["session"] == "02"
+    assert data["experimenter"] == "tester"

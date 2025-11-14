@@ -1,12 +1,12 @@
 VALID_BACKENDS = {"micromanager", "opencv"}
 
 from typing import Dict, Any, List, Optional, Type, TypeVar, Callable
-import yaml
 
 from mesofield.protocols import HardwareDevice, DataProducer
 from mesofield.io.devices import Nidaq, MMCamera, SerialWorker, EncoderSerialInterface
 from mesofield.utils._logger import get_logger, log_this_fr
 from mesofield import DeviceRegistry
+from mesofield.utils.config import load_hardware_config
 
 class HardwareManager():
     """
@@ -23,7 +23,7 @@ class HardwareManager():
         self.devices: Dict[str, DataProducer] = {}
 
         try:
-            self.yaml = self._load_hardware_from_yaml(config_file)
+            self.yaml = self._load_hardware_config(config_file)
             self.logger.info("Successfully loaded hardware configuration")
         except Exception as e:
             self.logger.error(f"Failed to load hardware configuration: {e}")
@@ -62,18 +62,12 @@ class HardwareManager():
             except Exception as e:
                 self.logger.error(f"Error shutting down device: {e}")
 
-
-    def _load_hardware_from_yaml(self, path):
-        """Load hardware configuration from a YAML file."""
-        params = {}
-
+    def _load_hardware_config(self, path: str) -> Dict[str, Any]:
+        """Load hardware configuration using the shared schema helpers."""
         if not path:
             raise FileNotFoundError(f"Cannot find config file at: {path}")
 
-        with open(path, "r", encoding="utf-8") as file:
-            params = yaml.safe_load(file) or {}
-
-        return params
+        return load_hardware_config(path)
 
 
     def _aggregate_widgets(self) -> List[str]:

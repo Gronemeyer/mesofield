@@ -239,6 +239,24 @@ class DataManager:
         if devices is not None:
             self.register_devices(devices)
 
+    def allocate_output_path(
+        self,
+        name: str,
+        *,
+        suffix: str,
+        extension: str,
+        bids_type: str | None = None,
+        create_dir: bool = True,
+    ) -> str:
+        """Create and track an auxiliary output path under the experiment tree."""
+
+        if not getattr(self, "save", None):  # pragma: no cover - defensive
+            raise RuntimeError("DataManager.setup must be called before allocating outputs")
+
+        path = self.save.cfg.make_path(suffix, extension, bids_type, create_dir=create_dir)
+        self.save.paths.writers[name] = path
+        return path
+
     #@log_this_fr
     def register_devices(self, devices: Iterable[Any]) -> None:
         """Register a list of hardware devices with the manager."""
@@ -401,5 +419,10 @@ class DataManager:
     def read_database(self, key: str = "datapaths") -> Optional[pd.DataFrame]:
         """Read a DataFrame from the underlying :class:`H5Database`."""
         if self.base:
-            return self.base.read(key)
+            result = self.base.read(key)
+            if isinstance(result, pd.DataFrame):
+                return result
+            if result is None:
+                return None
+            return result.to_frame()
         return None

@@ -8,7 +8,7 @@ encoder:
   cpr: 2400
   diameter_mm: 80
   sample_interval_ms: 20
-  development_mode: False
+  development_mode: True
 
 cameras:
   - id: "dev"

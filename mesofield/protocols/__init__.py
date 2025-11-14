@@ -75,39 +75,34 @@ class Configurator(Protocol):
 
 class Procedure(Protocol):
     """Protocol defining the standard interface for experiment procedures."""
-    
-    experiment_id: str
-    experimentor: str
+
+    protocol: str
+    experimenter: str
     config: Configurator
-    hardware_yaml: str
     data_dir: str
-    
-    def initialize_hardware(self) -> bool:
-        """Setup the experiment procedure.
-        
-        Returns:
-            bool: True if setup was successful, False otherwise.
-        """
+
+    def initialize_hardware(self) -> None:
+        """Prepare hardware resources required for the experiment."""
         ...
-    
-    def setup_configuration(self, json_config: str) -> None:
-        """Set up the configuration for the experiment procedure.
-        
-        Args:
-            json_config: Path to a JSON configuration file (.json)
-        """
-        ...    
-        
+
+    def setup_configuration(self, json_config: Optional[str]) -> None:
+        """Apply configuration overrides from a JSON file if provided."""
+        ...
+
+    def prerun(self) -> None:
+        """Perform any pre-experiment setup prior to running."""
+        ...
+
     def run(self) -> None:
         """Run the experiment procedure."""
         ...
-        
+
     def save_data(self) -> None:
-        """Save data from the experiment."""
+        """Persist experiment outputs and metadata."""
         ...
-        
-    def cleanup(self) -> None:
-        """Clean up after the experiment procedure."""
+
+    def add_note(self, note: str) -> None:
+        """Record a note associated with the current experiment."""
         ...
         
 @runtime_checkable
@@ -203,6 +198,21 @@ class DataConsumer(Protocol):
     @property
     def name(self) -> str:
         """Return the name of the data consumer."""
+        ...
+
+
+@runtime_checkable
+class ProcedurePlugin(Protocol):
+    """Standard API exposed by Procedure-level plugins."""
+
+    name: str
+
+    def begin_experiment(self) -> None:
+        """Start any plugin-managed resources before hardware begins."""
+        ...
+
+    def end_experiment(self) -> None:
+        """Clean up plugin resources after the run completes."""
         ...
     
     @property

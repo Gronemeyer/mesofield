@@ -3,7 +3,7 @@
         "experimenter": "developer",
         "protocol": "DEV",
         "experiment_directory": "C:/dev/mesofield/tests/sample_experiment",
-        "hardware_config_file": "C:/dev/mesofield/tests/dev.yaml",
+        "hardware_config_file": "C:/dev/mesofield/tests/sample_experiment/dev.yaml",
         "database_path": "C:/dev/mesofield/tests/sample_experiment/test_db.h5",
         "duration": 420,
         "start_on_trigger": false
@@ -14,7 +14,7 @@
             "genotype": "aldh1l1-gcamp8s",
             "DOB": "2025-01-02",
             "DOS": "2025-06-20",
-            "session": "06",
+            "session": "10",
             "task": "widefield",
             "weight": "20.30"
         },

@@ -1,0 +1,79 @@
+---
+# MousePortal Complete Experiment Configuration
+# This file contains both the rendering setup and experiment sequence
+
+# Rendering and window configuration
+window_width: 800
+window_height: 600
+segment_length: 10.0
+corridor_width: 8.0
+wall_height: 10.0
+num_segments: 50
+camera_height: 2.0
+speed_scaling: 5.0
+gain: 1.0
+input_reversed: false
+
+# Textures (empty for solid colors)
+left_wall_texture: "assets/test3.png"
+right_wall_texture: "assets/test3.png"
+floor_texture: "assets/black.png"
+ceiling_texture: ""
+fog_density: 0.06
+
+# Hardware configuration
+serial_port: "dev"  # Use dev mode for keyboard controls
+
+# Data logging (will be overridden by plugin)
+data_logging_file: "logs/mouseportal/movement.csv"
+event_log_file: "logs/mouseportal/events.json"
+
+# Experiment sequence configuration
+engine:
+  rng_seed: 7
+  blocks:
+    - name: open_loop_block
+      policy: sequential
+      repeats: 1
+      trials:
+        - name: ol_trial_01
+          routine: open_loop
+          config:
+            duration_min_s: 10.0
+            duration_max_s: 60.0
+            glitch:
+              count_min: 2
+              count_max: 5
+              duration_min_s: 0.3
+              duration_max_s: 1.5
+              inter_glitch_gap_min_s: 0.2
+              inter_glitch_gap_max_s: 1.0
+              gain_min: 0.5
+              gain_max: 1.5
+              reverse_probability: 0.4
+
+        - name: ol_trial_02
+          routine: open_loop
+          config:
+            duration_min_s: 10.0
+            duration_max_s: 60.0
+            glitch:
+              count_min: 2
+              count_max: 5
+              duration_min_s: 0.3
+              duration_max_s: 1.5
+              inter_glitch_gap_min_s: 0.2
+              inter_glitch_gap_max_s: 1.0
+              gain_min: 0.5
+              gain_max: 1.5
+              reverse_probability: 0.4
+
+    - name: closed_loop_block
+      policy: sequential
+      repeats: 1
+      trials:
+        - name: cl_trial_01
+          routine: closed_loop
+          config:
+            duration_min_s: 60.0
+            duration_max_s: 300.0

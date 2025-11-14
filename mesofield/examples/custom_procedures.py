@@ -6,10 +6,10 @@ to create custom experimental protocols that integrate with the Mesofield GUI.
 """
 
 import time
-import logging
+from datetime import datetime
 from typing import Optional, Dict, Any
 
-from mesofield.base import Procedure, ProcedureConfig
+from mesofield.base import Procedure
 from mesofield.config import ExperimentConfig
 
 
@@ -20,19 +20,28 @@ class SimpleBehaviorProcedure(Procedure):
     This procedure extends :class:`Procedure` to add custom behavior-specific logic
     while maintaining the standard camera and encoder recording workflow.
     """
-    
-    def __init__(self, config: ExperimentConfig, procedure_config: Optional[ProcedureConfig] = None):
-        # Create default procedure config if none provided
-        if procedure_config is None:
-            procedure_config = ProcedureConfig(
-                experiment_id="simple_behavior_001",
-                experimentor="researcher",
-                data_dir="data/behavior_experiments",
-                notes=["Simple behavior paradigm", "Mouse running on treadmill"]
-            )
-        
-        super().__init__(config, procedure_config)
-        
+
+    def __init__(
+        self,
+        config: ExperimentConfig,
+        *,
+        overrides: Optional[Dict[str, Any]] = None,
+        notes: Optional[list[str]] = None,
+    ):
+        defaults: Dict[str, Any] = {
+            "protocol": "simple_behavior_001",
+            "experimenter": "researcher",
+            "experiment_directory": "data/behavior_experiments",
+        }
+        merged = {**defaults, **(overrides or {})}
+        super().__init__(config, overrides=merged)
+
+        default_notes = notes if notes is not None else [
+            "Simple behavior paradigm",
+            "Mouse running on treadmill",
+        ]
+        self.config.notes.extend(default_notes)
+
         # Behavior-specific parameters
         self.trial_duration = 300  # 5 minutes in seconds
         self.baseline_duration = 60  # 1 minute baseline
@@ -40,8 +49,6 @@ class SimpleBehaviorProcedure(Procedure):
         
     def setup_experiment(self):
         """Setup behavior-specific experimental parameters."""
-        super().setup_experiment()
-        
         # Additional behavior setup
         self.logger.info("Setting up behavior experiment parameters")
         self.logger.info(f"Trial duration: {self.trial_duration}s")
@@ -80,18 +87,28 @@ class MultiTrialProcedure(Procedure):
     This demonstrates how to create a completely custom procedure from :class:`Procedure`
     with full control over the experimental workflow.
     """
-    
-    def __init__(self, config: ExperimentConfig, procedure_config: Optional[ProcedureConfig] = None):
-        if procedure_config is None:
-            procedure_config = ProcedureConfig(
-                experiment_id="multi_trial_001",
-                experimentor="researcher",
-                data_dir="data/multi_trial_experiments",
-                notes=["Multiple trial experiment", "Custom inter-trial intervals"]
-            )
-        
-        super().__init__(config, procedure_config)
-        
+
+    def __init__(
+        self,
+        config: ExperimentConfig,
+        *,
+        overrides: Optional[Dict[str, Any]] = None,
+        notes: Optional[list[str]] = None,
+    ):
+        defaults: Dict[str, Any] = {
+            "protocol": "multi_trial_001",
+            "experimenter": "researcher",
+            "experiment_directory": "data/multi_trial_experiments",
+        }
+        merged = {**defaults, **(overrides or {})}
+        super().__init__(config, overrides=merged)
+
+        default_notes = notes if notes is not None else [
+            "Multiple trial experiment",
+            "Custom inter-trial intervals",
+        ]
+        self.config.notes.extend(default_notes)
+
         # Trial parameters
         self.num_trials = 5
         self.trial_duration = 120  # 2 minutes per trial
@@ -100,40 +117,48 @@ class MultiTrialProcedure(Procedure):
         
     def setup_experiment(self):
         """Setup multi-trial experiment."""
-        super().setup_experiment()
         self.logger.info(f"Setting up {self.num_trials} trials")
         self.logger.info(f"Trial duration: {self.trial_duration}s")
         self.logger.info(f"Inter-trial interval: {self.inter_trial_interval}s")
         
     def run(self):
         """Run the complete multi-trial experiment."""
+        self.logger.info("Starting multi-trial experiment")
+
+        self.setup_experiment()
+        self.prerun()
+
+        if self.data is None:
+            raise RuntimeError("Data manager not initialized")
+
+        self.start_time = datetime.now()
+
         try:
-            self.setup_experiment()
-            
-            # Start data collection systems
-            self.start_cameras()
-            self.start_encoder()
-            
+            # Start recording devices
+            self.hardware.encoder.start_recording()
+            for cam in self.hardware.cameras:
+                cam.start()
+
             # Run multiple trials
             for trial_num in range(1, self.num_trials + 1):
                 self.current_trial = trial_num
                 self.logger.info(f"Starting trial {trial_num}/{self.num_trials}")
-                
-                # Run single trial
                 self.run_single_trial()
-                
-                # Inter-trial interval (except after last trial)
+
                 if trial_num < self.num_trials:
-                    self.logger.info(f"Inter-trial interval ({self.inter_trial_interval}s)")
+                    self.logger.info(
+                        f"Inter-trial interval ({self.inter_trial_interval}s)"
+                    )
                     time.sleep(self.inter_trial_interval)
-            
+
             self.logger.info("All trials completed successfully")
-            
+
         except Exception as e:
             self.logger.error(f"Error during multi-trial experiment: {e}")
             raise
         finally:
-            self.cleanup()
+            self.stopped_time = datetime.now()
+            self._cleanup_procedure()
     
     def run_single_trial(self):
         """Run a single trial of the experiment."""
@@ -158,18 +183,29 @@ class OptoStimulationProcedure(Procedure):
     This demonstrates how to integrate hardware control (LED stimulation)
     with the standard Mesofield recording workflow.
     """
-    
-    def __init__(self, config: ExperimentConfig, procedure_config: Optional[ProcedureConfig] = None):
-        if procedure_config is None:
-            procedure_config = ProcedureConfig(
-                experiment_id="opto_stim_001",
-                experimentor="researcher",
-                data_dir="data/optogenetics",
-                notes=["Optogenetic stimulation", "Blue light, 473nm", "10Hz pulses"]
-            )
-        
-        super().__init__(config, procedure_config)
-        
+
+    def __init__(
+        self,
+        config: ExperimentConfig,
+        *,
+        overrides: Optional[Dict[str, Any]] = None,
+        notes: Optional[list[str]] = None,
+    ):
+        defaults: Dict[str, Any] = {
+            "protocol": "opto_stim_001",
+            "experimenter": "researcher",
+            "experiment_directory": "data/optogenetics",
+        }
+        merged = {**defaults, **(overrides or {})}
+        super().__init__(config, overrides=merged)
+
+        default_notes = notes if notes is not None else [
+            "Optogenetic stimulation",
+            "Blue light, 473nm",
+            "10Hz pulses",
+        ]
+        self.config.notes.extend(default_notes)
+
         # Stimulation parameters
         self.stim_frequency = 10  # Hz
         self.stim_duration = 5  # seconds
@@ -178,8 +214,6 @@ class OptoStimulationProcedure(Procedure):
         
     def setup_experiment(self):
         """Setup optogenetic stimulation parameters."""
-        super().setup_experiment()
-        
         self.logger.info("Configuring optogenetic stimulation")
         self.logger.info(f"Stimulation frequency: {self.stim_frequency} Hz")
         self.logger.info(f"Stimulation duration: {self.stim_duration}s")
@@ -252,13 +286,15 @@ def create_custom_procedure(procedure_type: str, config: ExperimentConfig, **kwa
         raise ValueError(f"Unknown procedure type '{procedure_type}'. Available: {available}")
     
     ProcedureClass = procedure_classes[procedure_type]
-    
-    # Create procedure config from kwargs if provided
-    procedure_config = None
-    if kwargs:
-        procedure_config = ProcedureConfig(**kwargs)
-    
-    return ProcedureClass(config, procedure_config)
+
+    overrides = dict(kwargs)
+    notes = overrides.pop("notes", None)
+
+    return ProcedureClass(
+        config,
+        overrides=overrides or None,
+        notes=notes,
+    )
 
 
 if __name__ == "__main__":
@@ -272,13 +308,13 @@ if __name__ == "__main__":
     procedure = create_custom_procedure(
         'simple_behavior',
         config,
-        experiment_id="test_behavior_001",
-        experimentor="test_user",
-        data_dir="test_data"
+        protocol="test_behavior_001",
+        experimenter="test_user",
+        experiment_directory="test_data"
     )
     
     print(f"Created procedure: {procedure.__class__.__name__}")
-    print(f"Experiment ID: {procedure.config.experiment_id}")
+    print(f"Protocol: {procedure.config.protocol}")
     
     # In practice, you would call procedure.run() to execute the experiment
     # procedure.run()

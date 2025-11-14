@@ -17,28 +17,30 @@ The Mesofield procedure system allows you to:
 All custom procedures should inherit from the `Procedure` class:
 
 ```python
-from mesofield.base import Procedure, ProcedureConfig
+from typing import Optional, Dict, Any
+
+from mesofield.base import Procedure
 from mesofield.config import ExperimentConfig
 
+
 class MyCustomProcedure(Procedure):
-    def __init__(self, config: ExperimentConfig, procedure_config: ProcedureConfig = None):
-        super().__init__(config, procedure_config)
+    def __init__(self, config: ExperimentConfig, *, overrides: Optional[Dict[str, Any]] = None):
+        super().__init__(config, overrides=overrides)
         # Add your custom initialization here
-        
-    def setup_experiment(self):
+
+    def setup_experiment(self) -> None:
         """Override to add custom setup logic."""
-        super().setup_experiment()
         # Your custom setup code here
-        
-    def run_trial(self):
+
+    def run_trial(self) -> None:
         """Override to define your experimental trial logic."""
         # Your trial implementation here
-        pass
 ```
 
 ### 2. Choosing the Right Base Class
 
 **Use `Procedure` when:**
+
 - You want the standard neuroscience workflow (camera recording + encoder tracking)
 - You need to add custom logic to an existing experimental framework
 - You want automatic hardware initialization and cleanup or full control over the workflow
@@ -46,6 +48,7 @@ class MyCustomProcedure(Procedure):
 ## Implementation Examples
 
 See `custom_procedures.py` for complete working examples of:
+
 - `SimpleBehaviorProcedure`: Basic behavior experiment with baseline and stimulus periods
 - `MultiTrialProcedure`: Multiple trial experiment with custom timing
 - `OptoStimulationProcedure`: Optogenetic stimulation with LED control
@@ -53,18 +56,20 @@ See `custom_procedures.py` for complete working examples of:
 ## Hardware Integration
 
 ### Camera Control
+
 ```python
-# Start cameras (handled automatically by Procedure)
-self.start_cameras()
+for camera in self.hardware.cameras:
+    camera.start()
 ```
 
 ### Encoder/Treadmill Control
+
 ```python
-# Start encoder recording (handled automatically by Procedure)
-self.start_encoder()
+self.hardware.encoder.start_recording()
 ```
 
 ### LED/Stimulation Control
+
 ```python
 def setup_stimulation(self):
     """Configure LED stimulation hardware."""
@@ -90,8 +95,9 @@ Configure procedures through the GUI using the "Configure Procedure" button when
 ## Data Organization
 
 ### Automatic Data Paths
+
 ```python
-# These paths are automatically created based on your ProcedureConfig
+# These paths are created based on your ExperimentConfig settings
 camera_path = self.config.make_path("meso", "ome.tiff", bids_type="func")
 encoder_path = self.config.make_path('treadmill_data', 'csv', 'beh')
 log_path = self.config.make_path('experiment_log', 'log')
@@ -100,6 +106,7 @@ log_path = self.config.make_path('experiment_log', 'log')
 ## Logging and Monitoring
 
 ### Using the Built-in Logger
+
 ```python
 def run_trial(self):
     self.logger.info("Trial started")  # Info level
@@ -111,24 +118,32 @@ def run_trial(self):
 ## Error Handling
 
 ### Robust Procedure Implementation
+
 ```python
 def run(self):
     try:
         self.setup_experiment()
-        self.start_cameras()
-        self.start_encoder()
-        
+        self.prerun()
+
+        if self.data is None:
+            raise RuntimeError("Data manager not initialized")
+
+        self.hardware.encoder.start_recording()
+        for cam in self.hardware.cameras:
+            cam.start()
+
         # Your experiment logic
         self.run_experiment()
-        
+
     except KeyboardInterrupt:
         self.logger.info("Experiment interrupted by user")
-    except Exception as e:
-        self.logger.error(f"Experiment failed: {e}")
+    except Exception as exc:
+        self.logger.error(f"Experiment failed: {exc}")
         raise
     finally:
         # Always cleanup, even if errors occur
-        self.cleanup()
+        self.stopped_time = datetime.now()
+        self._cleanup_procedure()
 ```
 
 ## Best Practices

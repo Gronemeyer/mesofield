@@ -1,6 +1,7 @@
 import os
 import json
 import datetime
+from pathlib import Path, PureWindowsPath
 from typing import Dict, Any, List, Optional, Type, TypeVar, Callable
 
 import pandas as pd
@@ -10,6 +11,8 @@ from useq import TIntervalLoops
 from mesofield.hardware import HardwareManager
 from mesofield.protocols import DataProducer
 from mesofield.utils._logger import get_logger
+from mesofield.plugins import PluginManager
+from mesofield.utils.config import load_experiment_config
 
 T = TypeVar('T')
 
@@ -47,7 +50,7 @@ class ConfigRegister:
         
         # Validate type if type hint exists
         type_hint = self._metadata.get(key, {}).get("type")
-        if type_hint and not isinstance(value, type_hint):
+        if value is not None and type_hint and not isinstance(value, type_hint):
             try:
                 # Attempt type conversion
                 value = type_hint(value)
@@ -111,31 +114,205 @@ class ExperimentConfig(ConfigRegister):
     ```
     """
 
-    def __init__(self, path: str):
+    def __init__(self, hardware_config_path: Optional[str] = None):
         super().__init__()
         # Initialize logging first
         self.logger = get_logger(__name__)
-        self.logger.info(f"Initializing ExperimentConfig with hardware path: {path}")
+        if hardware_config_path:
+            self.logger.info("Initializing ExperimentConfig with hardware path: %s", hardware_config_path)
+        else:
+            self.logger.info("Initializing ExperimentConfig without immediate hardware binding")
         
         # Initialize the configuration registry
         self._json_file_path = ''
+        self._config_file_path = ''
+        self._config_directory = ''
         self._save_dir = ''
         self.subjects: Dict[str, Dict[str, Any]] = {}
         self.selected_subject: str | None = None
         self.display_keys: List[str] | None = None
+        self.plugins = PluginManager()
+        self._attached_plugins: list[Any] = []
+        self.hardware: HardwareManager
 
         # Register common configuration parameters with defaults and types
         self._register_default_parameters()
         self.logger.debug("Registered default parameters")
 
         # Initialize hardware
-        try:
-            self.hardware = HardwareManager(path)
-        except Exception as e:
-            self.logger.error(f"Failed to initialize hardware: {e}")
-            raise
-        
+        if hardware_config_path:
+            self._set_hardware_config(hardware_config_path)
+
         self.notes: list = []
+
+    @classmethod
+    def from_file(cls, config_path: str, overrides: Optional[Dict[str, Any]] = None) -> "ExperimentConfig":
+        path = Path(config_path).expanduser().resolve()
+        config_data = load_experiment_config(path)
+        instance = cls()
+        instance._apply_config_data(config_data, path)
+
+        if overrides:
+            for key, value in overrides.items():
+                instance.set(key, value)
+
+        return instance
+
+    def _set_hardware_config(self, hardware_path: str) -> None:
+        resolved = Path(hardware_path).expanduser()
+        if not resolved.is_absolute():
+            resolved = resolved.resolve()
+        resolved_str = str(resolved)
+
+        existing_path = getattr(getattr(self, "hardware", None), "config_file", None)
+        if existing_path == resolved_str:
+            return
+
+        try:
+            self.hardware = HardwareManager(resolved_str)
+        except Exception as exc:
+            self.logger.error("Failed to initialize hardware from %s: %s", resolved_str, exc)
+            raise
+
+        self.set("hardware_config_file", resolved_str)
+
+    def _apply_config_data(self, config_data: Dict[str, Any], source_path: Optional[Path]) -> Dict[str, Any]:
+        if source_path:
+            self._config_file_path = str(source_path)
+            self._config_directory = str(source_path.parent)
+            self._json_file_path = str(source_path) if source_path.suffix.lower() == ".json" else ""
+        else:
+            self._json_file_path = ""
+
+        base_dir = source_path.parent if source_path else None
+        flattened, plugins, subjects, display_keys = self._normalize_config_sections(config_data)
+        available_display_keys = list(flattened.keys())
+
+        if isinstance(display_keys, list):
+            self.display_keys = display_keys
+        else:
+            self.display_keys = available_display_keys
+
+        self.plugins.clear()
+        if plugins:
+            self.plugins.configure_from_mapping(plugins)
+            for plugin_name, entry in plugins.items():
+                if not isinstance(entry, dict) or not entry.get("enabled"):
+                    continue
+                self.register(
+                    plugin_name,
+                    entry.get("config", {}),
+                    dict,
+                    f"{plugin_name} plugin configuration",
+                    "plugins",
+                )
+
+        experiment_dir = flattened.pop("experiment_directory", None)
+        if experiment_dir:
+            resolved_exp_path = self._resolve_path(experiment_dir, base_dir)
+            self.save_dir = resolved_exp_path
+            self.set("experiment_directory", resolved_exp_path)
+
+        hardware_value = flattened.pop("hardware_config_file", None)
+        if hardware_value:
+            resolved_hw = self._resolve_path(hardware_value, base_dir)
+            self._set_hardware_config(resolved_hw)
+        else:
+            existing = getattr(getattr(self, "hardware", None), "config_file", None)
+            if existing:
+                self.set("hardware_config_file", existing)
+            else:
+                default_hw = self.get("hardware_config_file")
+                if default_hw:
+                    resolved_default = self._resolve_path(default_hw, base_dir)
+                    self._set_hardware_config(resolved_default)
+
+        for key, value in flattened.items():
+            self.set(key, value)
+
+        if subjects:
+            self.subjects = {
+                str(sub_id): dict(values)
+                for sub_id, values in subjects.items()
+                if isinstance(values, dict)
+            }
+        else:
+            self.subjects = {}
+
+        if self.subjects:
+            preferred = flattened.get("subject")
+
+            def _apply_subject(sub_id: str) -> None:
+                values = self.subjects.get(sub_id, {})
+                if not isinstance(values, dict):
+                    return
+                self.selected_subject = sub_id
+                self.set("subject", sub_id)
+                for key, val in values.items():
+                    try:
+                        self.set(key, val)
+                    except Exception as exc:
+                        self.logger.error("Failed to apply subject parameter %s: %s", key, exc)
+
+            if preferred and str(preferred) in self.subjects:
+                _apply_subject(str(preferred))
+            else:
+                first_subject = next(iter(self.subjects))
+                _apply_subject(first_subject)
+        else:
+            self.selected_subject = None
+
+        return dict(self.items())
+
+    def _normalize_config_sections(
+        self, config_data: Dict[str, Any]
+    ) -> tuple[Dict[str, Any], Dict[str, Any], Dict[str, Dict[str, Any]], Optional[List[str]]]:
+        """Flatten the external configuration into simple sections."""
+        special_keys = {"Configuration", "Plugins", "DisplayKeys", "Subjects"}
+        flattened = {
+            str(key): value for key, value in config_data.items() if key not in special_keys
+        }
+
+        config_block = config_data.get("Configuration")
+        if isinstance(config_block, dict):
+            flattened.update(config_block)
+
+        plugins = config_data.get("Plugins")
+        plugin_block = plugins if isinstance(plugins, dict) else {}
+
+        subjects = config_data.get("Subjects")
+        subject_block = subjects if isinstance(subjects, dict) else {}
+
+        display_keys = config_data.get("DisplayKeys")
+        display = display_keys if isinstance(display_keys, list) else None
+
+        return flattened, plugin_block, subject_block, display
+
+    def _resolve_path(self, value: Any, base_dir: Optional[Path]) -> str:
+        """Resolve a user-specified path relative to the config file when needed."""
+        if value is None:
+            return ""
+
+        path_str = str(value)
+        if self._looks_like_windows_absolute(path_str):
+            return path_str
+
+        candidate = Path(path_str).expanduser()
+        if candidate.is_absolute():
+            return str(candidate.resolve(strict=False))
+
+        if base_dir:
+            return str((base_dir / candidate).resolve(strict=False))
+
+        return str(candidate.resolve(strict=False))
+
+    @staticmethod
+    def _looks_like_windows_absolute(path_str: str) -> bool:
+        """Detect Windows-style absolute paths even when running under POSIX."""
+        try:
+            return bool(PureWindowsPath(path_str).drive)
+        except Exception:
+            return False
 
     def _register_default_parameters(self):
         """Register default parameters in the registry."""
@@ -147,6 +324,10 @@ class ExperimentConfig(ConfigRegister):
         self.register("duration", 60, int, "Sequence duration in seconds", "experiment")
         self.register("trial_duration", None, int, "Trial duration in seconds", "experiment")
         self.register("psychopy_filename", "experiment.py", str, "PsychoPy experiment filename", "experiment")
+        self.register("protocol", "experiment", str, "Protocol identifier", "experiment")
+        self.register("experimenter", "researcher", str, "Experimenter name", "experiment")
+        self.register("experiment_directory", "./data", str, "Base directory for experiment output", "experiment")
+        self.register("hardware_config_file", "hardware.yaml", str, "Hardware configuration file", "hardware")
 
     @property
     def _cores(self):# -> tuple[CMMCorePlus, ...]:
@@ -182,6 +363,16 @@ class ExperimentConfig(ConfigRegister):
         return self.get("task")
 
     @property
+    def protocol(self) -> str:
+        """Get the protocol identifier."""
+        return self.get("protocol")
+
+    @property
+    def experimenter(self) -> str:
+        """Get the experimenter name."""
+        return self.get("experimenter")
+
+    @property
     def start_on_trigger(self) -> bool:
         """Get whether to start on trigger."""
         return self.get("start_on_trigger")
@@ -192,7 +383,7 @@ class ExperimentConfig(ConfigRegister):
         return int(self.get("duration"))
     
     @property
-    def trial_duration(self) -> int:
+    def trial_duration(self) -> Optional[int]:
         """Get the trial duration in seconds."""
         trial_dur = self.get("trial_duration")
         return int(trial_dur) if trial_dur is not None else None
@@ -215,7 +406,7 @@ class ExperimentConfig(ConfigRegister):
 
         # convert to a datetime.timedelta and build the time_plan
         time_plan = TIntervalLoops(
-            interval=0,
+            interval=datetime.timedelta(seconds=0),
             loops=loops,
             prioritize_duration=False
         )
@@ -310,55 +501,52 @@ class ExperimentConfig(ConfigRegister):
             counter += 1
         return file_path
         
-    def load_json(self, file_path) -> None:
-        """ Load parameters from a JSON configuration file into the config object. 
-        """
-        self.logger.info(f"Loading configuration from: {file_path}")
+    def load_config_file(self, file_path: str) -> Dict[str, Any]:
+        """Load an experiment configuration from a modern JSON/YAML file."""
+        path = Path(file_path).expanduser().resolve()
+        if not path.exists():
+            raise FileNotFoundError(f"Configuration file not found: {file_path}")
+
+        self.logger.info("Loading experiment parameters from %s", file_path)
+
         try:
-            with open(file_path, 'r') as f:
-                loaded_config = json.load(f)
-            self.logger.info("Successfully loaded configuration JSON")
-        except FileNotFoundError:
-            self.logger.error(f"Configuration file not found: {file_path}")
-            return
-        except json.JSONDecodeError as e:
-            self.logger.error(f"Error decoding JSON from {file_path}: {e}")
-            return
+            config = load_experiment_config(path)
+        except Exception as exc:
+            self.logger.error("Failed to load experiment configuration from %s: %s", file_path, exc)
+            raise
 
-        self._json_file_path = file_path #store the json filepath
-        self.display_keys = loaded_config.get("DisplayKeys")
-        # Detect new style JSON with 'Configuration' and 'Subjects'
-        self.subjects = {}
+        result = self._apply_config_data(config, path)
 
-        if "Configuration" in loaded_config and "Subjects" in loaded_config:
-            config_params = loaded_config.get("Configuration", {})
-            for key, value in config_params.items():
-                self.set(key, value)
-            if config_params.get("experiment_directory"):
-                self.save_dir = config_params.get("experiment_directory")
-            # We can register a parameter as a list, and the `ConfigFormWidget` will handle it as a dropdown
-            # if config_params.get("task"):
-            #     self.register_parameter("task", config_params.get("task"), list, "Task identifier", "experiment")
-            #     # set the first task in the list as task
-            #     self.set("task", config_params.get("task")[0])
-            self.subjects = loaded_config.get("Subjects", {})
-            if self.subjects:
-                first = next(iter(self.subjects.keys()))
-                self.select_subject(first)
-        else:
-            # legacy flat structure
-            for key, value in loaded_config.items():
-                self.set(key, value)
-        
-        if "Plugins" in loaded_config:
-            self.plugins: dict = loaded_config.get("Plugins", {})
-            for plugin in self.plugins:
-                if self.plugins.get(plugin, {}).get('enabled') is True:
-                    self.register(plugin, 
-                                self.plugins.get(plugin, {}).get('config'), 
-                                dict, 
-                                f"{plugin} plugin configuration", 
-                                "plugins")
+        self.logger.debug("Loaded experiment parameters: %s", result)
+        return result
+
+    def load_parameters(self, file_path: str) -> Dict[str, Any]:
+        """Compatibility shim returning the loaded configuration mapping."""
+        return self.load_config_file(file_path)
+
+    def load_json(self, file_path: str) -> Dict[str, Any]:
+        """Backward compatible wrapper for legacy calls."""
+        return self.load_config_file(file_path)
+
+    # ------------------------------------------------------------------
+    def attach_plugins(self, data_manager: Any) -> List[Any]:
+        """Instantiate all enabled plugins and attach them to the data layer."""
+
+        self._attached_plugins = list(
+            self.plugins.attach_all(experiment_config=self, data_manager=data_manager)
+        )
+        return self._attached_plugins
+
+    def shutdown_plugins(self) -> None:
+        """Stop any running plugins."""
+
+        self.plugins.shutdown()
+        self._attached_plugins = []
+
+    def get_plugin_config(self, name: str) -> Dict[str, Any]:
+        """Return the configuration block for a given plugin name."""
+
+        return self.plugins.get_config(name)
 
     def auto_increment_session(self) -> None:
         """Increment the session number in the config and persist it to the JSON file."""

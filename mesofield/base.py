@@ -4,18 +4,17 @@ Base procedure classes for implementing experimental workflows in Mesofield.
 This module provides base classes that implement the Procedure protocol and integrate
 with the Mesofield configuration and hardware management systems.
 """
-
 import os
 from datetime import datetime
 
-from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, Type
 
 from mesofield.config import ExperimentConfig
 from mesofield.hardware import HardwareManager
 from mesofield.data.manager import DataManager
 from mesofield.utils._logger import get_logger
-from mesofield.data.writer import CustomWriter
+from mesofield.protocols import ProcedurePlugin
+from mesofield.protocols import ProcedurePlugin
 from PyQt6.QtCore import QObject, pyqtSignal
 
 class ProcedureSignals(QObject):
@@ -25,57 +24,49 @@ class ProcedureSignals(QObject):
     data_saved             = pyqtSignal()
     procedure_error        = pyqtSignal(str)      # emits error message
     procedure_finished     = pyqtSignal()
-    
-    
-@dataclass 
-class ProcedureConfig:
-    """Configuration container for procedures."""
-    experiment_id: str = "default_experiment"
-    experimentor: str = "researcher"
-    hardware_yaml: str = "hardware.yaml"
-    data_dir: str = "./data"
-    json_config: Optional[str] = None
-    custom_parameters: Dict[str, Any] = field(default_factory=dict)
 
 
 class Procedure:
     """High level class describing an experiment run in Mesofield."""
 
-    def __init__(self, procedure_config: ProcedureConfig):
+    def __init__(self, experiment_config: ExperimentConfig, *, overrides: Optional[Dict[str, Any]] = None):
         self.events = ProcedureSignals()
+        self.config = experiment_config
 
-        # Default parameters for a typical Mesofield experiment
-        defaults = {"duration": 60, "start_on_trigger": False}
-        procedure_config.custom_parameters = {
-            **defaults,
-            **procedure_config.custom_parameters,
-        }
+        if overrides:
+            for key, value in overrides.items():
+                self.config.set(key, value)
 
-        self.experiment_id = procedure_config.experiment_id
-        self.experimentor = procedure_config.experimentor
-        self.hardware_yaml = procedure_config.hardware_yaml
-        self.data_dir = procedure_config.data_dir
-        self.h5_path = os.path.join(self.data_dir, f"{self.experiment_id}.h5")
+        self.protocol = self.config.protocol if hasattr(self.config, "protocol") else self.config.get("protocol")
+        if not self.protocol:
+            self.protocol = "experiment"
+            self.config.set("protocol", self.protocol)
 
-        # Initialize configuration and apply custom parameters
-        self.config = ExperimentConfig(self.hardware_yaml)
-        for key, value in procedure_config.custom_parameters.items():
-            self.config.set(key, value)
+        self.experimenter = self.config.experimenter if hasattr(self.config, "experimenter") else self.config.get("experimenter", "researcher")
+        self.config.set("experimenter", self.experimenter)
 
-        self.config.set("experiment_id", self.experiment_id)
-        self.config.set("experimentor", self.experimentor)
+        experiment_dir = self.config.get("experiment_directory") or "./data"
+        self.data_dir = os.path.abspath(experiment_dir)
+        self.config.set("experiment_directory", self.data_dir)
+        self.config.save_dir = self.data_dir
 
-        self.logger = get_logger(f"PROCEDURE.{self.experiment_id}")
-        self.logger.info(f"Initialized procedure: {self.experiment_id}")
+        self.h5_path = os.path.join(self.data_dir, f"{self.protocol}.h5")
+
+        self.logger = get_logger(f"PROCEDURE.{self.protocol}")
+        self.logger.info(f"Initialized procedure: {self.protocol}")
+
+        self.data: Optional[DataManager] = None
+        self.active_plugins: list[ProcedurePlugin] = []
+        self.mouse_portal_plugin: Any | None = None
+
         self.initialize_hardware()
-        
-        if procedure_config.json_config:
-            self.setup_configuration(procedure_config.json_config)
     # ------------------------------------------------------------------
     # Convenience accessors
 
     @property
     def paths(self):
+        if self.data is None:
+            raise RuntimeError("Data manager not initialized")
         return self.data.base.read('datapaths')
 
     @property
@@ -100,6 +91,7 @@ class Procedure:
         try:
             self.config.hardware.initialize(self.config)
             self.data = DataManager(self.h5_path)
+            self.active_plugins = list(self.config.attach_plugins(self.data))
             self.logger.info("Hardware initialized successfully")
             
         except RuntimeError as e:  # pragma: no cover - initialization failures
@@ -124,6 +116,9 @@ class Procedure:
         """Run any pre-experiment setup logic."""
         self.logger.info("Running pre-experiment setup")
 
+        if self.data is None:
+            raise RuntimeError("Data manager not initialized")
+
         self.data.setup(self.config)
         if not self.data.devices:
             self.data.register_devices(self.config.hardware.devices.values())
@@ -139,7 +134,10 @@ class Procedure:
         self.logger.info("================= Starting experiment ===================")
 
         self.prerun()
-        self.data.start_queue_logger()
+        if self.data is not None:
+            self.data.start_queue_logger()
+        self._start_plugins()
+        self._start_plugins()
         
         try:
             self.hardware.cameras[0].core.mda.events.sequenceFinished.connect(self._cleanup_procedure) #type: ignore
@@ -156,19 +154,64 @@ class Procedure:
             self.logger.error(f"Error during experiment: {e}")
             raise
 
+    def _start_plugins(self) -> None:
+        for plugin in self.active_plugins:
+            if not isinstance(plugin, ProcedurePlugin):
+                continue
+            try:
+                plugin.begin_experiment()
+            except Exception as exc:
+                name = getattr(plugin, "name", repr(plugin))
+                self.logger.error("Failed to start plugin '%s': %s", name, exc)
+                raise
+
+    def _start_plugins(self) -> None:
+        for plugin in self.active_plugins:
+            if not isinstance(plugin, ProcedurePlugin):
+                continue
+            try:
+                plugin.begin_experiment()
+            except Exception as exc:
+                self.logger.error("Failed to start plugin '%s': %s", plugin.name, exc)
+                raise
+
     # ------------------------------------------------------------------
     def save_data(self) -> None:
-        mgr = getattr(self, "data_manager", self.data)
-        self.hardware.cameras[1].core.stopSequenceAcquisition() #type: ignore
-        for cam in self.hardware.cameras:
-            cam.stop()
-        mgr.save.configuration()
-        mgr.save.all_notes()
-        mgr.save.all_hardware()
-        mgr.save.save_timestamps(self.experiment_id, self.start_time, self.stopped_time)
+        mgr = self.data
+        if mgr is None:
+            self.logger.warning("Data manager not initialized; skipping save")
+            return
+
+        # stop any ongoing camera acquisitions if supported
+        cameras = getattr(self.hardware, "cameras", [])
+        if len(cameras) > 1:
+            core = getattr(cameras[1], "core", None)
+            if core is not None and hasattr(core, "stopSequenceAcquisition"):
+                core.stopSequenceAcquisition()  # type: ignore[attr-defined]
+
+        for cam in cameras:
+            if hasattr(cam, "stop"):
+                cam.stop()
+
+        mgr.stop_queue_logger()
+
+        saver = getattr(mgr, "save", None)
+        if saver is None:
+            self.logger.warning("Data saver not initialized; skipping save")
+            return
+        saver.configuration()
+        saver.all_notes()
+        saver.all_hardware()
+
+        start_time = getattr(self, "start_time", datetime.now())
+        stop_time = getattr(self, "stopped_time", datetime.now())
+        saver.save_timestamps(self.protocol, start_time, stop_time)
+
         mgr.update_database()
-        #self.config.auto_increment_session()
-        # persist any modified configuration values back to the JSON file
+
+        # persist session increment and configuration values back to the JSON file
+        if hasattr(self.config, "auto_increment_session"):
+            self.config.auto_increment_session()
         self.config.save_json()
         self.logger.info("Data saved successfully")
 
@@ -182,14 +225,29 @@ class Procedure:
     def _cleanup_procedure(self):
         self.logger.info("Cleanup Procedure")
         try:
-            self.hardware.cameras[1].core.stopSequenceAcquisition()
-            self.hardware.cameras[0].core.mda.events.sequenceFinished.disconnect(self._cleanup_procedure)
-            self.hardware.stop()
-            self.data.stop_queue_logger()
+            cameras = getattr(self.hardware, "cameras", [])
+            if len(cameras) > 1:
+                core = getattr(cameras[1], "core", None)
+                if core is not None and hasattr(core, "stopSequenceAcquisition"):
+                    core.stopSequenceAcquisition()  # type: ignore[attr-defined]
+
+            if cameras:
+                core0 = getattr(cameras[0], "core", None)
+                mda = getattr(core0, "mda", None)
+                events = getattr(getattr(mda, "events", None), "sequenceFinished", None)
+                if events is not None and hasattr(events, "disconnect"):
+                    events.disconnect(self._cleanup_procedure)
+
+            if hasattr(self.hardware, "stop"):
+                self.hardware.stop()
+
+            if self.data is not None:
+                self.data.stop_queue_logger()
             self.stopped_time = datetime.now()
             self.save_data()
-            if hasattr(self, "data_manager"):
-                self.data.update_database()
+            self.config.shutdown_plugins()
+            self.active_plugins = []
+            self.mouse_portal_plugin = None
         except Exception as e:  # pragma: no cover - cleanup failure
             self.logger.error(f"Error during cleanup: {e}")
 
@@ -202,46 +260,31 @@ class Procedure:
 
     def load_database(self, key: str = "datapaths"):
         """Return a DataFrame with all sessions stored for this Procedure."""
-        if hasattr(self, "data_manager"):
+        if self.data is not None:
             return self.data.read_database(key)
         return None
 
 
-
-
 # Factory function for creating procedures
-def create_procedure(procedure_class: Type[Procedure],
-                    experiment_id: str = "default",
-                    experimentor: str = "researcher",
-                    hardware_yaml: str = "hardware.yaml",
-                    data_dir: str = "./data",
-                    json_config: Optional[str] = None,
-                    **custom_parameters) -> Procedure:
-    """
-    Factory function to create procedure instances.
-    
-    Args:
-        procedure_class: The procedure class to instantiate
-        experiment_id: Unique identifier for the experiment
-        experimentor: Name of the person running the experiment
-        hardware_yaml: Path to hardware configuration file
-        data_dir: Directory for saving data
-        json_config: Optional JSON configuration file
-        **custom_parameters: Additional custom parameters
-    
-    Returns:
-        Instance of the specified procedure class
-    """
-    config = ProcedureConfig(
-        experiment_id=experiment_id,
-        experimentor=experimentor,
-        hardware_yaml=hardware_yaml,
-        data_dir=data_dir,
-        json_config=json_config,
-        custom_parameters=custom_parameters
-    )
-    
-    return procedure_class(config)
+def create_procedure(
+    procedure_class: Type[Procedure],
+    *,
+    config: Optional[ExperimentConfig] = None,
+    config_path: Optional[str] = None,
+    hardware_path: Optional[str] = None,
+    overrides: Optional[Dict[str, Any]] = None,
+) -> Procedure:
+    """Instantiate a procedure using an existing or newly loaded configuration."""
+
+    if config is None:
+        if config_path:
+            config = ExperimentConfig.from_file(config_path, overrides)
+            overrides = None
+        else:
+            hardware = hardware_path or "hardware.yaml"
+            config = ExperimentConfig(hardware)
+
+    return procedure_class(config, overrides=overrides)
 
 
 # Legacy constants for backward compatibility

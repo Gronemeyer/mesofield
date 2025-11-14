@@ -44,9 +44,8 @@ def cli():
 
 
 @cli.command()
-@click.option('--config', required=True, help='Path to experiment JSON configuration')
+@click.option('--config', required=True, help='Path to experiment configuration (JSON or YAML)')
 def launch(config):
-    import json
     import time
     
     from PyQt6.QtWidgets import QApplication, QSplashScreen
@@ -56,6 +55,7 @@ def launch(config):
     
     from mesofield.gui.maingui import MainWindow
     from mesofield.base import Procedure, create_procedure
+    from mesofield.config import ExperimentConfig
     
     app = QApplication([])
 
@@ -109,25 +109,20 @@ def launch(config):
 
     #TODO put this somewhere it belongs 
 # ====================== End of Splash Screen logic ========================= '''
-    # Load the configuration file
-    with open(config, 'r') as f:
-        cfg_json = json.load(f)
+    if not os.path.exists(config):
+        raise click.ClickException(f"Configuration file not found: {config}")
 
-    cfg = cfg_json.get('Configuration', {})
-    display_keys = cfg_json.get('DisplayKeys')
-    hardware_yaml = cfg.get('hardware_config_file', 'hardware.yaml')
-    data_dir = cfg.get('experiment_directory', '.')
-    experiment_id = cfg.get('protocol', 'experiment')
-    experimentor = cfg.get('experimenter', 'researcher')
+    try:
+        experiment_config = ExperimentConfig.from_file(config)
+    except Exception as exc:  # pragma: no cover - CLI failure path
+        raise click.ClickException(f"Failed to load configuration: {exc}") from exc
+
+    display_keys = getattr(experiment_config, "display_keys", None)
 
     time.sleep(2) #give the splash screen a moment to show :)
     procedure = create_procedure(
         Procedure,
-        experiment_id=experiment_id,
-        experimentor=experimentor,
-        hardware_yaml=hardware_yaml,
-        data_dir=data_dir,
-        json_config=config
+        config=experiment_config,
     )
     
     mesofield = MainWindow(procedure, display_keys=display_keys)
