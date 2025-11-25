@@ -8,7 +8,7 @@ tests/sample_experiment/data/
 __pycache__/
 *.py[cod]
 *$py.class
-
+*.h5
 # C extensions
 *.so
 
