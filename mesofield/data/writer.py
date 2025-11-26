@@ -39,6 +39,12 @@ Non-OME (ImageJ) hyperstack axes MUST be in TZCYXS order
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
+import contextlib
+import io
+import os
+import sys
+import tempfile
+
 if TYPE_CHECKING:
     from pymmcore_plus.mda.metadata import SummaryMetaV1  # type: ignore
 
@@ -50,8 +56,34 @@ import numpy as np
 from pathlib import Path
 import json
 
+from mesofield.utils._logger import get_logger
+
 IMAGEJ_AXIS_ORDER = "tzcyxs"
 FRAME_MD_FILENAME = "_frame_metadata.json"
+
+@contextlib.contextmanager
+def _suppress_cv2_output(cv2_module):
+    """Mute OpenCV logging + native stderr during VideoWriter creation."""
+
+    log_api = getattr(getattr(cv2_module, "utils", None), "logging", None)
+    prev_level = None
+    if log_api is not None:
+        prev_level = log_api.getLogLevel()
+        log_api.setLogLevel(log_api.LOG_LEVEL_SILENT)
+
+    stderr_fd = sys.stderr.fileno()
+    tmp = tempfile.TemporaryFile()
+    saved_fd = os.dup(stderr_fd)
+    os.dup2(tmp.fileno(), stderr_fd)
+
+    try:
+        yield
+    finally:
+        os.dup2(saved_fd, stderr_fd)
+        os.close(saved_fd)
+        tmp.close()
+        if log_api is not None and prev_level is not None:
+            log_api.setLogLevel(prev_level)
 
 class CustomWriter(_5DWriterBase[np.memmap]):
     """Custom Override of Pymmcore-Plus MDA handler that writes to a 5D OME-TIFF file.
@@ -211,28 +243,29 @@ class CV2Writer(_5DWriterBase[Any]):
 
     def __init__(self, filename: Path | str, fps: int = 30, fourcc: str = "H264") -> None:
         try:
-            import cv2  # noqa: F401
+            import cv2
         except ImportError as e:  # pragma: no cover - optional dependency
             raise ImportError(
                 "opencv-python is required to use this handler. "
                 "Please `pip install opencv-python`."
             ) from e
 
+        self._cv2 = cv2
         self._filename = str(filename)
         if not self._filename.endswith((".mp4", ".avi")):
             raise ValueError("filename must end with '.mp4' or '.avi'")
         self._fps = fps
         self._fourcc = fourcc
         self._frame_metadata_filename = self._filename + FRAME_MD_FILENAME
+        self._logger = get_logger("CV2Writer")
 
         super().__init__()
 
     def new_array(self, position_key: str, dtype: np.dtype, sizes: dict[str, int]):
-        import cv2
-
         width = sizes["x"]
         height = sizes["y"]
         is_color = sizes.get("c", 1) > 1
+        frame_size = (width, height)
 
         if (seq := self.current_sequence) and seq.sizes.get("p", 1) > 1:
             fname = self._filename.replace(".mp4", f"_{position_key}.mp4")
@@ -240,17 +273,56 @@ class CV2Writer(_5DWriterBase[Any]):
         else:
             fname = self._filename
 
-        fourcc = cv2.VideoWriter.fourcc(*self._fourcc)
-        writer = cv2.VideoWriter(fname, fourcc, self._fps, (width, height), isColor=is_color)
-        return writer
+        writer = self._open_writer(fname, self._fourcc, frame_size, is_color)
+        if writer:
+            return writer
+
+        fallback = "mp4v" if fname.lower().endswith(".mp4") else "MJPG"
+        self._logger.warning(
+            "OpenCV could not initialize VideoWriter with codec %s for %s; "
+            "falling back to %s. Install the matching OpenH264 runtime to keep %s output.",
+            self._fourcc,
+            fname,
+            fallback,
+            self._fourcc,
+        )
+
+        writer = self._open_writer(fname, fallback, frame_size, is_color)
+        if writer:
+            return writer
+
+        raise ValueError(
+            f"Could not initialize OpenCV VideoWriter for {fname} with codecs "
+            f"'{self._fourcc}' or '{fallback}'."
+        )
+
+    def _open_writer(
+        self,
+        fname: str,
+        codec: str,
+        frame_size: tuple[int, int],
+        is_color: bool,
+    ) -> Any | None:
+        cv2 = self._cv2
+        with _suppress_cv2_output(cv2):
+            fourcc = cv2.VideoWriter.fourcc(*codec)
+            writer = cv2.VideoWriter(
+                fname,
+                fourcc,
+                self._fps,
+                frame_size,
+                isColor=is_color,
+            )
+        if writer.isOpened():
+            return writer
+        writer.release()
+        return None
 
     def write_frame(self, ary: Any, index: tuple[int, ...], frame: np.ndarray) -> None:
-        import cv2
-
         # allocate a destination array for normalization
         dst = np.empty_like(frame)
-        frame_8u = cv2.normalize(frame, dst, 0, 255, cv2.NORM_MINMAX)
-        frame_8u = cv2.convertScaleAbs(frame)  # More robust conversion
+        frame_8u = self._cv2.normalize(frame, dst, 0, 255, self._cv2.NORM_MINMAX)
+        frame_8u = self._cv2.convertScaleAbs(frame)  # More robust conversion
         ary.write(frame_8u)
 
     def finalize_metadata(self) -> None:
