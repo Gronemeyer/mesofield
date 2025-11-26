@@ -195,7 +195,15 @@ def test_procedure_workflow(tmp_path, monkeypatch):
     assert Path(paths.timestamps).exists()
     assert Path(paths.hardware["encoder"]).exists()
     assert Path(paths.writers["cam1"]).exists()
-    assert Path(paths.queue).exists()
+    queue_path = Path(paths.queue)
+    assert queue_path.exists()
+
+    queue_payload = json.loads(queue_path.read_text())
+    assert queue_payload.get("schema") == "mesofield.dataqueue/2.0"
+    assert queue_payload.get("recording", {}).get("subject") == config.subject
+    assert isinstance(queue_payload.get("samples"), list) and queue_payload["samples"]
+    summary = queue_payload.get("summary", {})
+    assert summary.get("total_samples") == len(queue_payload["samples"])
 
     db = proc.data.base
     assert db and db.path.exists()

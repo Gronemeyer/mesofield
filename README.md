@@ -31,8 +31,11 @@ Main components:
 - **HardwareManager** – creates devices from the YAML configuration and
   exposes them via attributes like `cameras`, `encoder` and `nidaq`.
 - **DataManager** – collects device output using a thread safe
-  `DataQueue` and can log entries with `start_queue_logger`. Owns
-  a `DataSaver` and `DataPaths` for managing data saving and pathing, respectively.
+    `DataQueue` and can log entries with `start_queue_logger`. Queue logs are
+        written as `_dataqueue.json` files defined in `mesofield.schema.output`
+        (schema version 2.0), which captures experiment headers, hardware summaries,
+        individual samples, and roll-up stats for quick inspection. DataManager owns a `DataSaver` and
+    `DataPaths` for managing data saving and pathing, respectively.
 - **Procedure** – high level experiment runner defined in
   `mesofield.base`.  It coordinates the configuration, hardware and data
   manager.  Use `create_procedure` to build a procedure instance.

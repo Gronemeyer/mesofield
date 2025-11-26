@@ -40,7 +40,7 @@ GLOB_PATTERNS: Dict[str, str] = {
     "pupil.mp4": "pupil_mp4",
     "pupil.mp4_frame_metadata.json": "pupil_metadata",
     "treadmill.csv": "encoder",
-    "dataqueue.csv": "dataqueue",
+    "dataqueue.json": "dataqueue",
     "*.psydat": "psydat",
     "configuration.csv": "session_config",
     "full.pickle": "dlc_pupil",

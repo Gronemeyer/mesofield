@@ -1,23 +1,29 @@
 from __future__ import annotations
-"""
-DataManager & DataSaver Workflow Overview
+"""DataManager & DataSaver workflow overview.
+
 1. Initialization
-    ├─ dm = DataManager()
-    └─ dm.setup(config, path, devices)
-2. Saving experiment outputs via DataSaver
-    ├─ dm.saver.configuration()       # writes experiment config to disk
-    ├─ dm.saver.all_hardware()        # writes hardware outputs
-    ├─ dm.saver.all_notes()           # writes notes.txt if any
-    └─ dm.saver.writer_for(camera)    # returns writer & updates camera output paths
-3. Final database update: dm.update_database()
-    update_database() records the :class:`DataPaths` for the current configuration
-    into the HDF5 database using a MultiIndex of (Subject, Session, Task).
+   ├─ ``dm = DataManager(...)``
+   └─ ``dm.setup(config, devices)`` wires up :class:`DataSaver` and hardware.
+2. Persisting experiment artifacts through :class:`DataSaver`
+   ├─ ``configuration()`` writes the active :class:`ExperimentConfig` to CSV.
+   ├─ ``all_hardware()`` asks each registered device to dump its payloads.
+   ├─ ``all_notes()`` emits any operator notes as ``notes.txt``.
+   └─ ``save_queue()`` serializes the in-memory queue into ``_dataqueue.json``
+       using :mod:`mesofield.schema.output` (queue schema version 2.0).
+3. Queue capture loop
+   ├─ ``start_queue_logger()`` mirrors live packets into an internal list.
+   └─ ``stop_queue_logger()`` flushes those packets via ``DataSaver.save_queue``.
+4. Final database update
+   └─ ``update_database()`` records :class:`DataPaths` for the (Subject, Session, Task)
+       triple inside the experiment HDF5 database.
 """
 
 from dataclasses import dataclass, field
 from typing import Optional, List, Any, Dict, Iterable
 from logging import Logger
+from collections import Counter
 
+import json
 import os
 import queue
 import csv
@@ -31,6 +37,7 @@ from mesofield.config import ExperimentConfig
 from mesofield.data.writer import CustomWriter, CV2Writer
 from mesofield.io.h5db import H5Database
 from mesofield.utils._logger import get_logger, log_this_fr
+from mesofield.schema.output import build_queue_log
 from typing import Dict
 
 
@@ -114,7 +121,7 @@ class DataPaths:
             timestamps=cfg_paths["timestamps"],
             hardware=hw_paths,
             writers={},
-            queue=cfg.make_path("dataqueue", "csv", "beh"),
+            queue=cfg.make_path("dataqueue", "json", "beh"),
         )
 
 @dataclass
@@ -194,21 +201,14 @@ class DataSaver:
             self.logger.error(f"Error saving timestamps: {e}")
 
     def save_queue(self, rows: list[list[Any]], path: str | None = None) -> None:
-        """Save queued data rows to CSV file specified in DataPaths or override path."""
+        """Persist queued data rows as a structured JSON log."""
         if path is None:
             path = self.paths.queue
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w", newline="") as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow([
-                    "queue_elapsed",
-                    "packet_ts",
-                    "device_ts",
-                    "device_id",
-                    "payload",
-                ])
-                writer.writerows(rows)
+            payload = build_queue_log(self.cfg, rows)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2)
             self.logger.info(f"Queue log saved to {path}")
         except Exception as e:
             self.logger.error(f"Error saving queue log: {e}")
