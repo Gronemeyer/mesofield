@@ -7,6 +7,7 @@ import json
 import logging
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
@@ -18,11 +19,13 @@ from direct.showbase.ShowBaseGlobal import globalClock  # type: ignore[import]
 from direct.task import Task  # type: ignore[import]
 from panda3d.core import CardMaker, Fog, NodePath, TextNode, WindowProperties, loadPrcFileData  # type: ignore[import]
 
+TaskType = Any
+
 loadPrcFileData("", "load-display pandagl")
 loadPrcFileData("", "window-title MousePortal")
 
 try:  # pragma: no cover - optional dependency
-    from mesofield.subprocesses.baby_api_sequencer import Engine, ExperimentSpec
+    from mesofield.subprocesses.experiment_engine import Engine, ExperimentSpec
 except ImportError:  # pragma: no cover - optional dependency absent
     Engine = None
     ExperimentSpec = None
@@ -137,7 +140,7 @@ class SerialInputManager:
         self.serial = serial.Serial(serial_port, baudrate, timeout=1)
         self.data = EncoderData()
 
-    def _read_serial(self, task: Task) -> Task:
+    def _read_serial(self, task: TaskType) -> TaskType:
         try:
             raw_line = self.serial.readline()
             if raw_line:
@@ -154,7 +157,7 @@ class DummyInputManager:
     def __init__(self) -> None:
         self.data = EncoderData()
 
-    def _read_serial(self, task: Task) -> Task:
+    def _read_serial(self, task: TaskType) -> TaskType:
         return Task.cont
 
 
@@ -375,6 +378,8 @@ class MousePortalApp(ShowBase):
             self.state_text = OnscreenText(text="State: Idle", pos=(-1.3, 0.9), scale=0.07, align=TextNode.ALeft)
 
     def _resolve_engine_spec(self) -> Optional[ExperimentSpec]:
+        if ExperimentSpec is None:
+            return None
         engine_cfg = self.cfg.get("engine")
         if not engine_cfg:
             return None
@@ -397,13 +402,13 @@ class MousePortalApp(ShowBase):
     def _set_key(self, key: str, value: bool) -> None:
         self.key_map[key] = value
 
-    def _movement_task(self, task: Task) -> Task:
+    def _movement_task(self, task: TaskType) -> TaskType:
         dt = globalClock.getDt()
         base_velocity = self._base_velocity()
         signed = -base_velocity if self.input_reversed else base_velocity
         self.camera_velocity = signed * self.gain
         self.camera_position += self.camera_velocity * dt
-        self.camera.setY(self.camera_position)
+        self.camera.setY(self.camera_position)  # type: ignore[attr-defined]
         self._recycle_segments(self.camera_velocity * dt)
         self.data_logger.log(time.time(), self.camera_position, self.camera_velocity)
         return Task.cont
@@ -419,13 +424,13 @@ class MousePortalApp(ShowBase):
                 self.corridor.recycle("backward")
                 self.distance_since_recycle += self.segment_length
 
-    def _engine_task(self, task: Task) -> Task:
+    def _engine_task(self, task: TaskType) -> TaskType:
         if self.fsm.state == "Running" and self.engine and self.engine.running:
             if not self.engine.step():
                 self.fsm.request("Idle")
         return Task.cont
 
-    def _command_task(self, task: Task) -> Task:
+    def _command_task(self, task: TaskType) -> TaskType:
         if self.command_server:
             self.command_server.poll(0)
         return Task.cont
@@ -468,7 +473,8 @@ class MousePortalApp(ShowBase):
             "schema_version": 1,
             "source": "mouseportal",
             "label": label,
-            "abs_time": time.time(),
+            "time_abs": datetime.now(timezone.utc).isoformat(),
+            "time_elapsed": 0.0,
             "position": self.camera_position,
         }
         if extra:

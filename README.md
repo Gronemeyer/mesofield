@@ -115,6 +115,36 @@ the JSON file, keeping it in sync with the session counter and other fields.
 Mesofield supports adding as many parameters as you want, which will
 get saved back to the JSON, and used as you so please.
 
+### MousePortal plugin configuration
+
+MousePortal now ships with a single unified YAML file, `portal_config.yaml`, that
+contains the former JSON plugin parameters *and* the VR corridor/sequence
+definition. Your `ExperimentConfig` JSON only needs to enable the plugin and
+point to that YAML:
+
+```json
+"Plugins": {
+    "mouse_portal": {
+        "enabled": true,
+        "module": "mesofield.plugins.mouseportal",
+        "config": {
+            "unified_config_path": "C:/dev/mesofield/mesofield/subprocesses/portal_config.yaml"
+        }
+    }
+}
+```
+
+Inside the YAML you'll find:
+
+- `metadata` and `visual_diagram` to document the scene.
+- `plugin` for device id, ZeroMQ endpoints, runtime path, and readiness tuning.
+- Rendering knobs (`window_width`, `textures`, etc.) used by the portal process.
+- `engine` describing the experimental blocks and trials, which is converted to a
+    runtime spec automatically when the plugin launches.
+
+See `docs/templates/mouseportal/README.md` for a walkthrough and a friendly
+template to fork for your own experiments.
+
 ## Custom Hardware
 
 Hardware classes implement the protocols defined in

@@ -1,9 +1,5 @@
-"""Baby API experiment engine utilities.
+"""Experiment engine utilities.
 
-The original prototype has been reshaped to align with the integration plan for
-MousePortal.  The engine remains generic and relies on registries for routines
-and block policies so that downstream projects can extend behaviour without
-touching the core runtime.
 """
 
 from __future__ import annotations
@@ -12,6 +8,7 @@ import json
 import random
 import time
 from dataclasses import dataclass, asdict
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Generator, Iterable, Iterator, List, Optional, Type
 
 
@@ -71,29 +68,31 @@ def sample_range(rng: random.Random, expr: str) -> float:
 
 @dataclass
 class Event:
-    abs_time: float
-    rel_time: float
+    time_abs: datetime
+    time_elapsed: float
     level: str
     label: str
     data: Dict[str, Any]
 
     def to_dict(self) -> Dict[str, Any]:
         payload = asdict(self)
+        payload["time_abs"] = self.time_abs.isoformat()
         payload["schema_version"] = 1
         return payload
 
 
 class EventLog:
-    def __init__(self) -> None:
+    def __init__(self, wall_clock: Optional[Callable[[], datetime]] = None) -> None:
         self._trial_t0 = 0.0
         self._events: List[Event] = []
         self._callback: Optional[Callable[[Event], None]] = None
+        self._wall_clock = wall_clock or (lambda: datetime.now(timezone.utc))
 
     def set_trial_t0(self, t: float) -> None:
         self._trial_t0 = t
 
     def add(self, *, now: float, level: str, label: str, **data: Any) -> Event:
-        event = Event(now, now - self._trial_t0, level, label, data)
+        event = Event(self._wall_clock(), now - self._trial_t0, level, label, data)
         self._events.append(event)
         if self._callback:
             self._callback(event)
@@ -227,11 +226,12 @@ class Engine:
         spec: ExperimentSpec,
         *,
         time_fn: Optional[Callable[[], float]] = None,
+        wall_clock_fn: Optional[Callable[[], datetime]] = None,
     ) -> None:
         self.spec = spec
         self.rng = random.Random(spec.rng_seed)
         self.time_fn = time_fn or time.perf_counter
-        self.log = EventLog()
+        self.log = EventLog(wall_clock_fn)
         self.capabilities: Dict[str, bool] = {}
         self._control_cb: Optional[Callable[[str, Dict[str, Any]], Any]] = None
         self._event_cb: Optional[Callable[[Event], None]] = None

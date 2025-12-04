@@ -1,0 +1,60 @@
+---
+metadata:
+  title: "Friendly MousePortal Template"
+  description: "Copy me, tweak the endpoints, and plug into your ExperimentConfig JSON"
+  version: 1
+
+plugin:
+  device_id: "mouse_portal"
+  topic: "exp-event"
+  ready_attempts: 12
+  ping_timeout_s: 1.5
+  command_endpoint: "tcp://127.0.0.1:5750"
+  event_endpoint: "tcp://127.0.0.1:5751"
+  runtime_path: "C:/path/to/build/mouseportal/portal-runtime.json"
+  python_executable: null
+  script_path: null
+
+window_width: 1024
+window_height: 768
+segment_length: 8.0
+corridor_width: 6.0
+wall_height: 8.0
+num_segments: 30
+camera_height: 2.0
+speed_scaling: 4.5
+gain: 1.0
+input_reversed: false
+left_wall_texture: "assets/left.png"
+right_wall_texture: "assets/right.png"
+floor_texture: "assets/floor.png"
+ceiling_texture: "assets/sky.png"
+fog_density: 0.05
+serial_port: "dev"
+data_logging_file: "logs/mouseportal/movement.csv"
+event_log_file: "logs/mouseportal/events.json"
+
+engine:
+  rng_seed: 11
+  blocks:
+    - name: calibration
+      policy: sequential
+      repeats: 1
+      trials:
+        - name: open_loop_calibration
+          routine: open_loop
+          config:
+            duration_min_s: 10
+            duration_max_s: 30
+            glitch:
+              count_min: 1
+              count_max: 2
+              duration_min_s: 0.2
+              duration_max_s: 1.0
+              gain_min: 0.6
+              gain_max: 1.2
+        - name: closed_loop_training
+          routine: closed_loop
+          config:
+            duration_min_s: 45
+            duration_max_s: 120

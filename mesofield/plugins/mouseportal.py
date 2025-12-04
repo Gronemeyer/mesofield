@@ -48,6 +48,15 @@ class MousePortalPlugin(Plugin, ProcedurePlugin):
         self._data_manager = data_manager
 
         unified_config_path = self.config.get("unified_config_path")
+        preloaded_unified: Optional[Dict[str, Any]] = None
+        if unified_config_path:
+            source = Path(unified_config_path)
+            if source.exists():
+                preloaded_unified = self._load_mapping(source)
+                self._apply_plugin_settings(dict(preloaded_unified.get("plugin") or {}))
+            else:
+                logger.error("MousePortal unified config not found: %s", source)
+
         cfg_override = self.config.get("config_path") if not unified_config_path else None
         env_path = self.config.get("python_executable") or self.config.get("env_path")
         script_path = self.config.get("script_path")
@@ -57,10 +66,11 @@ class MousePortalPlugin(Plugin, ProcedurePlugin):
             cfg_path=cfg_override,
             python_executable=env_path,
             script_path=script_path,
+            plugin_options=self.config,
             context=self._ctx,
         )
 
-        payload = self._prepare_payload(unified_config_path)
+        payload = self._prepare_payload(unified_config_path, preloaded=preloaded_unified)
         self._pending_payload = payload
         logger.info(
             "MousePortal configured (dev_mode=%s, unified=%s, legacy_cfg=%s)",
@@ -145,9 +155,29 @@ class MousePortalPlugin(Plugin, ProcedurePlugin):
             raise RuntimeError("MousePortal controller not initialised")
         return self._controller
 
-    def _prepare_payload(self, unified_config_path: Optional[str]) -> Dict[str, Any]:
+    def _apply_plugin_settings(self, overrides: Optional[Dict[str, Any]]) -> None:
+        if not overrides:
+            return
+        sanitized = {k: v for k, v in overrides.items() if v is not None}
+        if not sanitized:
+            return
+        self.config.update(sanitized)
+        if "device_id" in sanitized:
+            self._device_id = sanitized["device_id"]
+        if "topic" in sanitized:
+            self._event_topic = sanitized["topic"]
+        if "ready_attempts" in sanitized:
+            self._ready_attempts = int(sanitized["ready_attempts"])
+        if "ping_timeout_s" in sanitized:
+            self._ping_timeout = float(sanitized["ping_timeout_s"])
+        if "dev_mode" in sanitized:
+            self._dev_mode = bool(sanitized["dev_mode"])
+
+    def _prepare_payload(
+        self, unified_config_path: Optional[str], *, preloaded: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         if unified_config_path:
-            return self._load_unified_config(unified_config_path)
+            return self._load_unified_config(unified_config_path, preloaded=preloaded)
 
         payload = self._load_controller_config()
         if not payload:
@@ -171,16 +201,27 @@ class MousePortalPlugin(Plugin, ProcedurePlugin):
             logger.warning("MousePortal configuration file not found; starting from defaults")
             return {}
 
-    def _load_unified_config(self, config_path: str) -> Dict[str, Any]:
+    def _load_unified_config(
+        self, config_path: str, *, preloaded: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Load unified configuration that contains both rendering config and experiment sequence."""
         source = Path(config_path)
-        if not source.exists():
+        if preloaded is None and not source.exists():
             logger.error("MousePortal unified config not found: %s", source)
             return {}
-            
+
         # Load the unified YAML file
-        unified_config = self._load_mapping(source)
-        
+        unified_config = dict(preloaded) if preloaded is not None else self._load_mapping(source)
+
+        # Remove helper sections that should not be forwarded to the controller
+        plugin_overrides = unified_config.pop("plugin", None)
+        metadata = unified_config.pop("metadata", None)
+        unified_config.pop("visual_diagram", None)
+        if plugin_overrides and preloaded is None:
+            self._apply_plugin_settings(dict(plugin_overrides))
+        if metadata:
+            logger.debug("Loaded MousePortal metadata: %s", metadata)
+
         # Extract engine configuration for experiment sequence
         engine_config = unified_config.get("engine", {})
         if engine_config:
@@ -343,7 +384,7 @@ class MousePortalPlugin(Plugin, ProcedurePlugin):
     def _handle_event(self, payload: Dict[str, Any]) -> None:
         if self._data_manager is None:
             return
-        device_ts = payload.get("abs_time")
+        device_ts = payload.get("time_abs")
         self._data_manager.queue.push(
             self._device_id,
             payload,

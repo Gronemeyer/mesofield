@@ -31,6 +31,7 @@ class MousePortal:
         cfg_path: Optional[str] = None,
         python_executable: Optional[str] = None,
         script_path: Optional[str] = None,
+        plugin_options: Optional[dict[str, Any]] = None,
         context: Optional[zmq.Context] = None,
     ) -> None:
         self.config = config

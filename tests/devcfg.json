@@ -39,14 +39,7 @@
             "enabled": true,
             "module": "mesofield.plugins.mouseportal",
             "config": {
-                "unified_config_path": "C:/dev/mesofield/mesofield/subprocesses/demo-complete.yaml",
-                "runtime_path": "C:/dev/mesofield/build/mouseportal/runtime.json",
-                "command_endpoint": "tcp://127.0.0.1:5750",
-                "event_endpoint": "tcp://127.0.0.1:5751",
-                "topic": "exp-event",
-                "device_id": "mouse_portal",
-                "ready_attempts": 20,
-                "ping_timeout_s": 3.0
+                "unified_config_path": "C:/dev/mesofield/mesofield/subprocesses/portal_config.yaml"
             }
         }
     },

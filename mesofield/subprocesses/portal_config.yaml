@@ -1,6 +1,20 @@
 ---
-# MousePortal Complete Experiment Configuration
-# This file contains both the rendering setup and experiment sequence
+metadata:
+  title: "MousePortal Portal Config"
+  description: "Complete example combining plugin wiring, runtime layout, and experiment sequence"
+  version: 1
+  updated: "2025-11-26"
+
+plugin:
+  device_id: "mouse_portal"
+  topic: "exp-event"
+  ready_attempts: 20
+  ping_timeout_s: 3.0
+  command_endpoint: "tcp://127.0.0.1:5750"
+  event_endpoint: "tcp://127.0.0.1:5751"
+  runtime_path: "C:/dev/mesofield/build/mouseportal/runtime.json"
+  python_executable: null
+  script_path: null
 
 # Rendering and window configuration
 window_width: 800
@@ -24,7 +38,7 @@ fog_density: 0.06
 # Hardware configuration
 serial_port: "dev"  # Use dev mode for keyboard controls
 
-# Data logging (will be overridden by plugin)
+# Data logging (overridden by plugin at runtime)
 data_logging_file: "logs/mouseportal/movement.csv"
 event_log_file: "logs/mouseportal/events.json"
 
