@@ -142,7 +142,7 @@ class ExperimentConfig(ConfigRegister):
         # Core experiment parameters
         self.register("subject", "sub", str, "Subject identifier", "experiment")
         self.register("session", "ses", str, "Session identifier", "experiment")
-        self.register("task", "task", str, "Task identifier", "experiment")
+        self.register("task", "task", list, "Task identifier", "experiment")
         self.register("start_on_trigger", False, bool, "Whether to start acquisition on trigger", "hardware")
         self.register("duration", 60, int, "Sequence duration in seconds", "experiment")
         self.register("trial_duration", None, int, "Trial duration in seconds", "experiment")
@@ -179,7 +179,17 @@ class ExperimentConfig(ConfigRegister):
     @property
     def task(self) -> str:
         """Get the task ID."""
-        return self.get("task")
+        return self.get("task")[0] if isinstance(self.get("task"), list) else self.get("task")
+    
+    @task.setter
+    def task(self, value):
+        """Set the task ID."""
+        if isinstance(value, str):
+            self.set("task", [value])
+        elif isinstance(value, list):
+            self.set("task", value)
+        else:
+            raise ValueError("task must be a str or list of str") 
 
     @property
     def start_on_trigger(self) -> bool:
@@ -200,7 +210,7 @@ class ExperimentConfig(ConfigRegister):
     @property
     def num_trials(self) -> int:
         """Calculate the number of trials."""
-        return int(self.get("num_trials", 1))
+        return int(self.sequence_duration / self.trial_duration) if self.trial_duration else 1
     
     
     def build_sequence(self, camera: DataProducer) -> useq.MDASequence:

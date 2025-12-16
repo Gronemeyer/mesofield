@@ -219,7 +219,7 @@ class CustomJSONEncoder(json.JSONEncoder):
 class CV2Writer(_5DWriterBase[Any]):
     """Write incoming MDA frames directly to an mp4/avi video using OpenCV."""
 
-    def __init__(self, filename: Path | str, fps: int = 30, fourcc: str = "H264") -> None:
+    def __init__(self, filename: Path | str, fps: int = 30, fourcc: str = "mp4v") -> None:
         try:
             from pathlib import Path
             import os

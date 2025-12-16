@@ -124,7 +124,15 @@ class Procedure:
         """Run any pre-experiment setup logic."""
         self.logger.info("Running pre-experiment setup")
 
+        if self.config.task == "movies":
+            self.config.set("psychopy_filename", r"natural_mov_stim_v0.5.py")
+            self.config.set("trial_duration", 30)
+        elif self.config.task == "gratings":
+            self.config.set("psychopy_filename", r"Gratings_vis_stim_v0.9.py")
+            self.config.set("trial_duration", 5)
+        
         self.data.setup(self.config)
+
         if not self.data.devices:
             self.data.register_devices(self.config.hardware.devices.values())
 
@@ -139,7 +147,6 @@ class Procedure:
         self.logger.info("================= Starting experiment ===================")
 
         self.prerun()
-        self.data.start_queue_logger()
         
         try:
             self.hardware.cameras[0].core.mda.events.sequenceFinished.connect(self._cleanup_procedure) #type: ignore
@@ -150,6 +157,7 @@ class Procedure:
 
             self.start_time = datetime.now()
             self.hardware.encoder.start_recording()
+            #self.hardware.nidaq.start()
             for cam in self.hardware.cameras:
                 cam.start()
         except Exception as e:  # pragma: no cover - hardware errors
@@ -159,7 +167,7 @@ class Procedure:
     # ------------------------------------------------------------------
     def save_data(self) -> None:
         mgr = getattr(self, "data_manager", self.data)
-        self.hardware.cameras[1].core.stopSequenceAcquisition() #type: ignore
+        #self.hardware.cameras[1].core.stopSequenceAcquisition() #type: ignore
         for cam in self.hardware.cameras:
             cam.stop()
         mgr.save.configuration()
@@ -182,7 +190,7 @@ class Procedure:
     def _cleanup_procedure(self):
         self.logger.info("Cleanup Procedure")
         try:
-            self.hardware.cameras[1].core.stopSequenceAcquisition()
+            #self.hardware.cameras[1].core.stopSequenceAcquisition()
             self.hardware.cameras[0].core.mda.events.sequenceFinished.disconnect(self._cleanup_procedure)
             self.hardware.stop()
             self.data.stop_queue_logger()
