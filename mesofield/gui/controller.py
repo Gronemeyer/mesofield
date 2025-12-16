@@ -67,6 +67,9 @@ class ConfigFormWidget(QWidget):
                 editor.setText(str(value))
                 editor.textChanged.connect(lambda text, k=key: self._registry.set(k, text))
             form.addRow(key, editor)
+        self.config_hint_text = QLabel("<i>All values are editable during recording before saving upon Procedure completion</i>")
+        form.addRow(self.config_hint_text)
+
 
     @property
     def keys(self):
@@ -163,13 +166,17 @@ class ConfigController(QWidget):
             background-color: #212121;
             }
         """)        
-        layout.addWidget(self.record_button)
         self.record_button.setToolTip("Start Recording (MDA Sequence)")
         self.record_button.setShortcut("Ctrl+R")  # Set shortcut for recording
 
         # 5. Add Note button to add a note to the configuration
         self.add_note_button = QPushButton("Add Note")
-        layout.addWidget(self.add_note_button)
+
+        # Group the Record and Add Note buttons horizontally
+        self._action_buttons_layout = QHBoxLayout()
+        self._action_buttons_layout.addWidget(self.record_button)
+        self._action_buttons_layout.addWidget(self.add_note_button)
+        layout.addLayout(self._action_buttons_layout)
 
         # Dynamic hardware-specific controls
         self.dynamic_controller = DynamicController(self.procedure.config, parent=self)
