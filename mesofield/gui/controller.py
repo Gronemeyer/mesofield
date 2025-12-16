@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from contextlib import suppress
 import threading
 import numpy as np
 
@@ -228,7 +229,7 @@ class ConfigController(QWidget):
 
     def record(self):
         """Run the experimental procedure or fallback to legacy MDA sequence."""
-        
+        self._stop_live_streams()
         # If a procedure is available, use it for the experimental workflow
         if self.procedure is not None:
             try:
@@ -243,6 +244,14 @@ class ConfigController(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "Procedure Error", f"Failed to run procedure: {str(e)}")
                 return
+
+    def _stop_live_streams(self) -> None:
+        """Ensure any live/sequence streams are halted before starting acquisition."""
+        cores = getattr(self.config, "_cores", ())
+        for core in cores:
+            with suppress(Exception):
+                if hasattr(core, "isSequenceRunning") and core.isSequenceRunning():
+                    core.stopSequenceAcquisition()
 
     #-----------------------------------------------------------------------------------------------#
 
