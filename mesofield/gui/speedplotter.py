@@ -33,8 +33,8 @@ class EncoderWidget(QWidget):
         self.layout.addWidget(self.plot_widget)
         self.setLayout(self.layout)
 
-        self.plot_widget.setTitle('Encoder Speed')
-        self.plot_widget.setLabel('left', 'Speed', units='m/s')
+        self.plot_widget.setTitle('Serial Trace')
+        self.plot_widget.setLabel('left', 'Speed', units='mm/s')
         self.plot_widget.setLabel('bottom', 'Time', units='s')
         self.speed_curve = self.plot_widget.plot(pen='y')
 
@@ -77,7 +77,7 @@ class EncoderWidget(QWidget):
         self.times = self.times[-100:]
         self.speeds = self.speeds[-100:]
         self.update_plot()
-        self.status_label.setText(f"Speed: {speed:.2f} m/s")
+        self.status_label.setText(f"Speed: {speed:.2f} mm/s")
 
     def update_plot(self):
         try:
