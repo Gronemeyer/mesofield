@@ -7,8 +7,7 @@ import types
 import pandas as pd
 import pytest
 
-from mesofield.base import Procedure, ProcedureConfig
-from mesofield.config import ExperimentConfig
+from mesofield.base import Procedure
 from mesofield.data.manager import DataManager, DataSaver
 from mesofield import DeviceRegistry
 
@@ -136,27 +135,25 @@ def test_procedure_workflow(tmp_path, monkeypatch):
     monkeypatch.setattr("mesofield.hardware.SerialWorker", DummyEncoder)
     monkeypatch.setattr("mesofield.hardware.EncoderSerialInterface", DummyEncoder)
 
-    hw_path = tmp_path / "hardware.yaml"
-    hw_path.write_text(
-        """
-        memory_buffer_size: 1
-        encoder:
-        type: wheel
-        port: COM1
-        cameras:
-        - id: cam1
-            name: cam1
-            backend: dummy
-        """
-    )
+        hw_path = tmp_path / "hardware.yaml"
+        hw_path.write_text(
+                """
+memory_buffer_size: 1
+encoder:
+    type: wheel
+    port: COM1
+cameras:
+    - id: cam1
+        name: cam1
+        backend: dummy
+"""
+        )
 
     cfg_json = tmp_path / "config.json"
     json.dump({
         "Configuration": {
             "experimenter": "tester",
             "protocol": "exp1",
-            "experiment_directory": str(tmp_path),
-            "hardware_config_file": str(hw_path),
             "database_path": str(tmp_path / "db.h5"),
             "duration": 1,
             "start_on_trigger": False,
@@ -175,15 +172,7 @@ def test_procedure_workflow(tmp_path, monkeypatch):
         "DisplayKeys": ["duration", "start_on_trigger", "task", "session"]
     }, cfg_json.open("w"))
 
-    pcfg = ProcedureConfig(
-        protocol="exp1",
-        experimenter="tester",
-        hardware_yaml=str(hw_path),
-        data_dir=str(tmp_path),
-        json_config=str(cfg_json),
-    )
-
-    proc = DummyProcedure(pcfg)
+    proc = DummyProcedure(str(cfg_json))
 
     # configuration loaded
     assert len(proc.hardware.devices) == 2

@@ -111,7 +111,7 @@ class ExperimentConfig(ConfigRegister):
     ```
     """
 
-    def __init__(self, path: str):
+    def __init__(self, path: Optional[str] = None):
         super().__init__()
         # Initialize logging first
         self.logger = get_logger(__name__)
@@ -129,8 +129,13 @@ class ExperimentConfig(ConfigRegister):
         self.logger.debug("Registered default parameters")
 
         # Initialize hardware
+        self._hardware_yaml_path: Optional[str] = None
+        self._hardware_path_locked: bool = False
         try:
-            self.hardware = HardwareManager(path)
+            hardware_path, locked = self._resolve_hardware_path(path)
+            self._hardware_yaml_path = hardware_path
+            self._hardware_path_locked = locked
+            self.hardware = HardwareManager(hardware_path)
         except Exception as e:
             self.logger.error(f"Failed to initialize hardware: {e}")
             raise
@@ -148,23 +153,57 @@ class ExperimentConfig(ConfigRegister):
         self.register("trial_duration", None, int, "Trial duration in seconds", "experiment")
         self.register("psychopy_filename", "experiment.py", str, "PsychoPy experiment filename", "experiment")
 
+    def _resolve_hardware_path(self, path: Optional[str]) -> tuple[str, bool]:
+        """Resolve the hardware YAML path.
+
+        Returns (hardware_path, locked) where locked indicates an explicit file was provided.
+        """
+        if path:
+            abs_path = os.path.abspath(path)
+            if os.path.isdir(abs_path):
+                self.experiment_dir = abs_path
+                return os.path.join(abs_path, "hardware.yaml"), False
+            # treat as explicit file path
+            self.experiment_dir = os.path.dirname(abs_path)
+            return abs_path, True
+
+        # no path provided: resolve from experiment_dir (or cwd)
+        if not self.experiment_dir:
+            self.experiment_dir = os.getcwd()
+        return os.path.join(self.experiment_dir, "hardware.yaml"), False
+
     @property
     def _cores(self):# -> tuple[CMMCorePlus, ...]:
         """Return the tuple of CMMCorePlus instances from the hardware cameras."""
         return tuple(cam.core for cam in self.hardware.cameras if hasattr(cam, 'core'))
 
     @property
-    def save_dir(self) -> str:
-        """Get the save directory."""
-        return os.path.join(self._save_dir, 'data')
+    def experiment_dir(self) -> str:
+        """Get the experiment directory (base directory)."""
+        return self._save_dir
 
-    @save_dir.setter
-    def save_dir(self, path: str):
-        """Set the save directory."""
+    @experiment_dir.setter
+    def experiment_dir(self, path: str):
+        """Set the experiment directory (base directory)."""
         if isinstance(path, str):
             self._save_dir = os.path.abspath(path)
         else:
-            print(f"ExperimentConfig: \n Invalid save directory path: {path}")
+            print(f"ExperimentConfig: \n Invalid experiment directory path: {path}")
+
+    @property
+    def data_dir(self) -> str:
+        """Get the data directory (experiment_dir/data)."""
+        return os.path.join(self._save_dir, 'data')
+
+    @property
+    def save_dir(self) -> str:
+        """Get the save directory (legacy alias for data_dir)."""
+        return self.data_dir
+
+    @save_dir.setter
+    def save_dir(self, path: str):
+        """Set the save directory (base experiment directory)."""
+        self.experiment_dir = path
 
     @property
     def subject(self) -> str:
@@ -200,7 +239,7 @@ class ExperimentConfig(ConfigRegister):
     @property
     def num_trials(self) -> int:
         """Calculate the number of trials."""
-        return int(self.get("num_trials", 1))
+        return int(self.get("num_trials", 20))
     
     
     def build_sequence(self, camera: DataProducer) -> useq.MDASequence:
@@ -326,6 +365,18 @@ class ExperimentConfig(ConfigRegister):
             return
 
         self._json_file_path = file_path #store the json filepath
+        json_dir = os.path.dirname(os.path.abspath(file_path))
+        if json_dir:
+            self.experiment_dir = json_dir
+            if not self._hardware_path_locked:
+                try:
+                    hardware_path = os.path.join(self.experiment_dir, "hardware.yaml")
+                    if hardware_path != self._hardware_yaml_path:
+                        self._hardware_yaml_path = hardware_path
+                        self.hardware = HardwareManager(hardware_path)
+                except Exception as e:
+                    self.logger.error(f"Failed to reinitialize hardware: {e}")
+                    raise
         self.display_keys = loaded_config.get("DisplayKeys")
         # Detect new style JSON with 'Configuration' and 'Subjects'
         self.subjects = {}
@@ -335,7 +386,7 @@ class ExperimentConfig(ConfigRegister):
             for key, value in config_params.items():
                 self.set(key, value)
             if config_params.get("experiment_directory"):
-                self.save_dir = config_params.get("experiment_directory")
+                self.experiment_dir = config_params.get("experiment_directory")
             # We can register a parameter as a list, and the `ConfigFormWidget` will handle it as a dropdown
             # if config_params.get("task"):
             #     self.register_parameter("task", config_params.get("task"), list, "Task identifier", "experiment")
@@ -360,7 +411,7 @@ class ExperimentConfig(ConfigRegister):
                                 f"{plugin} plugin configuration", 
                                 "plugins")
 
-    def auto_increment_session(self) -> None:
+    def _auto_increment_session(self) -> None:
         """Increment the session number in the config and persist it to the JSON file."""
         # get current session number
         curr = int(self.session)
@@ -447,7 +498,5 @@ class ExperimentConfig(ConfigRegister):
                 self.set(key, val)
             except Exception as e:
                 self.logger.error(f"Failed to update session in JSON file: {e}")
-        # else:
-        #     self.logger.warning("No JSON file to update; _json_file_path not set or file missing")
 
 

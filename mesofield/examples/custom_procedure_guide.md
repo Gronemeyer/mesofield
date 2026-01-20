@@ -17,12 +17,11 @@ The Mesofield procedure system allows you to:
 All custom procedures should inherit from the `Procedure` class:
 
 ```python
-from mesofield.base import Procedure, ProcedureConfig
-from mesofield.config import ExperimentConfig
+from mesofield.base import Procedure
 
 class MyCustomProcedure(Procedure):
-    def __init__(self, config: ExperimentConfig, procedure_config: ProcedureConfig = None):
-        super().__init__(config, procedure_config)
+    def __init__(self, config_path: str | None = None):
+        super().__init__(config_path)
         # Add your custom initialization here
         
     def setup_experiment(self):
@@ -91,7 +90,7 @@ Configure procedures through the GUI using the "Configure Procedure" button when
 
 ### Automatic Data Paths
 ```python
-# These paths are automatically created based on your ProcedureConfig
+# These paths are automatically created based on your ExperimentConfig
 camera_path = self.config.make_path("meso", "ome.tiff", bids_type="func")
 encoder_path = self.config.make_path('treadmill_data', 'csv', 'beh')
 log_path = self.config.make_path('experiment_log', 'log')
