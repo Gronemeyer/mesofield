@@ -9,8 +9,7 @@ import time
 import logging
 from typing import Optional, Dict, Any
 
-from mesofield.base import Procedure, ProcedureConfig
-from mesofield.config import ExperimentConfig
+from mesofield.base import Procedure
 
 
 class SimpleBehaviorProcedure(Procedure):
@@ -21,17 +20,13 @@ class SimpleBehaviorProcedure(Procedure):
     while maintaining the standard camera and encoder recording workflow.
     """
     
-    def __init__(self, config: ExperimentConfig, procedure_config: Optional[ProcedureConfig] = None):
-        # Create default procedure config if none provided
-        if procedure_config is None:
-            procedure_config = ProcedureConfig(
-                protocol="simple_behavior_001",
-                experimenter="researcher",
-                data_dir="data/behavior_experiments",
-                notes=["Simple behavior paradigm", "Mouse running on treadmill"]
-            )
-        
-        super().__init__(config, procedure_config)
+    def __init__(self, config_path: Optional[str] = None):
+        super().__init__(config_path)
+        if not self.config.has("protocol"):
+            self.config.set("protocol", "simple_behavior_001")
+        if not self.config.has("experimenter"):
+            self.config.set("experimenter", "researcher")
+        self.config.notes.extend(["Simple behavior paradigm", "Mouse running on treadmill"])
         
         # Behavior-specific parameters
         self.trial_duration = 300  # 5 minutes in seconds
@@ -81,16 +76,13 @@ class MultiTrialProcedure(Procedure):
     with full control over the experimental workflow.
     """
     
-    def __init__(self, config: ExperimentConfig, procedure_config: Optional[ProcedureConfig] = None):
-        if procedure_config is None:
-            procedure_config = ProcedureConfig(
-                protocol="multi_trial_001",
-                experimenter="researcher",
-                data_dir="data/multi_trial_experiments",
-                notes=["Multiple trial experiment", "Custom inter-trial intervals"]
-            )
-        
-        super().__init__(config, procedure_config)
+    def __init__(self, config_path: Optional[str] = None):
+        super().__init__(config_path)
+        if not self.config.has("protocol"):
+            self.config.set("protocol", "multi_trial_001")
+        if not self.config.has("experimenter"):
+            self.config.set("experimenter", "researcher")
+        self.config.notes.extend(["Multiple trial experiment", "Custom inter-trial intervals"])
         
         # Trial parameters
         self.num_trials = 5
@@ -159,16 +151,13 @@ class OptoStimulationProcedure(Procedure):
     with the standard Mesofield recording workflow.
     """
     
-    def __init__(self, config: ExperimentConfig, procedure_config: Optional[ProcedureConfig] = None):
-        if procedure_config is None:
-            procedure_config = ProcedureConfig(
-                protocol="opto_stim_001",
-                experimenter="researcher",
-                data_dir="data/optogenetics",
-                notes=["Optogenetic stimulation", "Blue light, 473nm", "10Hz pulses"]
-            )
-        
-        super().__init__(config, procedure_config)
+    def __init__(self, config_path: Optional[str] = None):
+        super().__init__(config_path)
+        if not self.config.has("protocol"):
+            self.config.set("protocol", "opto_stim_001")
+        if not self.config.has("experimenter"):
+            self.config.set("experimenter", "researcher")
+        self.config.notes.extend(["Optogenetic stimulation", "Blue light, 473nm", "10Hz pulses"])
         
         # Stimulation parameters
         self.stim_frequency = 10  # Hz
@@ -229,13 +218,13 @@ class OptoStimulationProcedure(Procedure):
 
 
 # Factory function for easy procedure creation
-def create_custom_procedure(procedure_type: str, config: ExperimentConfig, **kwargs) -> Procedure:
+def create_custom_procedure(procedure_type: str, config_path: Optional[str], **kwargs) -> Procedure:
     """
     Factory function to create custom procedures by name.
     
     Args:
         procedure_type: Name of the procedure type
-        config: ExperimentConfig instance
+        config_path: Path to experiment JSON configuration
         **kwargs: Additional keyword arguments for procedure configuration
     
     Returns:
@@ -252,33 +241,27 @@ def create_custom_procedure(procedure_type: str, config: ExperimentConfig, **kwa
         raise ValueError(f"Unknown procedure type '{procedure_type}'. Available: {available}")
     
     ProcedureClass = procedure_classes[procedure_type]
-    
-    # Create procedure config from kwargs if provided
-    procedure_config = None
-    if kwargs:
-        procedure_config = ProcedureConfig(**kwargs)
-    
-    return ProcedureClass(config, procedure_config)
+    procedure = ProcedureClass(config_path)
+    for key, value in kwargs.items():
+        procedure.config.set(key, value)
+    return procedure
 
 
 if __name__ == "__main__":
     # Example usage
-    from mesofield.config import ExperimentConfig
-    
-    # Load configuration
-    config = ExperimentConfig("hardware.yaml")
+    # Path to experiment configuration JSON
+    config_path = "experiment.json"
     
     # Create and run a simple behavior procedure
     procedure = create_custom_procedure(
         'simple_behavior',
-        config,
-        experiment_id="test_behavior_001",
-        experimentor="test_user",
-        data_dir="test_data"
+        config_path,
+        protocol="test_behavior_001",
+        experimenter="test_user"
     )
     
     print(f"Created procedure: {procedure.__class__.__name__}")
-    print(f"Experiment ID: {procedure.config.experiment_id}")
+    print(f"Protocol: {procedure.config.get('protocol')}")
     
     # In practice, you would call procedure.run() to execute the experiment
     # procedure.run()

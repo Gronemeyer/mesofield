@@ -2,6 +2,7 @@ import os
 import logging
 
 import click
+from pathlib import Path
 
 # Disable pymmcore-plus logger
 package_logger = logging.getLogger('pymmcore-plus')
@@ -55,7 +56,7 @@ def launch(config):
     from PyQt6.QtGui import QColor, QRadialGradient
     
     from mesofield.gui.maingui import MainWindow
-    from mesofield.base import Procedure, create_procedure
+    from mesofield.base import Procedure
     
     app = QApplication([])
 
@@ -113,27 +114,28 @@ def launch(config):
     with open(config, 'r') as f:
         cfg_json = json.load(f)
 
-    cfg = cfg_json.get('Configuration', {})
     display_keys = cfg_json.get('DisplayKeys')
-    hardware_yaml = cfg.get('hardware_config_file', 'hardware.yaml')
-    data_dir = cfg.get('experiment_directory', '.')
-    protocol = cfg.get('protocol', 'experiment')
-    experimenter = cfg.get('experimenter', 'researcher')
 
     time.sleep(2) #give the splash screen a moment to show :)
-    procedure = create_procedure(
-        Procedure,
-        protocol=protocol,
-        experimenter=experimenter,
-        hardware_yaml=hardware_yaml,
-        data_dir=data_dir,
-        json_config=config
-    )
+    procedure = Procedure(config)
     
     mesofield = MainWindow(procedure, display_keys=display_keys)
     mesofield.show()
     splash.finish(mesofield)
     app.exec()
+
+
+@cli.command()
+@click.argument('experiment_dir')
+@click.option('--speed', default=1.0, show_default=True, help='Playback speed multiplier')
+@click.option('--loop/--no-loop', default=False, show_default=True, help='Loop playback when finished')
+def playback(experiment_dir: str, speed: float, loop: bool):
+    """Launch Mesofield in playback mode for a recorded experiment."""
+
+    from mesofield.playback import discover_playback_context, launch_playback_app
+
+    context = discover_playback_context(Path(experiment_dir), speed=speed, loop=loop)
+    launch_playback_app(context)
 
 
 @cli.command()

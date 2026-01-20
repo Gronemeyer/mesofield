@@ -27,50 +27,34 @@ class ProcedureSignals(QObject):
     procedure_finished     = pyqtSignal()
     
     
-@dataclass 
-class ProcedureConfig:
-    """Configuration container for procedures."""
-    protocol: str = "default_experiment"
-    experimenter: str = "researcher"
-    hardware_yaml: str = "hardware.yaml"
-    data_dir: str = "./data"
-    json_config: Optional[str] = None
-    custom_parameters: Dict[str, Any] = field(default_factory=dict)
-
-
 class Procedure:
     """High level class describing an experiment run in Mesofield."""
 
-    def __init__(self, procedure_config: ProcedureConfig):
+    def __init__(self, config_path: Optional[str]):
         self.events = ProcedureSignals()
+
+        experiment_dir = os.path.dirname(os.path.abspath(config_path)) if config_path else None
+        self.config = ExperimentConfig(experiment_dir)
+        if config_path:
+            self.config.load_json(config_path)
 
         # Default parameters for a typical Mesofield experiment
         defaults = {"duration": 60, "start_on_trigger": False}
-        procedure_config.custom_parameters = {
-            **defaults,
-            **procedure_config.custom_parameters,
-        }
+        for key, value in defaults.items():
+            if not self.config.has(key):
+                self.config.set(key, value)
 
-        self.protocol = procedure_config.protocol
-        self.experimenter = procedure_config.experimenter
-        self.hardware_yaml = procedure_config.hardware_yaml
-        self.data_dir = procedure_config.data_dir
+        self.protocol = self.config.get("protocol", "default_experiment")
+        self.experimenter = self.config.get("experimenter", "researcher")
+
+        self.data_dir = self.config.data_dir
         self.h5_path = os.path.join(self.data_dir, f"{self.protocol}.h5")
-
-        # Initialize configuration and apply custom parameters
-        self.config = ExperimentConfig(self.hardware_yaml)
-        for key, value in procedure_config.custom_parameters.items():
-            self.config.set(key, value)
-
-        self.config.set("protocol", self.protocol)
-        self.config.set("experimenter", self.experimenter)
 
         self.logger = get_logger(f"PROCEDURE.{self.protocol}")
         self.logger.info(f"Initialized procedure: {self.protocol}")
         self.initialize_hardware()
         
-        if procedure_config.json_config:
-            self.setup_configuration(procedure_config.json_config)
+        self.config.hardware._configure_engines(self.config)
     # ------------------------------------------------------------------
     # Convenience accessors
 
@@ -210,38 +194,16 @@ class Procedure:
 
 
 # Factory function for creating procedures
-def create_procedure(procedure_class: Type[Procedure],
-                    protocol: str = "default",
-                    experimenter: str = "researcher",
-                    hardware_yaml: str = "hardware.yaml",
-                    data_dir: str = "./data",
-                    json_config: Optional[str] = None,
-                    **custom_parameters) -> Procedure:
-    """
-    Factory function to create procedure instances.
-    
-    Args:
-        procedure_class: The procedure class to instantiate
-        protocol: Unique experiment protocol identifier for the experiment
-        experimenter: Name of the person running the experiment
-        hardware_yaml: Path to hardware configuration file
-        data_dir: Directory for saving data
-        json_config: Optional JSON configuration file
-        **custom_parameters: Additional custom parameters
-    
-    Returns:
-        Instance of the specified procedure class
-    """
-    config = ProcedureConfig(
-        protocol=protocol,
-        experimenter=experimenter,
-        hardware_yaml=hardware_yaml,
-        data_dir=data_dir,
-        json_config=json_config,
-        custom_parameters=custom_parameters
-    )
-    
-    return procedure_class(config)
+def create_procedure(
+    procedure_class: Type[Procedure],
+    config_path: Optional[str],
+    **custom_parameters,
+) -> Procedure:
+    """Factory function to create procedure instances."""
+    procedure = procedure_class(config_path)
+    for key, value in custom_parameters.items():
+        procedure.config.set(key, value)
+    return procedure
 
 
 # Legacy constants for backward compatibility
