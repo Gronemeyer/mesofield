@@ -129,6 +129,7 @@ class ExperimentConfig(ConfigRegister):
         self.logger.debug("Registered default parameters")
 
         # Initialize hardware
+        self.hardware: HardwareManager
         self._hardware_yaml_path: Optional[str] = None
         self._hardware_path_locked: bool = False
         try:

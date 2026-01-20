@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, Type
 
 from mesofield.config import ExperimentConfig
+from mesofield.protocols import Configurator
 from mesofield.hardware import HardwareManager
 from mesofield.data.manager import DataManager
 from mesofield.utils._logger import get_logger
@@ -33,6 +34,7 @@ class Procedure:
     def __init__(self, config_path: Optional[str]):
         self.events = ProcedureSignals()
 
+        self.config: Configurator
         experiment_dir = os.path.dirname(os.path.abspath(config_path)) if config_path else None
         self.config = ExperimentConfig(experiment_dir)
         if config_path:
@@ -155,6 +157,11 @@ class Procedure:
         # persist any modified configuration values back to the JSON file
         self.config.save_json()
         self.logger.info("Data saved successfully")
+
+
+    def cleanup(self) -> None:
+        """Clean up after the experiment procedure."""
+        self._cleanup_procedure()
 
 
     # ------------------------------------------------------------------

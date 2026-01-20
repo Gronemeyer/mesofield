@@ -79,18 +79,15 @@ class Procedure(Protocol):
     protocol: str
     experimenter: str
     config: Configurator
-    hardware_yaml: str
     data_dir: str
     
-    def initialize_hardware(self) -> bool:
+    def initialize_hardware(self) -> None:
         """Setup the experiment procedure.
         
-        Returns:
-            bool: True if setup was successful, False otherwise.
         """
         ...
     
-    def setup_configuration(self, json_config: str) -> None:
+    def setup_configuration(self, json_config: Optional[str]) -> None:
         """Set up the configuration for the experiment procedure.
         
         Args:
