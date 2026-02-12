@@ -1,53 +1,84 @@
 ```
- __    __     ______     ______     ______     ______   __     ______     __         _____    
-/\ "-./  \   /\  ___\   /\  ___\   /\  __ \   /\  ___\ /\ \   /\  ___\   /\ \       /\  __-.  
-\ \ \-./\ \  \ \  __\   \ \___  \  \ \ \/\ \  \ \  __\ \ \ \  \ \  __\   \ \ \____  \ \ \/\ \ 
- \ \_\ \ \_\  \ \_____\  \/\_____\  \ \_____\  \ \_\    \ \_\  \ \_____\  \ \_____\  \ \____- 
-  \/_/  \/_/   \/_____/   \/_____/   \/_____/   \/_/     \/_/   \/_____/   \/_____/   \/____/ 
-                                                                                  
+ __    __     ______     ______     ______     ______   __     ______     __         _____
+/\ "-./  \   /\  ___\   /\  ___\   /\  __ \   /\  ___\ /\ \   /\  ___\   /\ \       /\  __-.
+\ \ \-./\ \  \ \  __\   \ \___  \  \ \ \/\ \  \ \  __\ \ \ \  \ \  __\   \ \ \____  \ \ \/\ \
+ \ \_\ \ \_\  \ \_____\  \/\_____\  \ \_____\  \ \_\    \ \_\  \ \_____\  \ \_____\  \ \____-
+  \/_/  \/_/   \/_____/   \/_____/   \/_____/   \/_/     \/_/   \/_____/   \/_____/   \/____/
 ```
 
-Mesofield is a small framework for managing neuroscience hardware.  It controls
-cameras, encoders and other instruments through serial connections and
-[MicroManager](https://micro-manager.org/) using
-[pymmcore-plus](https://pymmcore-plus.github.io/pymmcore-plus/). The project is aimed at laboratory use and is not a
-full production package.
+Mesofield is a PyQt6-based framework for running real-time, multi-camera neuroscience experiments. It coordinates hardware via serial connections and MicroManager (through [pymmcore-plus](https://pymmcore-plus.github.io/pymmcore-plus/) custom `MDAEngines` and multi `CMMCorePlus` object instancing) and manages experiment configuration, acquisition orchestration, and data logging. The project is aimed at laboratory use and is not a full production package; some specialized knowledge of device hardware and hardware classes/MicroManager device configuration are necessary to getting started. 
 
 <img width="2454" height="1592" alt="Screenshot 2025-07-10 161939" src="https://github.com/user-attachments/assets/151196ab-2d74-4644-85b7-c4facf3b779a" />
 
-## Overview
+---
 
-Experiments are driven by `mesofield.base.Procedure`.  Each procedure
-owns a configuration object, `~mesofield.config.ExperimentConfig`, which
-loads the ``hardware.yaml`` via `mesofield.hardware.HardwareManager`.
-This registry stores parameters such as ``subject``, ``session`` and user-definable 
-parameters stored and loaded via JSON.  GUI widgets like
-`mesofield.gui.controller.ConfigController` expose these values for
-interactive editing.
+## Table of Contents
 
-Main components:
+- [Architecture Overview](#architecture-overview)
+- [Key Concepts](#key-concepts)
+- [Installation](#installation)
+- [Experiment Setup](#experiment-setup)
+  - [1) Create Hardware Configuration](#1-create-hardware-configuration)
+  - [2) Create Experiment Configuration](#2-create-experiment-configuration)
+  - [3) Launch Mesofield](#3-launch-mesofield)
+- [Custom Hardware Devices](#custom-hardware-devices)
+- [Threading Models](#threading-models)
+- [Using the Embedded Console](#using-the-embedded-console)
+- [Logging](#logging)
+- [System Requirements](#system-requirements)
 
-- **ExperimentConfig** – configuration registry with methods such as
-  `load_json`, `build_sequence` and `make_path`.
-- **HardwareManager** – creates devices from the YAML configuration and
-  exposes them via attributes like `cameras`, `encoder` and `nidaq`.
-- **DataManager** – collects device output using a thread safe
-  `DataQueue` and can log entries with `start_queue_logger`. Owns
-  a `DataSaver` and `DataPaths` for managing data saving and pathing, respectively.
-- **Procedure** – high level experiment runner defined in
-  `mesofield.base`.  It coordinates the configuration, hardware and data
-  manager.  Use `create_procedure` to build a procedure instance.
+---
 
-Mesofield uses PyQt6 and has only been tested on various Windows 10/11.
-Multi-camera setups prodcuing large experimental files require modern
-computing hardware. I recommend having at least 32gb RAM and a 12th
-generation i7 core or equivalent.
+## Architecture Overview
 
-An attemp tat universal logging and exception handling has been made;
-all logs and uncaught exceptions are written to `logs/mesofield.log`
-using a standardized logger.
+Mesofield organizes experiments around four core components:
 
-## Development Setup
+1. **`Procedure`** (`mesofield.base.Procedure`)  
+   The high-level experiment runner. It coordinates hardware initialization, configuration, acquisition, and data saving.
+
+2. **`ExperimentConfig`** (`mesofield.config.ExperimentConfig`)  
+   A registry for all experiment parameters. It loads JSON configuration data, builds subject/session paths, and synchronizes updated values back to disk at the end of each run.
+
+3. **`HardwareManager`** (`mesofield.hardware.HardwareManager`)  
+   Builds hardware devices from a YAML configuration and exposes them as attributes (e.g., `cameras`, `encoder`, `nidaq`). It owns the lifecycle of hardware devices (initialize → start → stop).
+
+4. **`DataManager`** (`mesofield.data.DataManager`)  
+   Collects data from devices using a thread-safe queue and manages structured saving via `DataSaver` and `DataPaths`. It can also log queue output with `start_queue_logger`.
+
+A typical run flows as:
+
+```
+JSON Experiment Config
+        ↓
+ExperimentConfig
+        ↓
+HardwareManager → Devices
+        ↓
+DataManager → DataQueue → DataSaver
+        ↓
+Procedure (orchestrates everything)
+```
+
+The launch command runs:
+```python
+procedure = Procedure(json_config_path)
+mesofield = MainWindow(procedure)
+mesofield.show()
+splash.finish(mesofield)
+app.exec()
+```
+
+---
+
+## Key Concepts
+
+- **Hardware configuration (YAML)** defines *what hardware exists* and how to connect to it.
+- **Experiment configuration (JSON)** defines *what the experiment does*, including subjects, sessions, paths, and runtime parameters.
+    - **DisplayKeys** determine which configuration values are editable in the GUI and saved back to JSON.
+
+---
+
+## Installation
 
 ```bash
 conda create -n mesofield python=3.13
@@ -55,42 +86,75 @@ conda activate mesofield
 pip install -r requirements.txt
 ```
 
-## Launch from JSON Configuration
+---
 
-In your terminal, launch Mesofield like so:
+## Experiment Setup
 
-```python
-python -m mesofield launch --config "path/to/json_config"
+### 1) Create Hardware Configuration
+
+Unfortunately, this step requires the most cognitive time and specialized knowledge; it is not yet "user-friendly". Further development here is within the scope of the project as it becomes tailored toward broader distribution. 
+
+Create a `hardware.yaml` that describes the devices you want Mesofield to control. Currently, this requires knowledge of the device classes and/or MicroManager configurations of hardware. [pymmcore-plus](https://pymmcore-plus.github.io/pymmcore-plus/) is used to interface with MicroManager hardware devices. Otherwise, the `HardwareManager` will reference locally defined device classes. 
+
+**Example structure used for development in /tests:**
+```yaml
+memory_buffer_size: 10000
+viewer_type: "static"
+
+encoder:
+  type: "wheel"
+  port: "COM4"
+  baudrate: 57600
+  cpr: 2400
+  diameter_mm: 80
+  sample_interval_ms: 20
+  development_mode: False
+
+cameras:
+  - id: "dev"
+    name: "devcam1"
+    backend: "micromanager"
+    micromanager_path: "C:/Program Files/Micro-Manager-2.0"
+
+  - id: "dev"
+    name: "devcam2"
+    backend: "micromanager"
+    micromanager_path: "C:/Program Files/Micro-Manager-2.0"
+    output:
+      bids_type: "func"
+      file_type: "mp4"
 ```
 
-Below is a sample config. The Subjects section is vital,
-Mesofield uses this information to build a BIDS-compliant
-directory. Also vital (like any good config) are the paths
-in the Configuration section:
+Mesofield will load this file through `HardwareManager` and make the devices available in `procedure.config.hardware`.
+
+---
+
+### 2) Create Experiment Configuration
+
+Create a JSON file that defines experiment metadata, paths, and subject details.
 
 ```json
 {
     "Configuration": {
         "experimenter": "you",
         "protocol": "HFSA",
-        "experiment_directory": "/where/mesofield/builds_outputs",
-        "hardware_config_file": "path/to/hardware.yaml",
-        "database_path": "where/mesofield/builds_h5_database/database.h5",
-        "duration": 1000,
+        "experiment_directory": "/where/mesofield/builds_outputs", [optional, can be derived from json file parent directory]
+        "hardware_config_file": "path/to/hardware.yaml",           [optional, can be derived from json file parent directory]
+        "duration": 1000        --> translates to duration x camera.fps = frames sent to MDASequence
     },
     "Subjects": {
-        "STREHAB07": {
+        "STREHAB07": {          --> BIDS sub-STREHAB07
             "sex": "F",
-            "session": "01",
-            "task": "mesoscope"
-        },
+            "session": "01",    --> BIDS ses-01
+            "task": "mesoscope" --> BIDS task-mesoscope
+        },                      --> {datetime}_sub-STREHAB07_ses-01_task-mesoscope_{filetype.suffix}
         "STREHAB09": {
             "sex": "M",
             "session": "01",
             "task": "mesoscope"
         }
     },
-    "DisplayKeys": [
+    "DisplayKeys": [            --> GUI widget hot config params
         "subject",
         "session",
         "task",
@@ -103,20 +167,26 @@ in the Configuration section:
 }
 ```
 
-The `ConfigController` uses the `DisplayKeys` list, when present,
-to load and display in the `ConfigFormWidget`.  Only these values
-are written back to the JSON file when a `Procedure` finishes.
+**Notes:**
+- The `Subjects` section is used to create BIDS-style output directories.
+- `DisplayKeys` controls what appears in the GUI and what is saved back to the JSON on completion.
+- Any new keys you add are preserved and saved back to disk.
 
-Running a procedure will persist any modified configuration values back to
-the JSON file, keeping it in sync with the session counter and other fields.
+---
 
-Mesofield supports adding as many parameters as you want, which will
-get saved back to the JSON, and used as you so please.
+### 3) Launch Mesofield
 
-## Custom Hardware
+```bash
+python -m mesofield launch --config "path/to/json_config"
+```
 
-Hardware classes implement the protocols defined in
-`mesofield.protocols`.  A minimal data producing device looks like this:
+Mesofield will load the config, initialize hardware, and open the GUI for interactive control.
+
+---
+
+## Custom Hardware Devices
+
+Hardware classes implement protocols defined in `mesofield.protocols`. A minimal data-producing device might look like:
 
 ```python
 import serial
@@ -140,12 +210,13 @@ class SerialSensor(DataAcquisitionDevice):
         return float(self.ser.readline())
 ```
 
-Register the class with `mesofield.DeviceRegistry.register("sensor")` and add an
-entry to your `hardware.yaml` so that `HardwareManager` can instantiate it.
+Register the class with `mesofield.DeviceRegistry.register("sensor")` and add a corresponding entry in `hardware.yaml`.
+
+---
 
 ## Threading Models
 
-Devices can run in different concurrency models:
+Devices can be implemented using different concurrency models:
 
 ```python
 from PyQt6.QtCore import QThread
@@ -164,18 +235,67 @@ class ThreadedDevice(ThreadingHardwareDeviceMixin):
         ...  # standard thread
 ```
 
-Asynchronous devices can be implemented with `asyncio` while still
-providing the protocol methods.
+Asynchronous devices can also be written using `asyncio` while still implementing the expected protocol methods.
 
-## Using the Console
+---
 
-Press **Toggle Console** to open the embedded IPython terminal.  The names
-inserted by :func:`MainWindow.initialize_console` include:
+## Using the Embedded Console
 
-- ``self`` – the application window
-- ``procedure`` – the running :class:`mesofield.base.Procedure`
-- ``data`` – the :mod:`mesofield.data` package
+Press **Toggle Console** to open the IPython terminal. Available names include:
 
-Access the configuration as ``procedure.config``.  Type
-``procedure.config.hardware`` to inspect loaded devices and use tab completion
-on ``procedure.config.`` to discover parameters.
+- `self` – the application window
+- `procedure` – the active `mesofield.base.Procedure`
+- `data` – the `mesofield.data` package
+
+Use `procedure.config` to inspect or modify configuration values.
+
+---
+
+## Logging
+
+Logging is a core part of Mesofield and is designed to make long-running, multi-device experiments observable and debuggable.
+
+**What gets logged**
+- **All application logs** (from Mesofield and its subsystems) go through a centralized logger.
+- **Uncaught exceptions** are captured and written to the same log file via a global exception hook.
+- Devices and data-saving operations also emit informational and error messages (e.g., configuration saves, output paths, or failures).
+
+**Where logs live**
+
+```
+logs/mesofield.log
+```
+
+- By default, logs are written to `logs/mesofield.log` in the project root.
+- The log directory is created automatically if it does not exist.
+
+**Rotation & retention**
+- Logs rotate **daily at midnight**.
+
+**Console vs file**
+- The console shows **colored logs** at the configured level (default: `INFO`).
+- The log file captures **all levels** (including `DEBUG`) for full traceability.
+
+**Log format**
+Each entry is formatted consistently to support scanning and grepping:
+```
+HH:MM:SS | LEVEL    | [logger.name] --> message
+```
+
+**Noise reduction**
+- Commonly chatty libraries (e.g., `matplotlib`, `asyncio`, `traitlets`) are forced to `WARNING` or above to keep logs clean.
+
+If you need to change log location or verbosity, look at `mesofield/utils/_logger.py` where the centralized setup is defined.
+
+
+
+---
+
+## System Requirements
+
+Mesofield has been tested on Windows 10/11.  
+For multi-camera acquisition with large files, we recommend:
+
+- **≥ 32 GB RAM**
+- **12th-gen Intel i7 or equivalent**
+```
