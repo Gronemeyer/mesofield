@@ -273,10 +273,7 @@ class CV2Writer(_5DWriterBase[Any]):
     def write_frame(self, ary: Any, index: tuple[int, ...], frame: np.ndarray) -> None:
         import cv2
 
-        # allocate a destination array for normalization
-        dst = np.empty_like(frame)
-        frame_8u = cv2.normalize(frame, dst, 0, 255, cv2.NORM_MINMAX)
-        frame_8u = cv2.convertScaleAbs(frame)  # More robust conversion
+        frame_8u = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
         ary.write(frame_8u)
 
     def finalize_metadata(self) -> None:
