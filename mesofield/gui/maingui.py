@@ -29,9 +29,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         #self.config: ExperimentConfig = cast(ExperimentConfig, procedure.config)
         self.procedure = procedure
-        self.display_keys = self.procedure.config.display_keys
-        window_icon = QIcon(os.path.join(os.path.dirname(__file__), "Mesofield_icon.png"))
-        self.setWindowIcon(window_icon)        
+        self.display_keys = self.procedure.config.display_keys       
         self.setWindowTitle("Mesofield")
         #============================== Widgets =============================#
         self.acquisition_gui = MDA(self.procedure.config)

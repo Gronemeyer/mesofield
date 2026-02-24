@@ -45,7 +45,7 @@ def cli():
 
 
 @cli.command()
-@click.option('--config', required=True, help='Path to experiment JSON configuration')
+@click.argument('config', type=click.Path())
 def launch(config):
     import time
     
@@ -53,12 +53,14 @@ def launch(config):
     from PyQt6.QtGui import QPixmap, QPainter, QFont
     from PyQt6.QtCore import Qt
     from PyQt6.QtGui import QColor, QRadialGradient
+    from PyQt6.QtGui import QIcon
     
     from mesofield.gui.maingui import MainWindow
     from mesofield.base import Procedure
     
     app = QApplication([])
-
+    window_icon = QIcon(os.path.join(os.path.dirname(__file__), "gui", "Mesofield_icon.png"))
+    app.setWindowIcon(window_icon)
 
     # PNG:
     # pixmap = QPixmap(r'mesofield\gui\Mesofield_icon.png')
