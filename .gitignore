@@ -2,7 +2,9 @@
 /data/
 /logs/
 /mesofield/logs/
-./hardware.yaml
+# Ignore hardware.yaml everywhere except the one in mesofield/tests
+*/hardware.yaml
+!/mesofield/tests/sample_experiment/hardware.yaml
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -175,5 +177,3 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-hardware.yaml
-hardware.yaml
