@@ -112,14 +112,15 @@ class MDA(QWidget):
             core_box = QGroupBox(title=str(cam.name))
             core_box.setLayout(QVBoxLayout())
             core_box.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            auto_contrast = getattr(cam, "auto_contrast")
 
             # Preview widget based on cam.viewer
             if cam.viewer == "static":
                 if isinstance(cam.core, CMMCorePlus):
-                    if cam.name.lower() == 'mesoscope':
-                        preview = ImagePreview(mmcore=cam.core, _clims='auto')
-                    else:
-                        preview = ImagePreview(mmcore=cam.core)
+                    preview = ImagePreview(
+                        mmcore=cam.core,
+                        _clims='auto' if auto_contrast else (0, 255),
+                    )
 
                     # Buttons row
                     btn_box = QWidget()
@@ -133,7 +134,10 @@ class MDA(QWidget):
                     cores_groupbox.layout().addWidget(core_box)
                     self.layout().addWidget(cores_groupbox)
                 else:
-                    preview = InteractivePreview(image_payload=cam.core.image_ready)
+                    preview = InteractivePreview(
+                        image_payload=cam.core.image_ready,
+                        auto_contrast=auto_contrast,
+                    )
                     cam.core.start()
                     core_box.layout().addWidget(preview)
                     cores_groupbox.layout().addWidget(core_box)

@@ -35,6 +35,7 @@ class MMCamera(DataProducer, HardwareDevice):
         self.backend = cfg.get("backend", "").lower()
         self.properties = cfg.get("properties", {})
         self.viewer = cfg.get("viewer_type", "static")
+        self.auto_contrast = cfg.get("auto_contrast")
         self._engine = None
         self.is_active = False
         self.logger = get_logger(f"{__name__}.MMCamera[{self.id}]")
@@ -109,6 +110,8 @@ class MMCamera(DataProducer, HardwareDevice):
                     setattr(self, "sampling_rate", val)
                 elif prop == "viewer_type":
                     setattr(self, "viewer", val)
+                elif prop == "auto_contrast":
+                    setattr(self, "auto_contrast", val)
                 else:
                     if self.backend == "micromanager":
                         setter = getattr(self.core, "setProperty", None)
