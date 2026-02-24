@@ -1,31 +1,87 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
 import pyqtgraph as pg
 
-from mesofield.protocols import Configurator
-# from typing import TYPE_CHECKING
-# if TYPE_CHECKING:
-#     from mesofield.config import ExperimentConfig
 
-class EncoderWidget(QWidget):
-    def __init__(self, cfg: 'Configurator'):
+class SerialWidget(QWidget):
+    """
+    A live-plotting widget for any serial device that emits a 
+    pyqtSignal(float, float) representing (time, value).
+    
+    Parameters
+    ----------
+    cfg : Configurator
+        The experiment configuration object.  The device is resolved from
+        ``cfg.hardware.<device_attr>``.  If that attribute is ``None`` or
+        missing the widget renders in a safe *disconnected* state.
+    device_attr : str
+        Attribute name on ``cfg.hardware`` to look up (default ``"encoder"``).
+    signal_name : str
+        Name of the pyqtSignal attribute on the device to connect to.
+    label : str
+        Human-readable name shown in the info label.
+    value_label : str
+        Y-axis label for the plot.
+    value_units : str
+        Y-axis units.
+    y_range : tuple[float, float]
+        Initial Y-axis range.
+    value_scale : float
+        Multiplicative factor applied to incoming values before plotting.
+    max_points : int
+        Number of data points to keep visible.
+    """
+
+    def __init__(
+        self,
+        cfg,
+        device_attr: str = "encoder",
+        signal_name: str = "serialSpeedUpdated",
+        label: str = "Serial Device",
+        value_label: str = "Value",
+        value_units: str = "",
+        y_range: tuple = (-1, 1),
+        value_scale: float = 0.01,
+        max_points: int = 100,
+    ):
         super().__init__()
-        self.config = cfg
+        self.device = getattr(cfg.hardware, device_attr, None)
+        self.signal_name = signal_name
+        self.label = label
+        self.value_label = value_label
+        self.value_units = value_units
+        self.y_range = y_range
+        self.value_scale = value_scale
+        self.max_points = max_points
+        self.connected = self.device is not None
+
+        self._signal = getattr(self.device, self.signal_name, None) if self.connected else None
+
         self.init_ui()
         self.init_data()
         self.setFixedHeight(300)
 
+    # ---- UI ----------------------------------------------------------------
+
     def init_ui(self):
         self.layout = QVBoxLayout()
 
-        # Status label to show connection status
-        self.status_label = QLabel("Click 'Start Live View' to begin.")
-        self.info_label = QLabel(f'Viewing data from {self.config.hardware.encoder} at Port: {self.config.hardware.encoder.serial_port} | Baud: {self.config.hardware.encoder.baud_rate}')
+        if self.connected:
+            port = getattr(self.device, 'serial_port', '?')
+            baud = getattr(self.device, 'baud_rate', '?')
+            status_text = "Click 'Start Live View' to begin."
+            info_text = f'{self.label} on Port: {port} | Baud: {baud}'
+        else:
+            status_text = "No device connected."
+            info_text = f"{self.label}: not available"
+
+        self.status_label = QLabel(status_text)
+        self.info_label = QLabel(info_text)
         self.start_button = QPushButton("Start Live View")
         self.start_button.setCheckable(True)
+        self.start_button.setEnabled(self.connected)
         self.plot_widget = pg.PlotWidget()
 
         self.start_button.clicked.connect(self.toggle_serial_thread)
-        self.start_button.setEnabled(True)
 
         self.layout.addWidget(self.status_label)
         self.layout.addWidget(self.info_label)
@@ -33,61 +89,64 @@ class EncoderWidget(QWidget):
         self.layout.addWidget(self.plot_widget)
         self.setLayout(self.layout)
 
+        units_str = self.value_units or None
         self.plot_widget.setTitle('Serial Trace')
-        self.plot_widget.setLabel('left', 'Speed', units='mm/s')
+        self.plot_widget.setLabel('left', self.value_label, units=units_str)
         self.plot_widget.setLabel('bottom', 'Time', units='s')
-        self.speed_curve = self.plot_widget.plot(pen='y')
+        self.data_curve = self.plot_widget.plot(pen='y')
 
-        # Limit the range of the y-axis to +/- 2
-        self.plot_widget.setYRange(-1, 1)
+        self.plot_widget.setYRange(*self.y_range)
         self.plot_widget.showGrid(x=True, y=True)
-        
-        #================================= SerialWorker Signals ================================#
-        # self.encoder.serialStreamStarted.connect(self.start_live_view)
-        # self.encoder.serialDataReceived.connect(self.process_data)
-        # self.encoder.serialStreamStopped.connect(self.stop_timer)
-        self.config.hardware.encoder.serialSpeedUpdated.connect(self.receive_speed_data) 
-        #========================================================================================#
+
+        if self._signal is not None:
+            self._signal.connect(self.receive_data)
+
+    # ---- Data --------------------------------------------------------------
 
     def init_data(self):
         self.times = []
-        self.speeds = []
+        self.values = []
         self.start_time = None
         self.timer = None
         self.previous_time = 0
 
     def toggle_serial_thread(self):
+        if not self.connected:
+            return
         if self.start_button.isChecked():
-            # Create a new encoder instance each time before starting the thread
-            self.config.hardware.encoder.serialSpeedUpdated.connect(self.receive_speed_data)
-            self.config.hardware.encoder.start()
+            self._signal.connect(self.receive_data)
+            self.device.start()
             self.status_label.setText("Serial thread started.")
         else:
             self.stop_serial_thread()
             self.status_label.setText("Serial thread stopped.")
 
     def stop_serial_thread(self):
-        if self.config.hardware.encoder is not None:
-            self.config.hardware.encoder.serialSpeedUpdated.disconnect()
+        if self._signal is not None:
+            self._signal.disconnect()
 
-    def receive_speed_data(self, time, speed):
+    def receive_data(self, time, value):
         self.times.append(time)
-        self.speeds.append(speed/100)
-        # Keep only the last 100 data points
-        self.times = self.times[-100:]
-        self.speeds = self.speeds[-100:]
+        self.values.append(value * self.value_scale)
+        self.times = self.times[-self.max_points:]
+        self.values = self.values[-self.max_points:]
         self.update_plot()
-        self.status_label.setText(f"Speed: {speed:.2f} mm/s")
+        unit_suffix = f" {self.value_units}" if self.value_units else ""
+        self.status_label.setText(
+            f"{self.value_label}: {value:.2f}{unit_suffix}"
+        )
 
     def update_plot(self):
         try:
-            if self.times and self.speeds:
-                # Update the curve with the last 100 data points
-                self.speed_curve.setData(self.times, self.speeds)
-                # Adjust x-axis range to show the recent data points
+            if self.times and self.values:
+                self.data_curve.setData(self.times, self.values)
                 self.plot_widget.setXRange(self.times[0], self.times[-1], padding=0)
             else:
                 self.plot_widget.clear()
                 self.plot_widget.setTitle('No data received.')
         except Exception as e:
             print(f"Exception in update_plot: {e}")
+
+
+# Backwards-compatible alias
+EncoderWidget = SerialWidget

@@ -20,7 +20,7 @@ from PyQt6.QtCore import QCoreApplication, Qt
 
 from mesofield.gui.mdagui import MDA
 from mesofield.gui.controller import ConfigController
-from mesofield.gui.speedplotter import EncoderWidget
+from mesofield.gui.speedplotter import SerialWidget
 from mesofield.config import ExperimentConfig
 from mesofield.protocols import Procedure
 
@@ -34,7 +34,14 @@ class MainWindow(QMainWindow):
         #============================== Widgets =============================#
         self.acquisition_gui = MDA(self.procedure.config)
         self.config_controller = ConfigController(self.procedure, display_keys=self.display_keys)
-        self.encoder_widget = EncoderWidget(self.procedure.config)
+        self.encoder_widget = SerialWidget(
+            cfg=self.procedure.config,
+            device_attr="encoder",
+            signal_name="serialSpeedUpdated",
+            label="Encoder",
+            value_label="Speed",
+            value_units="mm/s",
+        )
         self.initialize_console(self.procedure) # Initialize the IPython console
         #--------------------------------------------------------------------#
 
