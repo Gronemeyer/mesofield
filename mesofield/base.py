@@ -147,8 +147,12 @@ class Procedure:
     # ------------------------------------------------------------------
     def save_data(self) -> None:
         mgr = getattr(self, "data_manager", self.data)
-        self.hardware.cameras[1].core.stopSequenceAcquisition() #type: ignore
         for cam in self.hardware.cameras:
+            if hasattr(cam, 'core') and hasattr(cam.core, 'stopSequenceAcquisition'):
+                try:
+                    cam.core.stopSequenceAcquisition()
+                except Exception:
+                    pass
             cam.stop()
         mgr.save.configuration()
         mgr.save.all_notes()
@@ -175,8 +179,17 @@ class Procedure:
     def _cleanup_procedure(self):
         self.logger.info("Cleanup Procedure")
         try:
-            self.hardware.cameras[1].core.stopSequenceAcquisition()
-            self.hardware.cameras[0].core.mda.events.sequenceFinished.disconnect(self._cleanup_procedure)
+            for cam in self.hardware.cameras:
+                if hasattr(cam, 'core') and hasattr(cam.core, 'stopSequenceAcquisition'):
+                    try:
+                        cam.core.stopSequenceAcquisition()
+                    except Exception:
+                        pass
+            if self.hardware.cameras and hasattr(self.hardware.cameras[0], 'core'):
+                try:
+                    self.hardware.cameras[0].core.mda.events.sequenceFinished.disconnect(self._cleanup_procedure)
+                except Exception:
+                    pass
             self.hardware.stop()
             self.data.stop_queue_logger()
             self.stopped_time = datetime.now()

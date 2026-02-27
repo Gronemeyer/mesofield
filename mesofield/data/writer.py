@@ -39,8 +39,6 @@ Non-OME (ImageJ) hyperstack axes MUST be in TZCYXS order
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
-from mesofield.data.proc.crop_enhance_mp4 import BASE_DIR
-
 if TYPE_CHECKING:
     from pymmcore_plus.mda.metadata import SummaryMetaV1  # type: ignore
 

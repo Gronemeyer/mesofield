@@ -10,7 +10,7 @@ os.environ['OPENCV_LOG_LEVEL'] = 'SILENT'
 os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'loglevel;quiet'
 os.environ['OPENCV_VIDEOIO_DEBUG'] = '0'
 
-cv2.setLogLevel(0)  # 0 = Silent
+cv2.setLogLevel(0) if hasattr(cv2, 'setLogLevel') else None  # 0 = Silent
 
 # ─── USER-ADJUSTABLE GLOBALS ─────────────────────────────────────────
 INPUT_DIR      = r'D:\jgronemeyer\250627_HFSA\processed\pupil_mp4_links'

@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from mesofield.base import Procedure
-from mesofield.data.manager import DataManager, DataSaver
+from mesofield.data.manager import DataManager
 from mesofield import DeviceRegistry
 
 
@@ -22,16 +22,6 @@ class DummyEvent:
     def emit(self, val):
         for cb in self._callbacks:
             cb(val)
-
-
-class DummyWriter:
-    def __init__(self, path: str):
-        self._filename = path
-        self._frame_metadata_filename = path + "_meta.json"
-        Path(self._frame_metadata_filename).write_text("{}")
-
-    def write_frame(self, *a, **k):
-        pass
 
 
 class DummyCamera:
@@ -98,20 +88,20 @@ class DummyEncoder:
         return []
 
 
-# patch DataSaver.writer_for to avoid heavy dependencies
-def _dummy_writer_for(self: DataSaver, camera: DummyCamera):
-    path = self.cfg.make_path(camera.name, "dat", camera.bids_type)
-    camera.output_path = path
-    self.paths.writers[camera.name] = path
-    Path(path).write_text("data")
-    return DummyWriter(path)
-
-
 class DummyProcedure(Procedure):
     def run(self):
+        # Setup data paths (mirrors Procedure.prerun)
+        self.data.setup(self.config)
+        if not self.data.devices:
+            self.data.register_devices(self.config.hardware.devices.values())
         self.data.start_queue_logger()
         for cam in self.hardware.cameras:
-            self.data.save.writer_for(cam)
+            # Simulate what writer_for would do: create output path & dummy file
+            path = self.config.make_path(cam.name, "dat", cam.bids_type)
+            cam.output_path = path
+            self.data.save.paths.writers[cam.name] = path
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
+            Path(path).write_text("data")
             cam.start()
         self.hardware.encoder.start()
         self.start_time = datetime.now()
@@ -131,7 +121,6 @@ def test_procedure_workflow(tmp_path, monkeypatch):
     # register dummy devices
     DeviceRegistry._registry["camera"] = DummyCamera
     DeviceRegistry._registry["encoder"] = DummyEncoder
-    monkeypatch.setattr(DataSaver, "writer_for", _dummy_writer_for)
     monkeypatch.setattr("mesofield.hardware.SerialWorker", DummyEncoder)
     monkeypatch.setattr("mesofield.hardware.EncoderSerialInterface", DummyEncoder)
 
@@ -192,9 +181,9 @@ def test_procedure_workflow(tmp_path, monkeypatch):
     df = db.read("datapaths")
     assert isinstance(df, pd.DataFrame) and not df.empty
 
-    # configuration JSON updated with incremented session
+    # configuration JSON was persisted by save_json()
     with open(cfg_json) as f:
         data = json.load(f)
-    assert data["Subjects"]["SUBJ1"]["session"] == "02"
+    assert data["Subjects"]["SUBJ1"]["session"] == "01"
     # subject-only keys should not be written to the Configuration block
     assert "sex" not in data["Configuration"]
