@@ -1,7 +1,9 @@
-import os
+from __future__ import annotations
+
 import json
 import datetime
-from typing import Dict, Any, List, Optional, Type, TypeVar, Callable
+from pathlib import Path
+from typing import Any, Callable, Optional, TypeVar
 
 import pandas as pd
 import useq
@@ -17,13 +19,13 @@ T = TypeVar('T')
 class ConfigRegister:
     """A registry that maintains configuration values with optional type validation."""
     
-    def __init__(self):
-        self._registry: Dict[str, Any] = {}
-        self._metadata: Dict[str, Dict[str, Any]] = {}
-        self._callbacks: Dict[str, List[Callable[[str, Any], None]]] = {}
+    def __init__(self) -> None:
+        self._registry: dict[str, Any] = {}
+        self._metadata: dict[str, dict[str, Any]] = {}
+        self._callbacks: dict[str, list[Callable[[str, Any], None]]] = {}
     
     def register(self, key: str, default: Any = None, 
-                type_hint: Optional[Type] = None, 
+                type_hint: type | None = None, 
                 description: str = "", 
                 category: str = "general") -> None:
         """Register a configuration parameter with metadata."""
@@ -65,15 +67,15 @@ class ConfigRegister:
         """Check if a key exists in the registry."""
         return key in self._registry
     
-    def keys(self) -> List[str]:
+    def keys(self) -> list[str]:
         """Get all registered keys."""
         return list(self._registry.keys())
     
-    def items(self) -> Dict[str, Any]:
+    def items(self) -> dict[str, Any]:
         """Get all key-value pairs."""
         return self._registry.copy()
     
-    def get_metadata(self, key: str) -> Dict[str, Any]:
+    def get_metadata(self, key: str) -> dict[str, Any]:
         """Get metadata for a key."""
         return self._metadata.get(key, {})
     
@@ -111,18 +113,18 @@ class ExperimentConfig(ConfigRegister):
     ```
     """
 
-    def __init__(self, path: Optional[str] = None):
+    def __init__(self, path: str | None = None):
         super().__init__()
         # Initialize logging first
         self.logger = get_logger(__name__)
         self.logger.info(f"Initializing ExperimentConfig with hardware path: {path}")
         
         # Initialize the configuration registry
-        self._json_file_path = ''
-        self._save_dir = ''
-        self.subjects: Dict[str, Dict[str, Any]] = {}
+        self._json_file_path: Path | None = None
+        self._save_dir = Path()
+        self.subjects: dict[str, dict[str, Any]] = {}
         self.selected_subject: str | None = None
-        self.display_keys: List[str] | None = None
+        self.display_keys: list[str] | None = None
 
         # Register common configuration parameters with defaults and types
         self._register_default_parameters()
@@ -130,13 +132,13 @@ class ExperimentConfig(ConfigRegister):
 
         # Initialize hardware
         self.hardware: HardwareManager
-        self._hardware_yaml_path: Optional[str] = None
+        self._hardware_yaml_path: Path | None = None
         self._hardware_path_locked: bool = False
         try:
             hardware_path, locked = self._resolve_hardware_path(path)
             self._hardware_yaml_path = hardware_path
             self._hardware_path_locked = locked
-            self.hardware = HardwareManager(hardware_path)
+            self.hardware = HardwareManager(str(hardware_path))
         except Exception as e:
             self.logger.error(f"Failed to initialize hardware: {e}")
             raise
@@ -154,24 +156,24 @@ class ExperimentConfig(ConfigRegister):
         self.register("trial_duration", None, int, "Trial duration in seconds", "experiment")
         self.register("psychopy_filename", "experiment.py", str, "PsychoPy experiment filename", "experiment")
 
-    def _resolve_hardware_path(self, path: Optional[str]) -> tuple[str, bool]:
+    def _resolve_hardware_path(self, path: str | None) -> tuple[Path, bool]:
         """Resolve the hardware YAML path.
 
         Returns (hardware_path, locked) where locked indicates an explicit file was provided.
         """
         if path:
-            abs_path = os.path.abspath(path)
-            if os.path.isdir(abs_path):
-                self.experiment_dir = abs_path
-                return os.path.join(abs_path, "hardware.yaml"), False
+            abs_path = Path(path).resolve()
+            if abs_path.is_dir():
+                self.experiment_dir = str(abs_path)
+                return abs_path / "hardware.yaml", False
             # treat as explicit file path
-            self.experiment_dir = os.path.dirname(abs_path)
+            self.experiment_dir = str(abs_path.parent)
             return abs_path, True
 
         # no path provided: resolve from experiment_dir (or cwd)
         if not self.experiment_dir:
-            self.experiment_dir = os.getcwd()
-        return os.path.join(self.experiment_dir, "hardware.yaml"), False
+            self.experiment_dir = str(Path.cwd())
+        return Path(self.experiment_dir) / "hardware.yaml", False
 
     @property
     def _cores(self):# -> tuple[CMMCorePlus, ...]:
@@ -181,20 +183,20 @@ class ExperimentConfig(ConfigRegister):
     @property
     def experiment_dir(self) -> str:
         """Get the experiment directory (base directory)."""
-        return self._save_dir
+        return str(self._save_dir)
 
     @experiment_dir.setter
-    def experiment_dir(self, path: str):
+    def experiment_dir(self, path: str) -> None:
         """Set the experiment directory (base directory)."""
-        if isinstance(path, str):
-            self._save_dir = os.path.abspath(path)
+        if isinstance(path, (str, Path)):
+            self._save_dir = Path(path).resolve()
         else:
             print(f"ExperimentConfig: \n Invalid experiment directory path: {path}")
 
     @property
     def data_dir(self) -> str:
         """Get the data directory (experiment_dir/data)."""
-        return os.path.join(self._save_dir, 'data')
+        return str(self._save_dir / "data")
 
     @property
     def save_dir(self) -> str:
@@ -263,12 +265,10 @@ class ExperimentConfig(ConfigRegister):
     
     @property
     def bids_dir(self) -> str:
-        """ Dynamic construct of BIDS directory path """
-        bids = os.path.join(
-            f"sub-{self.subject}",
-            f"ses-{self.session}",
+        """Dynamic construct of BIDS directory path."""
+        return str(
+            Path(self.save_dir) / f"sub-{self.subject}" / f"ses-{self.session}"
         )
-        return os.path.abspath(os.path.join(self.save_dir, bids))
 
     
     @property
@@ -287,12 +287,16 @@ class ExperimentConfig(ConfigRegister):
     @property
     def psychopy_path(self) -> str:
         """Get the PsychoPy script path."""
-        return os.path.join(self._save_dir, self.psychopy_filename)
+        return str(self._save_dir / self.psychopy_filename)
     
     @property
     def psychopy_save_path(self) -> str:
         """Get the PsychoPy save path."""
-        return os.path.join(self._save_dir, f"data/sub-{self.subject}/ses-{self.session}/beh/{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_sub-{self.subject}_ses-{self.session}_task-{self.task}_psychopy")
+        ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        return str(
+            self._save_dir / "data" / f"sub-{self.subject}" / f"ses-{self.session}"
+            / "beh" / f"{ts}_sub-{self.subject}_ses-{self.session}_task-{self.task}_psychopy"
+        )
     
     @property
     def psychopy_parameters(self) -> dict:
@@ -324,7 +328,7 @@ class ExperimentConfig(ConfigRegister):
             raise ValueError("led_pattern must be a list or a JSON string representing a list")
     
     # Helper method to generate a unique file path
-    def make_path(self, suffix: str, extension: str, bids_type: Optional[str] = None, create_dir: bool = False):
+    def make_path(self, suffix: str, extension: str, bids_type: str | None = None, create_dir: bool = False) -> str:
         """ Example:
         ```py
             ExperimentConfig._generate_unique_file_path("images", "jpg", "func")
@@ -333,26 +337,27 @@ class ExperimentConfig(ConfigRegister):
         Output:
             C:/save_dir/data/sub-id/ses-id/func/20250110_123456_sub-001_ses-01_task-example_images.jpg
         """
-        file = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_sub-{self.subject}_ses-{self.session}_task-{self.task}_{suffix}.{extension}"
+        filename = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_sub-{self.subject}_ses-{self.session}_task-{self.task}_{suffix}.{extension}"
 
-        if bids_type is None:
-            bids_path = self.bids_dir
-        else:
-            bids_path = os.path.join(self.bids_dir, bids_type)
+        bids_path = Path(self.bids_dir)
+        if bids_type is not None:
+            bids_path = bids_path / bids_type
 
         if create_dir:
-            os.makedirs(bids_path, exist_ok=True)
-        base, ext = os.path.splitext(file)
+            bids_path.mkdir(parents=True, exist_ok=True)
+
+        stem = Path(filename).stem
+        ext = Path(filename).suffix
+        file_path = bids_path / filename
         counter = 1
-        file_path = os.path.join(bids_path, file)
-        while os.path.exists(file_path):
-            file_path = os.path.join(bids_path, f"{base}_{counter}{ext}")
+        while file_path.exists():
+            file_path = bids_path / f"{stem}_{counter}{ext}"
             counter += 1
-        return file_path
+        return str(file_path)
         
-    def load_json(self, file_path) -> None:
-        """ Load parameters from a JSON configuration file into the config object. 
-        """
+    def load_json(self, file_path: str | Path) -> None:
+        """Load parameters from a JSON configuration file into the config object."""
+        file_path = Path(file_path)
         self.logger.info(f"Loading configuration from: {file_path}")
         try:
             with open(file_path, 'r') as f:
@@ -365,16 +370,16 @@ class ExperimentConfig(ConfigRegister):
             self.logger.error(f"Error decoding JSON from {file_path}: {e}")
             return
 
-        self._json_file_path = file_path #store the json filepath
-        json_dir = os.path.dirname(os.path.abspath(file_path))
-        if json_dir:
-            self.experiment_dir = json_dir
+        self._json_file_path = file_path
+        json_dir = file_path.resolve().parent
+        if json_dir != Path():
+            self.experiment_dir = str(json_dir)
             if not self._hardware_path_locked:
                 try:
-                    hardware_path = os.path.join(self.experiment_dir, "hardware.yaml")
+                    hardware_path = json_dir / "hardware.yaml"
                     if hardware_path != self._hardware_yaml_path:
                         self._hardware_yaml_path = hardware_path
-                        self.hardware = HardwareManager(hardware_path)
+                        self.hardware = HardwareManager(str(hardware_path))
                 except Exception as e:
                     self.logger.error(f"Failed to reinitialize hardware: {e}")
                     raise
@@ -414,17 +419,14 @@ class ExperimentConfig(ConfigRegister):
 
     def _auto_increment_session(self) -> None:
         """Increment the session number in the config and persist it to the JSON file."""
-        # get current session number
         curr = int(self.session)
         next_num = curr + 1
         session_str = f"{next_num:02d}"
 
-        # update in-memory config
         self.set("session", session_str)
 
-        # persist back to the JSON file if available
-        path = getattr(self, "_json_file_path", "")
-        if path and os.path.isfile(path):
+        path = self._json_file_path
+        if path and path.is_file():
             try:
                 with open(path, "r") as f:
                     data = json.load(f)
@@ -446,10 +448,13 @@ class ExperimentConfig(ConfigRegister):
         else:
             self.logger.warning("No JSON file to update; _json_file_path not set or file missing")
 
-    def save_json(self, path: Optional[str] = None) -> None:
+    def save_json(self, path: str | Path | None = None) -> None:
         """Persist displayed configuration values back to the JSON file."""
-        path = path or getattr(self, "_json_file_path", "")
-        if not path or not os.path.isfile(path):
+        if path is not None:
+            path = Path(path)
+        else:
+            path = self._json_file_path
+        if not path or not path.is_file():
             self.logger.warning("No JSON file to update; _json_file_path not set or file missing")
             return
         try:
