@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 VALID_BACKENDS = {"micromanager", "opencv"}
 
-from typing import Dict, Any, List, Optional, ClassVar
+from typing import Any, ClassVar
 import yaml
 
 from mesofield.protocols import HardwareDevice, DataProducer
@@ -19,7 +21,7 @@ class HardwareManager():
         self.logger.info(f"Initializing HardwareManager with config: {config_file}")
 
         self.config_file = config_file
-        self.devices: Dict[str, DataProducer] = {}
+        self.devices: dict[str, DataProducer] = {}
 
         try:
             self.yaml = self._load_yaml(config_file)
@@ -28,7 +30,7 @@ class HardwareManager():
             self.logger.error(f"Failed to load hardware configuration: {e}")
             raise
 
-        self.widgets: List[str] = self._aggregate_widgets()
+        self.widgets: list[str] = self._aggregate_widgets()
         self.cameras: tuple[MMCamera, ...] = ()
         self.encoder = None
         self.nidaq = None
@@ -69,7 +71,7 @@ class HardwareManager():
             except Exception as e:
                 self.logger.error(f"Error shutting down {name}: {e}")
 
-    def get_device(self, device_id: str) -> Optional[HardwareDevice]:
+    def get_device(self, device_id: str) -> HardwareDevice | None:
         """Get a device by its ID."""
         return self.devices.get(device_id)
 
@@ -88,7 +90,7 @@ class HardwareManager():
         with open(path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
 
-    def _aggregate_widgets(self) -> List[str]:
+    def _aggregate_widgets(self) -> list[str]:
         """Collect unique widget keys from all device sections."""
         sources = [
             self.yaml.get('widgets', []),

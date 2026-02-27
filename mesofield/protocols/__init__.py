@@ -34,9 +34,10 @@ any class that already uses a metaclass. Protocol checking uses duck typing
 internally, so both approaches will work with our system.
 """
 
-from typing import Dict, List, Any, Optional, Protocol, TypeVar, Generic, runtime_checkable
+from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any, Protocol, TypeVar, runtime_checkable, TYPE_CHECKING
+
 if TYPE_CHECKING:
     from mesofield.hardware import HardwareManager
 
@@ -51,7 +52,7 @@ T = TypeVar('T')
 class Configurator(Protocol):
     """Protocol defining the interface for configuration providers."""
     
-    hardware: "HardwareManager"
+    hardware: HardwareManager
     
     def get(self, key: str, default: Any = None) -> Any:
         """Retrieve a configuration value for the given key."""
@@ -65,11 +66,11 @@ class Configurator(Protocol):
         """Check if the configuration contains the given key."""
         ...
     
-    def keys(self) -> List[str]:
+    def keys(self) -> list[str]:
         """Get all configuration keys."""
         ...
     
-    def items(self) -> Dict[str, Any]:
+    def items(self) -> dict[str, Any]:
         """Get all configuration key-value pairs."""
         ...
 
@@ -82,12 +83,10 @@ class Procedure(Protocol):
     data_dir: str
     
     def initialize_hardware(self) -> None:
-        """Setup the experiment procedure.
-        
-        """
+        """Setup the experiment procedure."""
         ...
     
-    def setup_configuration(self, json_config: Optional[str]) -> None:
+    def setup_configuration(self, json_config: str | None) -> None:
         """Set up the configuration for the experiment procedure.
         
         Args:
@@ -119,14 +118,14 @@ class HardwareDevice(Protocol):
         """Initialize the hardware device.
         
         Returns:
-            bool: True if stopped successfully, False otherwise.
+            bool: True if initialized successfully, False otherwise.
         """
         ...
     
     def stop(self):
         """Stop the hardware device after starting it.
         
-        This method will be called by the HardwareManager when a Procedure cleans up
+        This method will be called by the HardwareManager when a Procedure cleans up.
         """
         ...
     
@@ -134,17 +133,16 @@ class HardwareDevice(Protocol):
         """Close and clean up resources."""
         ...
     
-    def status(self) -> Dict[str, Any]:
+    def status(self) -> dict[str, Any]:
         """Get the current status of the device.
         
         Returns:
-        
-            Dict[str, Any]: Dictionary containing device status information.
+            dict[str, Any]: Dictionary containing device status information.
         """
         ...
         
     @property
-    def metadata(self) -> Dict[str, Any]:
+    def metadata(self) -> dict[str, Any]:
         """Return metadata about the hardware."""
         ...
 
@@ -157,10 +155,10 @@ class DataProducer(HardwareDevice, Protocol):
     sampling_rate: float  # in Hz
     data_type: str
     file_type: str
-    bids_type: Optional[str] = None
+    bids_type: str | None = None
     is_active: bool
     output_path: str
-    metadata_path: Optional[str] = None
+    metadata_path: str | None = None
     
     def start(self) -> bool:
         """Start data acquisition or operation.
@@ -178,15 +176,15 @@ class DataProducer(HardwareDevice, Protocol):
         """
         ...
         
-    def save_data(self, path: Optional[str] = None):
-        """Save the device data captured during the recording"""
+    def save_data(self, path: str | None = None):
+        """Save the device data captured during the recording."""
         ...
         
-    def get_data(self) -> Optional[Any]:
+    def get_data(self) -> Any | None:
         """Get the latest data from the producer.
         
         Returns:
-            Optional[Any]: The latest data, or None if no data available.
+            The latest data, or None if no data available.
         """
         ...
     
@@ -203,11 +201,11 @@ class DataConsumer(Protocol):
         ...
     
     @property
-    def get_supported_data_types(self) -> List[str]:
+    def get_supported_data_types(self) -> list[str]:
         """Return the types of data this consumer can process."""
         ...
     
-    def process_data(self, data: Any, metadata: Dict[str, Any]) -> bool:
+    def process_data(self, data: Any, metadata: dict[str, Any]) -> bool:
         """Process data with metadata.
         
         Args:

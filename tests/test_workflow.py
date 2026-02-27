@@ -135,19 +135,17 @@ def test_procedure_workflow(tmp_path, monkeypatch):
     monkeypatch.setattr("mesofield.hardware.SerialWorker", DummyEncoder)
     monkeypatch.setattr("mesofield.hardware.EncoderSerialInterface", DummyEncoder)
 
-        hw_path = tmp_path / "hardware.yaml"
-        hw_path.write_text(
-                """
-memory_buffer_size: 1
-encoder:
-    type: wheel
-    port: COM1
-cameras:
-    - id: cam1
-        name: cam1
-        backend: dummy
-"""
-        )
+    hw_path = tmp_path / "hardware.yaml"
+    hw_path.write_text(
+        "memory_buffer_size: 1\n"
+        "encoder:\n"
+        "  type: wheel\n"
+        "  port: COM1\n"
+        "cameras:\n"
+        "  - id: cam1\n"
+        "    name: cam1\n"
+        "    backend: dummy\n"
+    )
 
     cfg_json = tmp_path / "config.json"
     json.dump({

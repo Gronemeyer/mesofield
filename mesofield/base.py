@@ -5,11 +5,13 @@ This module provides base classes that implement the Procedure protocol and inte
 with the Mesofield configuration and hardware management systems.
 """
 
-import os
+from __future__ import annotations
+
 from datetime import datetime
+from pathlib import Path
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, Type
+from typing import Any, Optional, Type
 
 from mesofield.config import ExperimentConfig
 from mesofield.protocols import Configurator
@@ -31,11 +33,11 @@ class ProcedureSignals(QObject):
 class Procedure:
     """High level class describing an experiment run in Mesofield."""
 
-    def __init__(self, config_path: Optional[str]):
+    def __init__(self, config_path: str | None):
         self.events = ProcedureSignals()
 
         self.config: Configurator
-        experiment_dir = os.path.dirname(os.path.abspath(config_path)) if config_path else None
+        experiment_dir = str(Path(config_path).resolve().parent) if config_path else None
         self.config = ExperimentConfig(experiment_dir)
         if config_path:
             self.config.load_json(config_path)
@@ -50,7 +52,7 @@ class Procedure:
         self.experimenter = self.config.get("experimenter", "researcher")
 
         self.data_dir = self.config.data_dir
-        self.h5_path = os.path.join(self.data_dir, f"{self.protocol}.h5")
+        self.h5_path = str(Path(self.data_dir) / f"{self.protocol}.h5")
 
         self.logger = get_logger(f"PROCEDURE.{self.protocol}")
         self.logger.info(f"Initialized procedure: {self.protocol}")
@@ -93,7 +95,7 @@ class Procedure:
             
     # ------------------------------------------------------------------
     #TODO: Connect an update event from the GUI controller with this method
-    def setup_configuration(self, json_config: Optional[str]) -> None:
+    def setup_configuration(self, json_config: str | None) -> None:
         """ This method loads ExperimentConfig instance with a JSON configuration file.
         
         It then sends this ExperimentConfig object to the HardwareManager, relaying it to MicroManager mda engines
@@ -202,8 +204,8 @@ class Procedure:
 
 # Factory function for creating procedures
 def create_procedure(
-    procedure_class: Type[Procedure],
-    config_path: Optional[str],
+    procedure_class: type[Procedure],
+    config_path: str | None,
     **custom_parameters,
 ) -> Procedure:
     """Factory function to create procedure instances."""

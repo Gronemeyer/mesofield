@@ -5,7 +5,8 @@ This module provides mixin classes that can be used to implement hardware device
 protocols in conjunction with different threading models (threading, QThread, asyncio).
 """
 
-from typing import Dict, Any, Optional, ClassVar
+from __future__ import annotations
+
 import threading
 
 

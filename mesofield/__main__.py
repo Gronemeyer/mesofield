@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import logging
 
@@ -59,7 +61,7 @@ def launch(config):
     from mesofield.base import Procedure
     
     app = QApplication([])
-    window_icon = QIcon(os.path.join(os.path.dirname(__file__), "gui", "Mesofield_icon.png"))
+    window_icon = QIcon(str(Path(__file__).parent / "gui" / "Mesofield_icon.png"))
     app.setWindowIcon(window_icon)
 
     # PNG:
@@ -166,14 +168,14 @@ def trace_meso(dir, sub):
     for path, trace in results.items():
         print(f"{path}: {trace[:10]}") 
         
-    outdir = os.path.join(dir, "processed", sub)
-    os.makedirs(outdir, exist_ok=True)
+    outdir = Path(dir) / "processed" / sub
+    outdir.mkdir(parents=True, exist_ok=True)
 
     for path, trace in results.items():
         df = pd.DataFrame({"Slice": range(len(trace)), "Mean": trace})
-        base_name = os.path.splitext(os.path.basename(path))[0]
+        base_name = Path(path).stem
         filename = f"{base_name}_meso-mean-trace.csv"
-        df.to_csv(os.path.join(outdir, filename), index=False)
+        df.to_csv(str(outdir / filename), index=False)
 
 
 @cli.command()
@@ -330,18 +332,13 @@ def plot_session(dir, sub, ses):
     import pandas as pd
     import matplotlib.pyplot as plt
     import mesofield.data.proc.load as load
-    import mesofield.data.batch as batch
     import mesofield.data.proc as proc
     
-    datadict =  load.file_hierarchy(dir)
+    datadict = load.file_hierarchy(dir)
 
     print(f"DEBUG: Available subject keys: {list(datadict.keys())}")
     print(f"DEBUG: Available session keys for subject '{sub}': {list(datadict[sub].keys())}")
     print(f"DEBUG: Keys within session '{ses}': {list(datadict[sub][ses].keys())}")
-    
-    data = pd.DataFrame(pd.read_pickle(r"D:\jgronemeyer\240324_HFSA\processed\dlc_output\20250408_174515_sub-STREHAB05_ses-10_task-widefield_pupil.omeDLC_Resnet50_DLC-HFSAApr20shuffle2_snapshot_010_full.pickle")).head()
-    proc_data = proc.process_deeplabcut_pupil_data(data)
-    print(proc_data.head())
 
 if __name__ == "__main__":
     cli()
