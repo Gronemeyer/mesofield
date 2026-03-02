@@ -287,4 +287,85 @@ class CV2Writer(_5DWriterBase[Any]):
         json_str = json.dumps(regular_dict, indent=4, cls=CustomJSONEncoder)
         with open(self._frame_metadata_filename, "w") as file:
             file.write(json_str)
- 
+
+
+class OmeWriter:
+    """Event-driven OME-TIFF writer using ome-writers.
+
+    Connects to ``core.mda.events.frameReady`` and streams frames into an
+    ``ome-writers`` stream.  Manages its own lifecycle (open/close) so the
+    camera only needs to call ``start(core, sequence)`` and ``close(core)``.
+
+    Parameters
+    ----------
+    filename : Path | str
+        Output path (should end with ``.ome.tiff``).
+    """
+
+    def __init__(self, filename: Path | str) -> None:
+        import importlib
+        self._ome_writers = importlib.import_module("ome_writers")
+
+        self._filename = str(filename)
+        self._stream_cm = None
+        self._stream = None
+        self._on_frame = None
+        self._on_finished = None
+
+    # ------------------------------------------------------------------
+    def start(self, core, sequence) -> None:
+        """Open the stream, connect signals, and begin the MDA."""
+        pixel_size = core.getPixelSizeUm() or 1.0  # ome-writers requires > 0
+        settings = self._ome_writers.AcquisitionSettings(
+            root_path=self._filename,
+            format="ome-tiff",
+            dtype=f"uint{core.getImageBitDepth()}",
+            overwrite=True,
+            **self._ome_writers.useq_to_acquisition_settings(
+                sequence,
+                image_width=core.getImageWidth(),
+                image_height=core.getImageHeight(),
+                pixel_size_um=pixel_size,
+            ),
+        )
+        self._stream_cm = self._ome_writers.create_stream(settings)
+        self._stream = self._stream_cm.__enter__()
+
+        def _on_frame(frame: np.ndarray, event, metadata: dict) -> None:
+            if self._stream is None:
+                return
+            frame_copy = np.array(frame, copy=True)
+            md = {str(k): str(v) for k, v in metadata.items()}
+            self._stream.append(frame_copy, **{"frame_metadata": md})
+
+        def _on_finished(*_) -> None:
+            self.close(core)
+
+        self._on_frame = _on_frame
+        self._on_finished = _on_finished
+        core.mda.events.frameReady.connect(self._on_frame)
+        core.mda.events.sequenceFinished.connect(self._on_finished)
+        core.run_mda(events=sequence, block=False)
+
+    # ------------------------------------------------------------------
+    def close(self, core=None) -> None:
+        """Disconnect signals and close the stream."""
+        if core is not None:
+            for attr, signal_name in [
+                ("_on_frame", "frameReady"),
+                ("_on_finished", "sequenceFinished"),
+            ]:
+                cb = getattr(self, attr, None)
+                if cb is not None:
+                    try:
+                        getattr(core.mda.events, signal_name).disconnect(cb)
+                    except Exception:
+                        pass
+                    setattr(self, attr, None)
+
+        if self._stream_cm is not None:
+            try:
+                self._stream_cm.__exit__(None, None, None)
+            finally:
+                self._stream_cm = None
+                self._stream = None

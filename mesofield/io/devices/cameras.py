@@ -1,14 +1,15 @@
 from typing import Optional, Callable, Any
 from datetime import datetime
+from pathlib import Path
 import inspect
 
-from pymmcore_plus import CMMCorePlus, DeviceType
+from pymmcore_plus import CMMCorePlus, DeviceType, find_micromanager
 from pymmcore_plus.core._device import CameraDevice 
 
 from mesofield.protocols import HardwareDevice, DataProducer
 from mesofield.engines import DevEngine, MesoEngine, PupilEngine
 from mesofield.io.devices.arducam import VideoThread
-from mesofield.io import CustomWriter, CV2Writer
+from mesofield.io import CustomWriter, CV2Writer, OmeWriter
 from mesofield import DeviceRegistry
 from mesofield.utils._logger import get_logger
 
@@ -22,7 +23,7 @@ class MMCamera(DataProducer, HardwareDevice):
     bids_type: Optional[str]
     output_path: Optional[str] = None
     metadata_path: Optional[str] = None
-    writer: CustomWriter | CV2Writer
+    writer: Optional[CustomWriter | CV2Writer | OmeWriter]
     
     def __init__(self, cfg: dict):
         self.camera_device: Optional[CameraDevice | VideoThread] = None
@@ -38,6 +39,7 @@ class MMCamera(DataProducer, HardwareDevice):
         self.auto_contrast = cfg.get("auto_contrast")
         self._engine = None
         self.is_active = False
+        self.writer = None
         self.logger = get_logger(f"{__name__}.MMCamera[{self.id}]")
 
         if self.backend == "micromanager":
@@ -51,8 +53,10 @@ class MMCamera(DataProducer, HardwareDevice):
         self.initialize()
 
     def _setup_micromanager(self, cfg):
+        print(cfg.get("micromanager_path"))
         core = CMMCorePlus(cfg.get("micromanager_path"))
         cfg_path = cfg.get("configuration_path")
+        print(cfg_path)
         core.loadSystemConfiguration(cfg_path) if cfg_path else core.loadSystemConfiguration()
         self.camera_device = core.getDeviceObject(core.getCameraDevice(),
                                                   DeviceType.Camera)
@@ -77,11 +81,14 @@ class MMCamera(DataProducer, HardwareDevice):
         self.output_path = make_path(self.name, self.file_type, self.bids_type, True)
         
         if self.file_type == "ome.tiff":
-            self.writer = CustomWriter(filename=self.output_path)
+            self.writer = OmeWriter(filename=self.output_path)
         elif self.file_type == "mp4":
             self.writer = CV2Writer(filename=self.output_path, fps=int(self.sampling_rate))
-        self.metadata_path = self.writer._frame_metadata_filename
-        self.logger.info(f"Writer set to {self.writer}")
+            self.metadata_path = self.writer._frame_metadata_filename
+        else:
+            raise ValueError(f"Unsupported file type '{self.file_type}' for camera '{self.id}'")
+
+        self.logger.info(f"Writer set to {type(self.writer).__name__}")
 
     def set_sequence(self, build_mda: Callable[[DataProducer], Any]):
         """
@@ -121,24 +128,30 @@ class MMCamera(DataProducer, HardwareDevice):
                         setter(dev_id, prop, val)
 
     def start(self) -> bool:
-        #self.is_active = True
         self._started = datetime.now()
-        self.core.run_mda(events=self.sequence, output=self.writer, block=False) #type: ignore
+        if isinstance(self.writer, OmeWriter):
+            self.writer.start(self.core, self.sequence)
+        else:
+            self.logger.warning("Using non-OmeWriter")
+            self.core.run_mda(events=self.sequence, output=self.writer, block=False) #type: ignore
         return True
 
     def stop(self) -> bool:
-        #self.is_active = False
         self._stopped = datetime.now()
+        if isinstance(self.writer, OmeWriter):
+            self.writer.close(self.core)
         return True
 
     def get_data(self):
         return getattr(self.camera_device, "get_frame", lambda: None)() if self.is_active else None
     
     def shutdown(self):
-        if self.backend == "micromanager" and hasattr(self.core, "reset"):
+        if self.backend == "micromanager" and isinstance(self.core, CMMCorePlus):
             self.core.mda.cancel()
+            if isinstance(self.writer, OmeWriter):
+                self.writer.close(self.core)
             #self.core.reset()
-    
+
     def __getattr__(self, name: str):
         """
         Any attribute not found on MMCamera will be looked up
