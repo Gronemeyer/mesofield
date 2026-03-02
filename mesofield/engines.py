@@ -31,6 +31,12 @@ class MesoEngine(MDAEngine):
         self.use_hardware_sequencing = use_hardware_sequencing
         self._wheel_data = None
         # TODO: adder triggerable parameter 
+
+    def _next_seqimg_payload(self, event, channel, *, remaining=0, event_t0=0.0):
+        img, mm_meta = self._mmc.popNextImageAndMD()
+        return self._create_seqimg_payload_from_popped(
+            img, mm_meta, event, channel, remaining=remaining, event_t0=event_t0
+        )
         
     def set_config(self, cfg) -> None:
         self._config: ExperimentConfig = cfg
@@ -120,6 +126,12 @@ class PupilEngine(MDAEngine):
         self._wheel_data = None
         # TODO: add triggerable parameter
         self.logger = get_logger(f'{__name__}.{self.__class__.__name__}')
+
+    def _next_seqimg_payload(self, event, channel, *, remaining=0, event_t0=0.0):
+        img, mm_meta = self._mmc.popNextImageAndMD()
+        return self._create_seqimg_payload_from_popped(
+            img, mm_meta, event, channel, remaining=remaining, event_t0=event_t0
+        )
         
     def set_config(self, cfg: 'ExperimentConfig') -> None:
         self._config = cfg
@@ -233,6 +245,12 @@ class DevEngine(MDAEngine):
         self.logger = get_logger(f'{__name__}.{self.__class__.__name__}')
 
         self._encoder: SerialWorker = None
+
+    def _next_seqimg_payload(self, event, channel, *, remaining=0, event_t0=0.0):
+        img, mm_meta = self._mmc.popNextImageAndMD()
+        return self._create_seqimg_payload_from_popped(
+            img, mm_meta, event, channel, remaining=remaining, event_t0=event_t0
+        )
         
     def set_config(self, cfg) -> None:
         self._config = cfg
