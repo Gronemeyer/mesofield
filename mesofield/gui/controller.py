@@ -50,7 +50,17 @@ class ConfigFormWidget(QWidget):
         for key in self._keys:
             type_hint = self._registry.get_metadata(key).get("type")
             value = self._registry.get(key)
-            if type_hint is int:
+            choices = self._registry.get_choices(key)
+            if choices:
+                # Key has registered choices — render a dropdown
+                editor = QComboBox()
+                editor.addItems([str(c) for c in choices])
+                current = str(value) if value is not None else ""
+                idx = editor.findText(current)
+                if idx >= 0:
+                    editor.setCurrentIndex(idx)
+                editor.currentTextChanged.connect(lambda text, k=key: self._registry.set(k, text))
+            elif type_hint is int:
                 editor = QSpinBox()
                 editor.setRange(-1_000_000, 1_000_000)
                 editor.setValue(int(value or 0))
@@ -59,9 +69,10 @@ class ConfigFormWidget(QWidget):
                 editor = QCheckBox()
                 editor.setChecked(bool(value))
                 editor.toggled.connect(lambda checked, k=key: self._registry.set(k, checked))
-            elif type_hint is list: #create a dropdown for keys registered in the ExperimentConfig as list types
+            elif type_hint is list:
                 editor = QComboBox()
-                editor.addItems(value)
+                items = value if isinstance(value, list) else [str(value)]
+                editor.addItems(items)
                 editor.currentTextChanged.connect(lambda text, k=key: self._registry.set(k, text))
             else:
                 editor = QLineEdit()

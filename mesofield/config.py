@@ -21,6 +21,7 @@ class ConfigRegister:
         self._registry: Dict[str, Any] = {}
         self._metadata: Dict[str, Dict[str, Any]] = {}
         self._callbacks: Dict[str, List[Callable[[str, Any], None]]] = {}
+        self._choices: Dict[str, List[Any]] = {}
     
     def register(self, key: str, default: Any = None, 
                 type_hint: Optional[Type] = None, 
@@ -84,9 +85,18 @@ class ConfigRegister:
         self._callbacks[key].append(callback)
     
     
+    def register_choices(self, key: str, choices: List[Any]) -> None:
+        """Register a list of selectable choices for a configuration key."""
+        self._choices[key] = list(choices)
+
+    def get_choices(self, key: str) -> Optional[List[Any]]:
+        """Return the list of choices for *key*, or ``None`` if none are registered."""
+        return self._choices.get(key)
+
     def clear(self) -> None:
         """Clear all configurations."""
         self._registry.clear()
+        self._choices.clear()
 
 
 class ExperimentConfig(ConfigRegister):
@@ -385,14 +395,16 @@ class ExperimentConfig(ConfigRegister):
         if "Configuration" in loaded_config and "Subjects" in loaded_config:
             config_params = loaded_config.get("Configuration", {})
             for key, value in config_params.items():
-                self.set(key, value)
+                if isinstance(value, list):
+                    # Lists in Configuration are treated as selectable choices.
+                    # Store the full list as choices and default to the first item.
+                    self.register_choices(key, value)
+                    if value:
+                        self.set(key, value[0])
+                else:
+                    self.set(key, value)
             if config_params.get("experiment_directory"):
                 self.experiment_dir = config_params.get("experiment_directory")
-            # We can register a parameter as a list, and the `ConfigFormWidget` will handle it as a dropdown
-            # if config_params.get("task"):
-            #     self.register_parameter("task", config_params.get("task"), list, "Task identifier", "experiment")
-            #     # set the first task in the list as task
-            #     self.set("task", config_params.get("task")[0])
             self.subjects = loaded_config.get("Subjects", {})
             if self.subjects:
                 first = next(iter(self.subjects.keys()))
