@@ -350,18 +350,12 @@ class OmeWriter:
     # ------------------------------------------------------------------
     def close(self, core=None) -> None:
         """Disconnect signals and close the stream."""
-        if core is not None:
-            for attr, signal_name in [
-                ("_on_frame", "frameReady"),
-                ("_on_finished", "sequenceFinished"),
-            ]:
-                cb = getattr(self, attr, None)
-                if cb is not None:
-                    try:
-                        getattr(core.mda.events, signal_name).disconnect(cb)
-                    except Exception:
-                        pass
-                    setattr(self, attr, None)
+        for attr, signal_name in [
+            ("_on_frame", "frameReady"),
+            ("_on_finished", "sequenceFinished"),
+        ]:
+            getattr(core.mda.events, signal_name).disconnect(attr)
+            setattr(self, attr, None)
 
         if self._stream_cm is not None:
             try:

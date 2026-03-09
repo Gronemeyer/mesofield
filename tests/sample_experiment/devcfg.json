@@ -3,7 +3,12 @@
         "experimenter": "developer",
         "protocol": "DEV",
         "duration": 10,
-        "start_on_trigger": false
+        "start_on_trigger": false,
+        "task": [
+            "widefield",
+            "spont",
+            "baseline"
+        ]
     },
     "Subjects": {
         "STREHAB07": {
@@ -12,7 +17,7 @@
             "DOB": "2025-01-02",
             "DOS": "2025-06-20",
             "session": "10",
-            "task": "widefield",
+            "task": "spont",
             "weight": "20.30"
         },
         "STREHAB09": {

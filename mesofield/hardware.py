@@ -1,6 +1,6 @@
 VALID_BACKENDS = {"micromanager", "opencv"}
 
-from typing import Dict, Any, List, Optional, ClassVar
+from typing import Dict, Any, List, Optional, ClassVar, Union
 import yaml
 
 from mesofield.protocols import HardwareDevice, DataProducer
@@ -72,6 +72,57 @@ class HardwareManager():
     def get_device(self, device_id: str) -> Optional[HardwareDevice]:
         """Get a device by its ID."""
         return self.devices.get(device_id)
+
+    # ---- Hardware helpers – flexible camera / device access ----------------
+
+    def get_camera(self, name_or_index: Union[str, int] = 0):
+        """Return a camera by *device_id* name or integer index.
+
+        Parameters
+        ----------
+        name_or_index : str or int
+            If a string, searches ``cameras`` for a camera whose
+            ``id`` attribute matches.  If an integer, returns the camera
+            at that positional index.
+
+        Raises
+        ------
+        KeyError
+            If no camera with that name is found.
+        IndexError
+            If the integer index is out of range.
+        """
+        if isinstance(name_or_index, int):
+            return self.cameras[name_or_index]
+        for cam in self.cameras:
+            if getattr(cam, 'id', None) == name_or_index:
+                return cam
+        raise KeyError(f"No camera with id '{name_or_index}'. "
+                       f"Available: {[getattr(c, 'id', i) for i, c in enumerate(self.cameras)]}")
+
+    def start_cameras(self, *names_or_indices: Union[str, int]) -> None:
+        """Start cameras.  With no arguments, starts all cameras."""
+        targets = [self.get_camera(n) for n in names_or_indices] if names_or_indices else list(self.cameras)
+        for cam in targets:
+            cam.start()
+
+    def stop_cameras(self, *names_or_indices: Union[str, int]) -> None:
+        """Stop cameras.  With no arguments, stops all cameras."""
+        targets = [self.get_camera(n) for n in names_or_indices] if names_or_indices else list(self.cameras)
+        for cam in targets:
+            cam.stop()
+
+    def start_encoder(self) -> None:
+        """Start the encoder / treadmill device."""
+        if self.encoder is not None:
+            self.encoder.start_recording()
+        else:
+            self.logger.warning("No encoder configured — skipping start_encoder()")
+
+    def stop_encoder(self) -> None:
+        """Stop the encoder / treadmill device."""
+        if self.encoder is not None:
+            self.encoder.stop()
 
     def cam_backends(self, backend):
         """Generator to iterate through cameras with a specific backend."""
