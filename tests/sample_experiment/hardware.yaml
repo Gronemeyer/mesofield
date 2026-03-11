@@ -14,7 +14,7 @@ cameras:
   - id: "dev"
     name: "devcam1"
     backend: "micromanager"
-    micromanager_path: "C:/Program Files/Micro-Manager-2.0-20260223"
+    #micromanager_path: "C:/Program Files/Micro-Manager-2.0-20260223"
     auto_contrast: True
     output:
       bids_type: "func"
@@ -24,7 +24,7 @@ cameras:
   - id: "dev"
     name: "devcam2"
     backend: "micromanager"
-    micromanager_path: "C:/Program Files/Micro-Manager-2.0-20260223"
+    #micromanager_path: "C:/Program Files/Micro-Manager-2.0-20260223"
     auto_contrast: True
     output:
       bids_type: "func"
