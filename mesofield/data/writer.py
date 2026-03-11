@@ -39,8 +39,6 @@ Non-OME (ImageJ) hyperstack axes MUST be in TZCYXS order
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
-from mesofield.data.proc.crop_enhance_mp4 import BASE_DIR
-
 if TYPE_CHECKING:
     from pymmcore_plus.mda.metadata import SummaryMetaV1  # type: ignore
 
@@ -223,14 +221,26 @@ class CV2Writer(_5DWriterBase[Any]):
         try:
             from pathlib import Path
             import os
-            import cv2  # noqa: F401
 
             # Set environment variables to suppress OpenCV/FFMPEG output BEFORE importing cv2
             os.environ['OPENCV_LOG_LEVEL'] = 'SILENT'
             os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'loglevel;quiet'
             os.environ['OPENCV_VIDEOIO_DEBUG'] = '0'
 
-            cv2.setLogLevel(0)  # 0 = Silent
+            import cv2  # noqa: F401
+
+            # OpenCV log silencing is version-dependent.
+            try:
+                if hasattr(cv2, 'setLogLevel'):
+                    cv2.setLogLevel(0)  # 0 = Silent
+                elif (
+                    hasattr(cv2, 'utils')
+                    and hasattr(cv2.utils, 'logging')
+                    and hasattr(cv2.utils.logging, 'setLogLevel')
+                ):
+                    cv2.utils.logging.setLogLevel(0)
+            except Exception:
+                pass
 
             os.environ['OPENH264_LIBRARY'] = OPENH264_DLL_PATH
             if CODEC_DIRECTORY not in os.environ.get('PATH', ''):

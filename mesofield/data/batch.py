@@ -16,7 +16,17 @@ os.environ['OPENCV_VIDEOIO_PRIORITY_FFMPEG'] = '0'
 import cv2
 
 # Set OpenCV logging to silent mode after import
-cv2.setLogLevel(0)  # 0 = Silent
+try:
+    if hasattr(cv2, 'setLogLevel'):
+        cv2.setLogLevel(0)  # 0 = Silent
+    elif (
+        hasattr(cv2, 'utils')
+        and hasattr(cv2.utils, 'logging')
+        and hasattr(cv2.utils.logging, 'setLogLevel')
+    ):
+        cv2.utils.logging.setLogLevel(0)
+except Exception:
+    pass
 
 # ─── H264 Video Codec ─────────────────────────────────────────────────────
 # OpenH264 codec paths for video conversion compatibility
