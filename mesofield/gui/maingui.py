@@ -10,13 +10,12 @@ from PyQt6.QtWidgets import (
     QWidget,
     QHBoxLayout,
     QVBoxLayout,
-    QDockWidget,
-    QSizePolicy,
+    QTabWidget,
     QLayout
 )
 
 from PyQt6.QtGui import QIcon
-from PyQt6.QtCore import QCoreApplication, Qt
+from PyQt6.QtCore import QCoreApplication
 
 from mesofield.gui.mdagui import MDA
 from mesofield.gui.controller import ConfigController
@@ -46,13 +45,8 @@ class MainWindow(QMainWindow):
         #--------------------------------------------------------------------#
 
         #============================== Layout ==============================#
-        self.toggle_console_action = self.menuBar().addAction("Toggle Console")
-        self.float_action = self.menuBar().addAction("Floating Console")
-        self.toggle_console_action.setCheckable(True)
-        self.float_action.setCheckable(True)
-
         central_widget = QWidget()
-        # Use a vertical layout: top = acquisition/config + encoder; bottom = console
+        # Use a vertical layout: top = acquisition/tabbed panel; bottom = encoder
         self.main_layout = QVBoxLayout(central_widget)
         self.setCentralWidget(central_widget)
 
@@ -60,45 +54,27 @@ class MainWindow(QMainWindow):
         self.main_layout.addLayout(mda_layout)
         self.main_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
 
-        # Horizontal row for acquisition GUI and config controller
+        # Build a tab widget with ExperimentConfig and Terminal tabs
+        self.right_tabs = QTabWidget()
+        self.right_tabs.addTab(self.config_controller, "ExperimentConfig")
+        self.right_tabs.addTab(self.console_widget, "Terminal")
+
+        # Horizontal row for acquisition GUI and the tabbed panel
         top_row = QHBoxLayout()
         top_row.addWidget(self.acquisition_gui)
-        top_row.addWidget(self.config_controller)
+        top_row.addWidget(self.right_tabs)
         mda_layout.addLayout(top_row)
 
         # Encoder widget below the top row
         mda_layout.addWidget(self.encoder_widget)
-        
-        # embed console into a dock at the bottom
-        self.console_dock = QDockWidget("Mesofield IPython Console", self)
-        self.console_dock.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.console_dock.setMinimumHeight(300)
-        self.console_dock.setMinimumWidth(600)
-        self.console_dock.setWidget(self.console_widget)
-        self.console_dock.setAllowedAreas(Qt.DockWidgetArea.BottomDockWidgetArea)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.console_dock)
-        # hidden by default; toggle via View menu
-        self.console_dock.hide()
-
-
-        #--------------------------------------------------------------------#
-
-        #============================== Signals =============================#
-        self.toggle_console_action.toggled.connect(self.console_dock.setVisible)
-
-        # re‐compute your “minimum size” to preserve the layout 
-        self.console_dock.visibilityChanged.connect(self.adjustSize)
-        self.console_dock.topLevelChanged.connect(self.adjustSize)
-        
-        # allow user to toggle floating (dock/undock)
-        self.float_action.toggled.connect(self.console_dock.setFloating)
 
         #--------------------------------------------------------------------#
 
     #============================== Methods =================================#    
     def toggle_console(self):
-        """Show or hide the docked IPython console."""
-        self.console_dock.setVisible(not self.console_dock.isVisible())
+        """Switch to the Terminal tab."""
+        terminal_index = self.right_tabs.indexOf(self.console_widget)
+        self.right_tabs.setCurrentIndex(terminal_index)
     
                 
     def initialize_console(self, procedure):
@@ -131,15 +107,40 @@ class MainWindow(QMainWindow):
             # Optional, so you can use 'self' directly in the console
         }
         self.kernel.shell.push(console_namespace)
-        self.console_widget.banner = r"""
- __    __     ______     ______     ______     ______   __     ______     __         _____    
-/\ "-./  \   /\  ___\   /\  ___\   /\  __ \   /\  ___\ /\ \   /\  ___\   /\ \       /\  __-.  
-\ \ \-./\ \  \ \  __\   \ \___  \  \ \ \/\ \  \ \  __\ \ \ \  \ \  __\   \ \ \____  \ \ \/\ \ 
- \ \_\ \ \_\  \ \_____\  \/\_____\  \ \_____\  \ \_\    \ \_\  \ \_____\  \ \_____\  \ \____- 
-  \/_/  \/_/   \/_____/   \/_____/   \/_____/   \/_/     \/_/   \/_____/   \/_____/   \/____/ 
-                                                                                  
--------------------------  Mesofield Acquisition Interface  ---------------------------------
-"""
+
+        # Register the what_do helper command
+        def what_do():
+            """Print a friendly guide on using the Mesofield terminal."""
+            print(
+                "\n"
+                "=== Mesofield Terminal ===\n"
+                "\n"
+                "This is a live IPython console embedded inside Mesofield.\n"
+                "You have direct access to the running experiment and can\n"
+                "inspect or control it interactively.\n"
+                "\n"
+                "Available objects:\n"
+                "  procedure  – the active Procedure (start, stop, pause)\n"
+                "  procedure.config – current ExperimentConfig (paths, subjects, params)\n"
+                "  data       – mesofield.data module (loading, processing, analysis)\n"
+                "  self       – the MainWindow instance (GUI widgets, layout)\n"
+                "\n"
+                "Quick examples:\n"
+                "  procedure.config.subject   # current subject ID\n"
+                "  procedure.config.bids_dir  # BIDS output directory\n"
+                "  data.load.sessions('path') # load session data\n"
+                "\n"
+                "Tips:\n"
+                "  • Use tab-completion to explore objects and methods.\n"
+                "  • Use '?' after a name (e.g. procedure?) for docs.\n"
+                "  • Any valid Python / IPython syntax works here.\n"
+            )
+        self.kernel.shell.push({'what_do': what_do})
+
+        self.console_widget.banner = (
+            "Mesofield Terminal — interactive Python console\n"
+            "Type what_do() for a guide on available commands and objects.\n"
+        )
         dark_bg   = "#2b2b2b"
         light_txt = "#39FF14"
         self.console_widget.setStyleSheet(f"""
