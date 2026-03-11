@@ -45,7 +45,7 @@ def cli():
 
 
 @cli.command()
-@click.argument('config', type=click.Path())
+@click.argument('config', type=click.Path(), default=os.path.join(os.path.dirname(__file__), '..', 'tests', 'sample_experiment', 'devcfg.json'))
 def launch(config):
     import time
     
