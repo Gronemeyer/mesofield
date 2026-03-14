@@ -148,8 +148,8 @@ class ExperimentConfig(ConfigRegister):
             self._hardware_path_locked = locked
             self.hardware = HardwareManager(hardware_path)
         except Exception as e:
-            self.logger.error(f"Failed to initialize hardware: {e}")
-            raise
+            self.logger.warning(f"Hardware config not available: {e}. Starting in default state.")
+            self.hardware = HardwareManager()
         
         self.notes: list = []
 
@@ -182,6 +182,20 @@ class ExperimentConfig(ConfigRegister):
         if not self.experiment_dir:
             self.experiment_dir = os.getcwd()
         return os.path.join(self.experiment_dir, "hardware.yaml"), False
+
+    def load_hardware(self, yaml_path: str) -> None:
+        """Load (or reload) a hardware YAML configuration.
+
+        This replaces the current :class:`HardwareManager` with a new one
+        pointed at *yaml_path*.  Devices are **not** initialised until
+        :meth:`HardwareManager.initialize` is called (which is normally done
+        by :class:`~mesofield.base.Procedure.initialize_hardware`).
+        """
+        abs_path = os.path.abspath(yaml_path)
+        self._hardware_yaml_path = abs_path
+        self._hardware_path_locked = True
+        self.hardware = HardwareManager(abs_path)
+        self.logger.info(f"Loaded hardware config from: {abs_path}")
 
     @property
     def _cores(self):# -> tuple[CMMCorePlus, ...]:
