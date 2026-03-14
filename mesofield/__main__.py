@@ -27,6 +27,10 @@ Commands:
     convert_h264: Convert video files to H264 format for better compatibility
         --dir: Directory containing video files to convert
         --pattern: Glob pattern to match files (e.g., "*.mp4", "pupil*.mp4")
+    
+    install-drivers: Download Thorlabs Scientific Camera SDK and install native DLLs
+        --mm-dir: Explicit Micro-Manager root directory (auto-detected when omitted)
+        --keep-zip/--no-keep-zip: Keep the downloaded zip file after extraction
         
     plot_session: Plot the session data
         --dir: Path to experimental directory containing BIDS formatted /data hierarchy
@@ -45,8 +49,14 @@ def cli():
 
 
 @cli.command()
-@click.argument('config', type=click.Path(), default=os.path.join(os.path.dirname(__file__), '..', 'tests', 'sample_experiment', 'devcfg.json'))
+@click.argument('config', type=click.Path(), required=False, default=None)
 def launch(config):
+    """Launch the Mesofield acquisition interface.
+
+    CONFIG is an optional path to an experiment JSON config file.
+    When omitted, Mesofield opens in a default state and the
+    Configuration Wizard is shown for hot-loading configs.
+    """
     import time
     
     from PyQt6.QtWidgets import QApplication, QSplashScreen
@@ -321,6 +331,182 @@ def convert_h264(dir, pattern):
         pattern=pattern
     )
     
+@cli.command('install-drivers')
+@click.option('--mm-dir', 'mm_dir', default=None,
+              help='Explicit path to the Micro-Manager root directory. '
+                   'Auto-detected from pymmcore-plus when omitted.')
+@click.option('--keep-zip/--no-keep-zip', default=False, show_default=True,
+              help='Keep the downloaded zip file after extraction.')
+def install_drivers(mm_dir, keep_zip):
+    """Download Thorlabs Scientific Camera SDK and install native DLLs into Micro-Manager.
+
+    This command performs the following steps:
+
+    \b
+      1. Locate (or install) the Micro-Manager device adapters via pymmcore-plus.
+      2. Download the Thorlabs Scientific Camera Interfaces SDK.
+      3. Extract the SDK into mesofield/external/drivers/.
+      4. Copy the 64-bit native DLLs into the Micro-Manager root directory.
+    """
+    import shutil
+    import subprocess
+    import sys
+    import tempfile
+    import urllib.request
+    import zipfile
+
+    THORLABS_SDK_URL = (
+        "https://media.thorlabs.com/contentassets/"
+        "039fcbaaafa0457eb2901466cf0b9489/"
+        "scientific_camera_interfaces_windows-2.1.zip"
+        "?v=1116040458"
+    )
+    # Relative path inside the extracted zip that contains the 64-bit DLLs
+    DLL_SUBPATH = Path(
+        "Scientific Camera Interfaces",
+        "SDK",
+        "Native Toolkit",
+        "dlls",
+        "Native_64_lib",
+    )
+
+    EXTERNAL_DRIVERS_DIR = Path(__file__).resolve().parent / "external" / "drivers"
+
+    # ---- Step 1: Resolve the Micro-Manager root directory ----
+    if mm_dir is not None:
+        mm_root = Path(mm_dir)
+    else:
+        mm_root = _resolve_micromanager_root()
+
+    if not mm_root.is_dir():
+        click.secho(f"ERROR: Micro-Manager directory does not exist: {mm_root}", fg="red")
+        raise SystemExit(1)
+
+    click.echo(f"Micro-Manager root: {mm_root}")
+
+    # ---- Step 2: Download the Thorlabs SDK zip ----
+    EXTERNAL_DRIVERS_DIR.mkdir(parents=True, exist_ok=True)
+    zip_dest = EXTERNAL_DRIVERS_DIR / "scientific_camera_interfaces_windows-2.1.zip"
+
+    if zip_dest.exists():
+        click.echo(f"Zip already present at {zip_dest}, skipping download.")
+    else:
+        click.echo("Downloading Thorlabs Scientific Camera Interfaces SDK …")
+        try:
+            _download_with_progress(THORLABS_SDK_URL, zip_dest)
+        except Exception as exc:
+            click.secho(f"Download failed: {exc}", fg="red")
+            raise SystemExit(1)
+
+    # ---- Step 3: Extract into external/drivers/ ----
+    extract_dir = EXTERNAL_DRIVERS_DIR / "scientific_camera_interfaces"
+    if extract_dir.exists():
+        click.echo(f"Extraction folder already exists at {extract_dir}, skipping extraction.")
+    else:
+        click.echo(f"Extracting SDK to {extract_dir} …")
+        try:
+            with zipfile.ZipFile(zip_dest, "r") as zf:
+                zf.extractall(extract_dir)
+        except zipfile.BadZipFile as exc:
+            click.secho(f"Bad zip file: {exc}", fg="red")
+            raise SystemExit(1)
+
+    # ---- Step 4: Copy 64-bit native DLLs into Micro-Manager root ----
+    dll_source = extract_dir / DLL_SUBPATH
+    if not dll_source.is_dir():
+        # The zip might have a single top-level folder; search for a match
+        candidates = list(extract_dir.rglob("Native_64_lib"))
+        if candidates:
+            dll_source = candidates[0]
+        else:
+            click.secho(
+                f"ERROR: Could not locate Native_64_lib inside the extracted archive.\n"
+                f"Expected at: {dll_source}",
+                fg="red",
+            )
+            raise SystemExit(1)
+
+    dll_files = list(dll_source.glob("*.dll"))
+    if not dll_files:
+        click.secho(f"WARNING: No .dll files found in {dll_source}", fg="yellow")
+        raise SystemExit(1)
+
+    click.echo(f"Copying {len(dll_files)} DLL(s) from {dll_source} → {mm_root}")
+    for dll in dll_files:
+        dest = mm_root / dll.name
+        shutil.copy2(dll, dest)
+        click.echo(f"  ✓ {dll.name}")
+
+    # ---- Cleanup ----
+    if not keep_zip and zip_dest.exists():
+        zip_dest.unlink()
+        click.echo("Removed downloaded zip file.")
+
+    click.secho("\nThorlabs Scientific Camera DLLs installed successfully.", fg="green")
+
+
+def _resolve_micromanager_root() -> Path:
+    """Locate the Micro-Manager installation via pymmcore-plus.
+
+    Falls back to running ``mmcore install`` when no installation is found.
+    """
+    import subprocess
+    import sys
+
+    try:
+        from pymmcore_plus import find_micromanager
+        mm_path = find_micromanager()
+        if mm_path:
+            return Path(mm_path)
+    except ImportError:
+        click.secho(
+            "pymmcore-plus is not installed.  Install it first:\n"
+            "  pip install pymmcore-plus",
+            fg="red",
+        )
+        raise SystemExit(1)
+    except Exception:
+        pass  # fall through to mmcore install
+
+    # No existing installation – offer to install device adapters
+    click.echo("No Micro-Manager installation detected.")
+    if click.confirm("Run 'mmcore install' to install Micro-Manager device adapters?", default=True):
+        subprocess.check_call([sys.executable, "-m", "pymmcore_plus", "install"])
+        # Re-resolve after install
+        try:
+            from pymmcore_plus import find_micromanager
+            mm_path = find_micromanager()
+            if mm_path:
+                return Path(mm_path)
+        except Exception:
+            pass
+
+    click.secho("ERROR: Could not locate a Micro-Manager installation.", fg="red")
+    raise SystemExit(1)
+
+
+def _download_with_progress(url: str, dest: Path, chunk_size: int = 1024 * 64):
+    """Download *url* to *dest* with a simple progress indicator."""
+    import urllib.request
+
+    req = urllib.request.Request(url, headers={"User-Agent": "mesofield-installer/1.0"})
+    with urllib.request.urlopen(req) as resp:
+        total = int(resp.headers.get("Content-Length", 0))
+        downloaded = 0
+        with open(dest, "wb") as fh:
+            while True:
+                chunk = resp.read(chunk_size)
+                if not chunk:
+                    break
+                fh.write(chunk)
+                downloaded += len(chunk)
+                if total:
+                    pct = downloaded * 100 // total
+                    click.echo(f"\r  {pct:3d}% ({downloaded // 1024:,} KB)", nl=False)
+        if total:
+            click.echo()  # newline after progress
+
+
 @cli.command()
 @click.option('--dir', required=True, help='Experiment directiory with pupil files')
 @click.option('--sub', required=True, help='Subject ID (the name of the subject folder)')

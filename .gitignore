@@ -2,6 +2,7 @@
 /data/
 /logs/
 /mesofield/logs/
+mesofield/external/drivers
 # Ignore hardware.yaml everywhere except the one in mesofield/tests
 */hardware.yaml
 !/mesofield/tests/sample_experiment/hardware.yaml
