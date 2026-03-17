@@ -144,46 +144,63 @@ def playback(experiment_dir: str, speed: float, loop: bool):
 
 
 @cli.command()
+@click.option('--path', help='Path to a tiff file')
 @click.option('--dir',  help='Save the plot to the processing directory in the Experiment folder')
 @click.option('--sub', help='Subject ID (the name of the subject folder)')
-def trace_meso(dir, sub):
+def trace_meso(path, dir, sub):
     import pandas as pd
     import mesofield.data.proc.load as load
     import mesofield.data.batch as batch
     
-    datadict =  load.file_hierarchy(dir)
-
-    print(f"DEBUG: Available subject keys: {list(datadict.keys())}")
-    print(f"DEBUG: Available session keys for subject '{sub}': {list(datadict[sub].keys())}")
-
-    session_paths = []
-    for key in sorted(datadict[sub].keys()):
-        if key.isdigit():
-            session = datadict[sub][key]
-            if 'widefield' in session:
-                print(f"DEBUG: Session {key} widefield keys: {list(session['widefield'].keys())}")
-                if 'meso_tiff' in session['widefield']:
-                    path = session['widefield']['meso_tiff']
-                    print(f"DEBUG: Found session {key}, meso_tiff path: {path}")
-                    session_paths.append(path)
-                else:
-                    print(f"WARNING: Session {key} 'widefield' keys: {list(session['widefield'].keys())} (missing 'meso_tiff')")
-            else:
-                print(f"WARNING: Session {key} missing 'widefield' key. Available keys: {list(session.keys())}")
-    print(f"DEBUG: Collected session_paths: {session_paths}")
-    
-    results = batch.mean_trace_from_tiff(session_paths)
-    for path, trace in results.items():
-        print(f"{path}: {trace[:10]}") 
-        
-    outdir = os.path.join(dir, "processed", sub)
-    os.makedirs(outdir, exist_ok=True)
-
-    for path, trace in results.items():
+    if path:
+        session_paths = [path]
+        # find the parent experiment file assumn=ing path is under experimentdir/data/sub/ses/func/tiffile
+        experiment_dir = Path(path).parents[4]
+        print(f"DEBUG: Inferred experiment directory: {experiment_dir}")
+        result = batch.mean_trace_from_tiff(session_paths)
+        for path, trace in result.items():
+            print(f"{path}: {trace[:10]}")
+        # save to the processed dir of the experiment dir supporting Windows path
+        outdir = Path(experiment_dir) / "processed"
         df = pd.DataFrame({"Slice": range(len(trace)), "Mean": trace})
+        
         base_name = os.path.splitext(os.path.basename(path))[0]
         filename = f"{base_name}_meso-mean-trace.csv"
         df.to_csv(os.path.join(outdir, filename), index=False)
+    else:
+        datadict =  load.file_hierarchy(dir)
+
+        # print(f"DEBUG: Available subject keys: {list(datadict.keys())}")
+        # print(f"DEBUG: Available session keys for subject '{sub}': {list(datadict[sub].keys())}")
+
+        session_paths = []
+        for key in sorted(datadict[sub].keys()):
+            if key.isdigit():
+                session = datadict[sub][key]
+                if 'widefield' in session:
+                    print(f"DEBUG: Session {key} widefield keys: {list(session['widefield'].keys())}")
+                    if 'meso_tiff' in session['widefield']:
+                        path = session['widefield']['meso_tiff']
+                        print(f"DEBUG: Found session {key}, meso_tiff path: {path}")
+                        session_paths.append(path)
+                    else:
+                        print(f"WARNING: Session {key} 'widefield' keys: {list(session['widefield'].keys())} (missing 'meso_tiff')")
+                else:
+                    print(f"WARNING: Session {key} missing 'widefield' key. Available keys: {list(session.keys())}")
+        print(f"DEBUG: Collected session_paths: {session_paths}")
+        
+        results = batch.mean_trace_from_tiff(session_paths)
+        for path, trace in results.items():
+            print(f"{path}: {trace[:10]}") 
+            
+        outdir = os.path.join(dir, "processed", sub)
+        os.makedirs(outdir, exist_ok=True)
+
+        for path, trace in results.items():
+            df = pd.DataFrame({"Slice": range(len(trace)), "Mean": trace})
+            base_name = os.path.splitext(os.path.basename(path))[0]
+            filename = f"{base_name}_meso-mean-trace.csv"
+            df.to_csv(os.path.join(outdir, filename), index=False)
 
 
 @cli.command()
