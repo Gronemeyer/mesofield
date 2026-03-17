@@ -220,19 +220,20 @@ class MainWindow(QMainWindow):
         self._mda_layout.insertWidget(0, self._acquisition_gui)
 
         # -- Encoder widget ---------------------------------------------------
-        if self._encoder_widget is not None:
-            self.main_layout.removeWidget(self._encoder_widget)
-            self._encoder_widget.deleteLater()
+        if self.procedure.config.hardware.encoder is not None:
+            if self._encoder_widget is not None:
+                self.main_layout.removeWidget(self._encoder_widget)
+                self._encoder_widget.deleteLater()
 
-        self._encoder_widget = SerialWidget(
-            cfg=self.procedure.config,
-            device_attr="encoder",
-            signal_name="serialSpeedUpdated",
-            label="Encoder",
-            value_label="Speed",
-            value_units="mm/s",
-        )
-        self.main_layout.addWidget(self._encoder_widget)
+            self._encoder_widget = SerialWidget(
+                cfg=self.procedure.config,
+                device_attr="encoder",
+                signal_name="serialSpeedUpdated",
+                label="Encoder",
+                value_label="Speed",
+                value_units="mm/s",
+            )
+            self.main_layout.addWidget(self._encoder_widget)
 
         # -- Refresh the MM config section in the wizard ---------------------
         self.config_wizard.refresh_mm_section()
