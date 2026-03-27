@@ -195,7 +195,8 @@ class Procedure:
                 self.psychopy_process.start()
 
             self.start_time = datetime.now()
-            self.hardware.encoder.start_recording()
+            if self.hardware.encoder is not None:
+                self.hardware.encoder.start_recording()
             for cam in self.hardware.cameras:
                 cam.start()
         except Exception as e:  # pragma: no cover - hardware errors
@@ -205,7 +206,8 @@ class Procedure:
     # ------------------------------------------------------------------
     def save_data(self) -> None:
         mgr = getattr(self, "data_manager", self.data)
-        self.hardware.cameras[1].core.stopSequenceAcquisition() #type: ignore
+        if len(self.hardware.cameras) > 1:
+            self.hardware.cameras[1].core.stopSequenceAcquisition() #type: ignore
         for cam in self.hardware.cameras:
             cam.stop()
         mgr.save.configuration()
@@ -233,7 +235,8 @@ class Procedure:
     def _cleanup_procedure(self):
         self.logger.info("Cleanup Procedure")
         try:
-            self.hardware.cameras[1].core.stopSequenceAcquisition()
+            if len(self.hardware.cameras) > 1:
+                self.hardware.cameras[1].core.stopSequenceAcquisition()
             self.hardware.cameras[0].core.mda.events.sequenceFinished.disconnect(self._cleanup_procedure)
             self.hardware.stop()
             self.data.stop_queue_logger()
