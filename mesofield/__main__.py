@@ -204,6 +204,138 @@ def trace_meso(path, dir, sub):
 
 
 @cli.command()
+@click.option('--dir', required=True, help='Experiment directory containing BIDS formatted /data hierarchy')
+@click.option('--sub', default=None, help='Single subject ID to process (default: all subjects)')
+@click.option('--frame', default=1, show_default=True, help='0-based frame index to extract from each tiff')
+def montage_meso(dir, sub, frame):
+    """Extract a single frame from each session's widefield tiff and save a per-subject montage.
+
+    Each task within a session becomes its own row.  Columns are sessions,
+    so the output image is a grid of (tasks x sessions) panels.
+    """
+    import numpy as np
+    import tifffile
+    import mesofield.data.proc.load as load
+    from PIL import Image, ImageDraw, ImageFont
+
+    datadict = load.file_hierarchy(dir)
+    subjects = [sub] if sub else sorted(datadict.keys())
+
+    outdir = os.path.join(dir, "processed")
+    os.makedirs(outdir, exist_ok=True)
+
+    try:
+        font = ImageFont.truetype("arial.ttf", 18)
+    except OSError:
+        font = ImageFont.load_default()
+
+    label_height = 30
+
+    for subject in subjects:
+        sessions = datadict[subject]
+        ses_keys = sorted(k for k in sessions.keys() if k.isdigit())
+
+        # Collect the superset of task names across all sessions (preserving order)
+        all_tasks = []
+        for sk in ses_keys:
+            for tk in sessions[sk]:
+                if tk not in all_tasks:
+                    all_tasks.append(tk)
+
+        # grid[task][ses_key] = normalised 8-bit numpy image
+        grid: dict[str, dict[str, np.ndarray]] = {t: {} for t in all_tasks}
+
+        for ses_key in ses_keys:
+            session = sessions[ses_key]
+            for task in all_tasks:
+                if task not in session or 'meso_tiff' not in session[task]:
+                    print(f"WARNING: sub-{subject} ses-{ses_key} task-{task} missing meso_tiff, skipping")
+                    continue
+
+                tiff_path = session[task]['meso_tiff']
+                try:
+                    tiff_array = tifffile.memmap(tiff_path)
+                    if tiff_array.shape[0] <= frame:
+                        print(f"WARNING: {tiff_path} has only {tiff_array.shape[0]} frames, skipping")
+                        continue
+                    img = np.array(tiff_array[frame])
+                except Exception as e:
+                    print(f"ERROR reading {tiff_path}: {e}")
+                    continue
+
+                img_min, img_max = img.min(), img.max()
+                if img_max > img_min:
+                    img_norm = ((img - img_min) / (img_max - img_min) * 255).astype(np.uint8)
+                else:
+                    img_norm = np.zeros_like(img, dtype=np.uint8)
+                grid[task][ses_key] = img_norm
+
+        # Skip subject if nothing was loaded
+        if not any(grid[t] for t in all_tasks):
+            print(f"WARNING: No frames found for sub-{subject}, skipping")
+            continue
+
+        # Determine a uniform cell size across the whole grid
+        all_imgs = [img for task_imgs in grid.values() for img in task_imgs.values()]
+        cell_h = max(img.shape[0] for img in all_imgs)
+        cell_w = max(img.shape[1] for img in all_imgs)
+
+        def _resize(img):
+            if img.shape[0] == cell_h and img.shape[1] == cell_w:
+                return img
+            return np.array(Image.fromarray(img).resize((cell_w, cell_h), Image.LANCZOS))
+
+        def _blank():
+            return np.zeros((cell_h, cell_w), dtype=np.uint8)
+
+        def _label_header(text, width):
+            header = Image.new('L', (width, label_height), color=0)
+            draw = ImageDraw.Draw(header)
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_w = bbox[2] - bbox[0]
+            draw.text(((width - text_w) // 2, 4), text, fill=255, font=font)
+            return np.array(header)
+
+        # Build the row-label column (task names, one per row)
+        task_label_w = 120
+        row_label_strips = []
+        # blank corner for column-header row
+        row_label_strips.append(np.zeros((label_height, task_label_w), dtype=np.uint8))
+        for task in all_tasks:
+            task_label = task if task else "default"
+            strip = np.zeros((cell_h, task_label_w), dtype=np.uint8)
+            pil_strip = Image.fromarray(strip)
+            draw = ImageDraw.Draw(pil_strip)
+            bbox = draw.textbbox((0, 0), task_label, font=font)
+            tw = bbox[2] - bbox[0]
+            th = bbox[3] - bbox[1]
+            draw.text(((task_label_w - tw) // 2, (cell_h - th) // 2), task_label, fill=255, font=font)
+            row_label_strips.append(np.array(pil_strip))
+        row_labels = np.vstack(row_label_strips)
+
+        # Build the data columns (one per session)
+        columns = []
+        for ses_key in ses_keys:
+            col_header = _label_header(f"ses-{ses_key}", cell_w)
+            panels = [col_header]
+            for task in all_tasks:
+                img = grid[task].get(ses_key)
+                panels.append(_resize(img) if img is not None else _blank())
+            columns.append(np.vstack(panels))
+
+        montage = np.hstack([row_labels] + columns)
+        montage_img = Image.fromarray(montage)
+
+        filename = f"sub-{subject}_frame-{frame}_montage.png"
+        save_path = os.path.join(outdir, filename)
+        montage_img.save(save_path)
+        n_cells = sum(len(v) for v in grid.values())
+        print(f"Saved: {save_path}  ({len(all_tasks)} tasks x {len(ses_keys)} sessions, {n_cells} images)")
+
+    print("Done.")
+
+
+@cli.command()
 @click.option('--dir', help='Directory containing the BIDS formatted /data hierarchy')
 def batch_pupil(dir):
     """Convert the pupil videos to mp4 format."""
