@@ -207,9 +207,13 @@ def trace_meso(path, dir, sub):
 @click.option('--dir', required=True, help='Experiment directory containing BIDS formatted /data hierarchy')
 @click.option('--sub', default=None, help='Single subject ID to process (default: all subjects)')
 @click.option('--frame', default=1, show_default=True, help='0-based frame index to extract from each tiff')
+<<<<<<< HEAD
 @click.option('--rotate', default=0, show_default=True, type=int, help='Rotate each frame by N degrees (positive=clockwise, negative=counter-clockwise)')
 @click.option('--filter', 'ses_filter', default=None, help='Session range START:END (1-based, exclusive end). E.g. 1:10 keeps sessions 1-9.')
 def montage_meso(dir, sub, frame, rotate, ses_filter):
+=======
+def montage_meso(dir, sub, frame):
+>>>>>>> 92c0c572a94914ee66aa6917a31e0b8f5c0ba695
     """Extract a single frame from each session's widefield tiff and save a per-subject montage.
 
     Each task within a session becomes its own row.  Columns are sessions,
@@ -237,6 +241,7 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
         sessions = datadict[subject]
         ses_keys = sorted(k for k in sessions.keys() if k.isdigit())
 
+<<<<<<< HEAD
         # Apply session range filter
         if ses_filter:
             parts = ses_filter.split(':')
@@ -244,6 +249,8 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
             end = int(parts[1]) if len(parts) > 1 and parts[1] else None
             ses_keys = [k for k in ses_keys if int(k) >= start and (end is None or int(k) < end)]
 
+=======
+>>>>>>> 92c0c572a94914ee66aa6917a31e0b8f5c0ba695
         # Collect the superset of task names across all sessions (preserving order)
         all_tasks = []
         for sk in ses_keys:
@@ -277,11 +284,14 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
                     img_norm = ((img - img_min) / (img_max - img_min) * 255).astype(np.uint8)
                 else:
                     img_norm = np.zeros_like(img, dtype=np.uint8)
+<<<<<<< HEAD
 
                 if rotate:
                     # PIL rotates counter-clockwise, so negate for clockwise convention
                     img_norm = np.array(Image.fromarray(img_norm).rotate(-rotate, expand=True))
 
+=======
+>>>>>>> 92c0c572a94914ee66aa6917a31e0b8f5c0ba695
                 grid[task][ses_key] = img_norm
 
         # Skip subject if nothing was loaded
@@ -310,6 +320,7 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
             draw.text(((width - text_w) // 2, 4), text, fill=255, font=font)
             return np.array(header)
 
+<<<<<<< HEAD
         # Helper: render vertical text as a strip image
         def _vertical_text(text, height, strip_w=40):
             """Render *text* rotated 90° so it reads bottom-to-top (left side)
@@ -342,6 +353,26 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
         right_strip = np.vstack(right_pieces)
 
         # --- Build the data columns (one per session) ---
+=======
+        # Build the row-label column (task names, one per row)
+        task_label_w = 120
+        row_label_strips = []
+        # blank corner for column-header row
+        row_label_strips.append(np.zeros((label_height, task_label_w), dtype=np.uint8))
+        for task in all_tasks:
+            task_label = task if task else "default"
+            strip = np.zeros((cell_h, task_label_w), dtype=np.uint8)
+            pil_strip = Image.fromarray(strip)
+            draw = ImageDraw.Draw(pil_strip)
+            bbox = draw.textbbox((0, 0), task_label, font=font)
+            tw = bbox[2] - bbox[0]
+            th = bbox[3] - bbox[1]
+            draw.text(((task_label_w - tw) // 2, (cell_h - th) // 2), task_label, fill=255, font=font)
+            row_label_strips.append(np.array(pil_strip))
+        row_labels = np.vstack(row_label_strips)
+
+        # Build the data columns (one per session)
+>>>>>>> 92c0c572a94914ee66aa6917a31e0b8f5c0ba695
         columns = []
         for ses_key in ses_keys:
             col_header = _label_header(f"ses-{ses_key}", cell_w)
@@ -351,7 +382,11 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
                 panels.append(_resize(img) if img is not None else _blank())
             columns.append(np.vstack(panels))
 
+<<<<<<< HEAD
         montage = np.hstack([left_strip] + columns + [right_strip])
+=======
+        montage = np.hstack([row_labels] + columns)
+>>>>>>> 92c0c572a94914ee66aa6917a31e0b8f5c0ba695
         montage_img = Image.fromarray(montage)
 
         filename = f"sub-{subject}_frame-{frame}_montage.png"
