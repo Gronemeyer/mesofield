@@ -134,13 +134,37 @@ class MDA(QWidget):
                     cores_groupbox.layout().addWidget(core_box)
                     self.layout().addWidget(cores_groupbox)
                 else:
-                    preview = InteractivePreview(
-                        image_payload=cam.core.image_ready,
-                        auto_contrast=auto_contrast,
+                    # Static viewer for non-Micromanager cameras (e.g. OpenCV).
+                    image_signal = getattr(cam, "image_ready", None)
+                    if image_signal is None and cam.core is not None:
+                        image_signal = getattr(cam.core, "image_ready", None)
+                    preview = ImagePreview(
+                        mmcore=None,
+                        image_payload=image_signal,
+                        _clims='auto' if auto_contrast else (0, 255),
                     )
-                    cam.core.start()
+                    starter = getattr(cam, "start", None)
+                    if starter is None and cam.core is not None:
+                        starter = getattr(cam.core, "start", None)
+                    if callable(starter):
+                        starter()
                     core_box.layout().addWidget(preview)
                     cores_groupbox.layout().addWidget(core_box)
+                    self.layout().addWidget(cores_groupbox)
+            else:
+                # Dynamic / pyqtgraph viewer.
+                image_signal = getattr(cam, "image_ready", None)
+                if image_signal is None and cam.core is not None:
+                    image_signal = getattr(cam.core, "image_ready", None)
+                preview = InteractivePreview(image_payload=image_signal)
+                starter = getattr(cam, "start", None)
+                if starter is None and cam.core is not None:
+                    starter = getattr(cam.core, "start", None)
+                if callable(starter):
+                    starter()
+                core_box.layout().addWidget(preview)
+                cores_groupbox.layout().addWidget(core_box)
+                self.layout().addWidget(cores_groupbox)
 
 
 
