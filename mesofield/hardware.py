@@ -94,6 +94,28 @@ class HardwareManager():
         self._init_daq()
         self._configure_engines(cfg)
 
+    def deinitialize(self):
+        """Tear down all devices and reset to unconfigured state.
+
+        After this call the manager can be re-initialised with a fresh
+        :meth:`load_config` / :meth:`initialize` cycle.
+        """
+        self.logger.info("Deinitializing hardware – shutting down all devices...")
+        self.shutdown()
+        # Release pymmcore-held hardware so cameras can be re-acquired
+        for cam in self.cameras:
+            if cam.backend == "micromanager" and cam.core is not None:
+                try:
+                    cam.core.unloadAllDevices()
+                except Exception as e:
+                    self.logger.error(f"Error unloading devices for {cam.id}: {e}")
+        self.devices.clear()
+        self.cameras = ()
+        self.encoder = None
+        self.nidaq = None
+        self._configured = False
+        self.logger.info("Hardware deinitialized – ready for reconfiguration.")
+
     def stop(self):
         """Stop all devices."""
         for name, device in self.devices.items():

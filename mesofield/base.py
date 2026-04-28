@@ -102,6 +102,8 @@ class Procedure:
             
         except RuntimeError as e:  # pragma: no cover - initialization failures
             self.logger.error(f"Failed to initialize hardware: {e}")
+            self.config.hardware.deinitialize()
+            raise
             
     # ------------------------------------------------------------------
     #TODO: Connect an update event from the GUI controller with this method
