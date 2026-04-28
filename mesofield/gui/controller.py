@@ -19,9 +19,8 @@ from PyQt6.QtWidgets import (
     QInputDialog,
     QDialog,
     QStyle,
-    QFormLayout, 
-    QLineEdit, 
-    QSpinBox, 
+    QFormLayout,
+    QSpinBox,
     QCheckBox
 )
 from PyQt6.QtGui import QIcon
@@ -39,6 +38,22 @@ from .dynamic_controller import DynamicController
 class ConfigFormWidget(QWidget):
     """Map each config key to an appropriate editor in a form layout."""
 
+    @staticmethod
+    def _text_for_editor(key: str, value) -> str:
+        if value is None:
+            return ""
+        if key == "led_pattern" and isinstance(value, list):
+            return "".join(str(v) for v in value)
+        return str(value)
+
+    def _commit_text_editor(self, key: str, editor: QLineEdit) -> None:
+        text = editor.text().strip() if key == "led_pattern" else editor.text()
+        try:
+            self._registry.set(key, text)
+        except (TypeError, ValueError) as e:
+            QMessageBox.warning(self, "Invalid value", f"{key}: {e}")
+            editor.setText(self._text_for_editor(key, self._registry.get(key)))
+
     def __init__(self, registry, keys=None):
         super().__init__()
         self._registry = registry
@@ -51,7 +66,7 @@ class ConfigFormWidget(QWidget):
             type_hint = self._registry.get_metadata(key).get("type")
             value = self._registry.get(key)
             choices = self._registry.get_choices(key)
-            if choices:
+            if choices and key != "led_pattern":
                 # Key has registered choices — render a dropdown
                 editor = QComboBox()
                 editor.addItems([str(c) for c in choices])
@@ -69,15 +84,12 @@ class ConfigFormWidget(QWidget):
                 editor = QCheckBox()
                 editor.setChecked(bool(value))
                 editor.toggled.connect(lambda checked, k=key: self._registry.set(k, checked))
-            elif type_hint is list:
-                editor = QComboBox()
-                items = value if isinstance(value, list) else [str(value)]
-                editor.addItems(items)
-                editor.currentTextChanged.connect(lambda text, k=key: self._registry.set(k, text))
             else:
                 editor = QLineEdit()
-                editor.setText(str(value))
-                editor.textChanged.connect(lambda text, k=key: self._registry.set(k, text))
+                editor.setText(self._text_for_editor(key, value))
+                if key == "led_pattern":
+                    editor.setPlaceholderText("e.g. 422222442 or [\"4\",\"2\",\"2\"]")
+                editor.editingFinished.connect(lambda k=key, e=editor: self._commit_text_editor(k, e))
             form.addRow(key, editor)
         self.config_hint_text = QLabel("<i>All values are editable during recording before saving upon Procedure completion</i>")
         form.addRow(self.config_hint_text)
