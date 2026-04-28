@@ -214,45 +214,54 @@ class CustomJSONEncoder(json.JSONEncoder):
         return super().default(object)
 
 
+def configure_opencv_codec() -> None:
+    """Configure environment so OpenCV can locate the bundled OpenH264 DLL.
+
+    Safe to call repeatedly. Silences OpenCV/FFMPEG logging and prepends the
+    project's ``external/video-codecs`` directory to PATH / DLL search.
+    """
+    import os
+
+    # Set environment variables to suppress OpenCV/FFMPEG output BEFORE importing cv2
+    os.environ.setdefault('OPENCV_LOG_LEVEL', 'SILENT')
+    os.environ.setdefault('OPENCV_FFMPEG_CAPTURE_OPTIONS', 'loglevel;quiet')
+    os.environ.setdefault('OPENCV_VIDEOIO_DEBUG', '0')
+
+    try:
+        import cv2  # noqa: F401
+    except ImportError as e:  # pragma: no cover - optional dependency
+        raise ImportError(
+            "opencv-python is required. Please `pip install opencv-python`."
+        ) from e
+
+    # OpenCV log silencing is version-dependent.
+    try:
+        if hasattr(cv2, 'setLogLevel'):
+            cv2.setLogLevel(0)  # 0 = Silent
+        elif (
+            hasattr(cv2, 'utils')
+            and hasattr(cv2.utils, 'logging')
+            and hasattr(cv2.utils.logging, 'setLogLevel')
+        ):
+            cv2.utils.logging.setLogLevel(0)
+    except Exception:
+        pass
+
+    os.environ['OPENH264_LIBRARY'] = OPENH264_DLL_PATH
+    if CODEC_DIRECTORY not in os.environ.get('PATH', ''):
+        os.environ['PATH'] = CODEC_DIRECTORY + os.pathsep + os.environ.get('PATH', '')
+    if hasattr(os, 'add_dll_directory'):
+        try:
+            os.add_dll_directory(CODEC_DIRECTORY)
+        except (OSError, FileNotFoundError):
+            pass
+
+
 class CV2Writer(_5DWriterBase[Any]):
     """Write incoming MDA frames directly to an mp4/avi video using OpenCV."""
 
     def __init__(self, filename: Path | str, fps: int = 30, fourcc: str = "H264") -> None:
-        try:
-            from pathlib import Path
-            import os
-
-            # Set environment variables to suppress OpenCV/FFMPEG output BEFORE importing cv2
-            os.environ['OPENCV_LOG_LEVEL'] = 'SILENT'
-            os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'loglevel;quiet'
-            os.environ['OPENCV_VIDEOIO_DEBUG'] = '0'
-
-            import cv2  # noqa: F401
-
-            # OpenCV log silencing is version-dependent.
-            try:
-                if hasattr(cv2, 'setLogLevel'):
-                    cv2.setLogLevel(0)  # 0 = Silent
-                elif (
-                    hasattr(cv2, 'utils')
-                    and hasattr(cv2.utils, 'logging')
-                    and hasattr(cv2.utils.logging, 'setLogLevel')
-                ):
-                    cv2.utils.logging.setLogLevel(0)
-            except Exception:
-                pass
-
-            os.environ['OPENH264_LIBRARY'] = OPENH264_DLL_PATH
-            if CODEC_DIRECTORY not in os.environ.get('PATH', ''):
-                os.environ['PATH'] = CODEC_DIRECTORY + os.pathsep + os.environ.get('PATH', '')
-            if hasattr(os, 'add_dll_directory'):
-                os.add_dll_directory(CODEC_DIRECTORY)
-                
-        except ImportError as e:  # pragma: no cover - optional dependency
-            raise ImportError(
-                "opencv-python is required to use this handler. "
-                "Please `pip install opencv-python`."
-            ) from e
+        configure_opencv_codec()
 
         self._filename = str(filename)
         if not self._filename.endswith((".mp4", ".avi")):

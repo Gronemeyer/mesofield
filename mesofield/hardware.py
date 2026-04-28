@@ -182,9 +182,17 @@ class HardwareManager():
     # ---- Device init -------------------------------------------------------
 
     def _init_cameras(self):
-        CameraClass = DeviceRegistry.get_class("camera")
         cams = []
         for cfg in self.yaml.get("cameras", []):
+            backend = str(cfg.get("backend", "")).lower()
+            registry_key = "opencv_camera" if backend == "opencv" else "camera"
+            CameraClass = DeviceRegistry.get_class(registry_key)
+            if CameraClass is None:
+                self.logger.error(
+                    f"No camera class registered under '{registry_key}' "
+                    f"(backend='{backend}')"
+                )
+                continue
             cam = CameraClass(cfg)
             self._apply_output_args(cam, cfg.get('output', {}), cam.name)
             setattr(self, cam.id, cam)

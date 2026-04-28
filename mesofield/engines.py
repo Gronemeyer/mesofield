@@ -39,7 +39,13 @@ class MesoEngine(MDAEngine):
     def setup_sequence(self, sequence: useq.MDASequence) -> SummaryMetaV1 | None:
         """Perform setup required before the sequence is executed."""
 
-        self._mmc.getPropertyObject('Arduino-Switch', 'State').loadSequence(sequence.metadata.get('led_sequence', '44'))
+        led_sequence = sequence.metadata.get('led_sequence')
+        if not led_sequence and hasattr(self, '_config'):
+            led_sequence = self._config.led_pattern
+        if not led_sequence:
+            raise ValueError('Missing led_sequence in MDASequence metadata and ExperimentConfig')
+
+        self._mmc.getPropertyObject('Arduino-Switch', 'State').loadSequence(led_sequence)
         self._mmc.getPropertyObject('Arduino-Switch', 'State').setValue(4) # seems essential to initiate serial communication
         self._mmc.getPropertyObject('Arduino-Switch', 'State').startSequence()
 

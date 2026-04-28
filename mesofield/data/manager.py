@@ -330,7 +330,7 @@ class DataManager:
             except Exception:
                 pass
 
-        if sig is None and hasattr(device, "core"):
+        if sig is None and getattr(device, "core", None) is not None:
             # connect metadata-only from core.mda.events.frameReady
             sig = getattr(device.core.mda.events, "frameReady", None)
             if sig is not None and hasattr(sig, "connect"):
