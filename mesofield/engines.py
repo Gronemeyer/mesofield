@@ -39,7 +39,13 @@ class MesoEngine(MDAEngine):
     def setup_sequence(self, sequence: useq.MDASequence) -> SummaryMetaV1 | None:
         """Perform setup required before the sequence is executed."""
 
-        self._mmc.getPropertyObject('Arduino-Switch', 'State').loadSequence(sequence.metadata.get('led_sequence', '44'))
+        led_sequence = sequence.metadata.get('led_sequence')
+        if not led_sequence and hasattr(self, '_config'):
+            led_sequence = self._config.led_pattern
+        if not led_sequence:
+            raise ValueError('Missing led_sequence in MDASequence metadata and ExperimentConfig')
+
+        self._mmc.getPropertyObject('Arduino-Switch', 'State').loadSequence(led_sequence)
         self._mmc.getPropertyObject('Arduino-Switch', 'State').setValue(4) # seems essential to initiate serial communication
         self._mmc.getPropertyObject('Arduino-Switch', 'State').startSequence()
 
@@ -80,8 +86,10 @@ class MesoEngine(MDAEngine):
         # block until the sequence is done, popping images in the meantime
         while self._mmc.isSequenceRunning():
             if remaining := self._mmc.getRemainingImageCount():
-                yield self._next_seqimg_payload(
-                    *next(iter_events), remaining=remaining - 1, event_t0=event_t0_ms
+                img, mm_meta = self._mmc.popNextImageAndMD()
+                ev, ch = next(iter_events)
+                yield self._create_seqimg_payload_from_popped(
+                    img, mm_meta, event=ev, channel=ch, remaining=remaining - 1, event_t0=event_t0_ms
                 )
                 count += 1
             else:
@@ -97,8 +105,10 @@ class MesoEngine(MDAEngine):
 
         while remaining := self._mmc.getRemainingImageCount():
             self.logger.debug(f'Saving Remaining Images in buffer {self._mmc} with {count} events and {remaining} remaining with {self._mmc.getRemainingImageCount()} images in buffer')
-            yield self._next_seqimg_payload(
-                *next(iter_events), remaining=remaining - 1, event_t0=event_t0_ms
+            img, mm_meta = self._mmc.popNextImageAndMD()
+            ev, ch = next(iter_events)
+            yield self._create_seqimg_payload_from_popped(
+                img, mm_meta, event=ev, channel=ch, remaining=remaining - 1, event_t0=event_t0_ms
             )
             count += 1
     
@@ -177,8 +187,10 @@ class PupilEngine(MDAEngine):
         while True:
             if self._mmc.isSequenceRunning():
                 if remaining := self._mmc.getRemainingImageCount():
-                    yield self._next_seqimg_payload(
-                        *next(iter_events), remaining=remaining - 1, event_t0=event_t0_ms
+                    img, mm_meta = self._mmc.popNextImageAndMD()
+                    ev, ch = next(iter_events)
+                    yield self._create_seqimg_payload_from_popped(
+                        img, mm_meta, event=ev, channel=ch, remaining=remaining - 1, event_t0=event_t0_ms
                     )
                     count += 1
                 else:
@@ -196,8 +208,10 @@ class PupilEngine(MDAEngine):
 
         while remaining := self._mmc.getRemainingImageCount():
             self.logger.debug(f'Saving Remaining Images in buffer {self._mmc} with {count} events and {remaining} remaining with {self._mmc.getRemainingImageCount()} images in buffer')
-            yield self._next_seqimg_payload(
-                *next(iter_events), remaining=remaining - 1, event_t0=event_t0_ms
+            img, mm_meta = self._mmc.popNextImageAndMD()
+            ev, ch = next(iter_events)
+            yield self._create_seqimg_payload_from_popped(
+                img, mm_meta, event=ev, channel=ch, remaining=remaining - 1, event_t0=event_t0_ms
             )
             count += 1
     
@@ -269,8 +283,10 @@ class DevEngine(MDAEngine):
         while True:
             if self._mmc.isSequenceRunning():
                 if remaining := self._mmc.getRemainingImageCount():
-                    yield self._next_seqimg_payload(
-                        *next(iter_events), remaining=remaining - 1, event_t0=event_t0_ms
+                    img, mm_meta = self._mmc.popNextImageAndMD()
+                    ev, ch = next(iter_events)
+                    yield self._create_seqimg_payload_from_popped(
+                        img, mm_meta, event=ev, channel=ch, remaining=remaining - 1, event_t0=event_t0_ms
                     )
                     count += 1
                 else:
@@ -288,8 +304,10 @@ class DevEngine(MDAEngine):
 
         while remaining := self._mmc.getRemainingImageCount():
             self.logger.debug(f'Saving Remaining Images in buffer {self._mmc} with {count} events and {remaining} remaining with {self._mmc.getRemainingImageCount()} images in buffer')
-            yield self._next_seqimg_payload(
-                *next(iter_events), remaining=remaining - 1, event_t0=event_t0_ms
+            img, mm_meta = self._mmc.popNextImageAndMD()
+            ev, ch = next(iter_events)
+            yield self._create_seqimg_payload_from_popped(
+                img, mm_meta, event=ev, channel=ch, remaining=remaining - 1, event_t0=event_t0_ms
             )
             count += 1
     

@@ -1,5 +1,6 @@
 VALID_BACKENDS = {"micromanager", "opencv"}
 
+import os
 from typing import Dict, Any, List, Optional, ClassVar
 import yaml
 
@@ -12,27 +13,61 @@ class HardwareManager():
     """
     High-level class that initializes all hardware (cameras, encoder, etc.)
     using the ParameterManager. Keeps references easily accessible.
+
+    When *config_file* is ``None`` or the file does not exist the manager
+    starts in an **unconfigured** default state.  Call
+    :meth:`load_config` later to point it at a real YAML file and then
+    :meth:`initialize` to bring hardware up.
     """
 
-    def __init__(self, config_file: str):
+    def __init__(self, config_file: Optional[str] = None):
         self.logger = get_logger(f'{__name__}.{self.__class__.__name__}')
         self.logger.info(f"Initializing HardwareManager with config: {config_file}")
 
         self.config_file = config_file
         self.devices: Dict[str, DataProducer] = {}
+        self._configured: bool = False
 
-        try:
-            self.yaml = self._load_yaml(config_file)
-            self.logger.info("Successfully loaded hardware configuration")
-        except Exception as e:
-            self.logger.error(f"Failed to load hardware configuration: {e}")
-            raise
+        if config_file and os.path.isfile(config_file):
+            try:
+                self.yaml = self._load_yaml(config_file)
+                self._configured = True
+                self.logger.info("Successfully loaded hardware configuration")
+            except Exception as e:
+                self.logger.error(f"Failed to load hardware configuration: {e}")
+                self.yaml = {}
+        else:
+            self.yaml = {}
+            if config_file:
+                self.logger.warning(
+                    f"Hardware config not found: {config_file}. "
+                    "Starting in unconfigured state."
+                )
+            else:
+                self.logger.info("No hardware config provided. Starting in default state.")
 
         self.widgets: List[str] = self._aggregate_widgets()
         self.cameras: tuple[MMCamera, ...] = ()
         self.encoder = None
         self.nidaq = None
         self._viewer = self.yaml.get('viewer_type', 'static')
+
+    @property
+    def is_configured(self) -> bool:
+        """``True`` when a valid YAML config has been loaded."""
+        return self._configured
+
+    def load_config(self, config_file: str) -> None:
+        """Load (or reload) a hardware YAML file.
+
+        This does **not** initialise devices – call :meth:`initialize` afterwards.
+        """
+        self.config_file = config_file
+        self.yaml = self._load_yaml(config_file)
+        self._configured = True
+        self.widgets = self._aggregate_widgets()
+        self._viewer = self.yaml.get('viewer_type', 'static')
+        self.logger.info(f"Loaded hardware config: {config_file}")
 
     def __repr__(self):
         return (
@@ -46,12 +81,40 @@ class HardwareManager():
     # ---- Public interface --------------------------------------------------
 
     def initialize(self, cfg) -> None:
-        """Initialize all devices from YAML and configure engines."""
+        """Initialize all devices from YAML and configure engines.
+
+        Does nothing if the manager has no loaded YAML configuration.
+        """
+        if not self._configured:
+            self.logger.warning("Cannot initialize hardware: no YAML config loaded.")
+            return
         self.logger.info("Initializing hardware devices from YAML configuration...")
         self._init_cameras()
         self._init_encoder()
         self._init_daq()
         self._configure_engines(cfg)
+
+    def deinitialize(self):
+        """Tear down all devices and reset to unconfigured state.
+
+        After this call the manager can be re-initialised with a fresh
+        :meth:`load_config` / :meth:`initialize` cycle.
+        """
+        self.logger.info("Deinitializing hardware – shutting down all devices...")
+        self.shutdown()
+        # Release pymmcore-held hardware so cameras can be re-acquired
+        for cam in self.cameras:
+            if cam.backend == "micromanager" and cam.core is not None:
+                try:
+                    cam.core.unloadAllDevices()
+                except Exception as e:
+                    self.logger.error(f"Error unloading devices for {cam.id}: {e}")
+        self.devices.clear()
+        self.cameras = ()
+        self.encoder = None
+        self.nidaq = None
+        self._configured = False
+        self.logger.info("Hardware deinitialized – ready for reconfiguration.")
 
     def stop(self):
         """Stop all devices."""
@@ -119,9 +182,17 @@ class HardwareManager():
     # ---- Device init -------------------------------------------------------
 
     def _init_cameras(self):
-        CameraClass = DeviceRegistry.get_class("camera")
         cams = []
         for cfg in self.yaml.get("cameras", []):
+            backend = str(cfg.get("backend", "")).lower()
+            registry_key = "opencv_camera" if backend == "opencv" else "camera"
+            CameraClass = DeviceRegistry.get_class(registry_key)
+            if CameraClass is None:
+                self.logger.error(
+                    f"No camera class registered under '{registry_key}' "
+                    f"(backend='{backend}')"
+                )
+                continue
             cam = CameraClass(cfg)
             self._apply_output_args(cam, cfg.get('output', {}), cam.name)
             setattr(self, cam.id, cam)
@@ -177,6 +248,8 @@ class HardwareManager():
 
     def _configure_engines(self, cfg):
         """If using micromanager cameras, configure the engines."""
+        if not self.cameras:
+            return
         from pymmcore_plus import CMMCorePlus
         for cam in self.cameras:
             if isinstance(cam.core, CMMCorePlus):

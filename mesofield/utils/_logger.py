@@ -106,6 +106,9 @@ def setup_logging(log_dir: Optional[str] = None, level: str = "INFO") -> None:
 
     root.addHandler(fh)
 
+    # Suppress noisy third-party loggers
+    logging.getLogger("pymmcore-plus").setLevel(logging.WARNING)
+
     install_excepthook()
 
     _configured = True

@@ -1,5 +1,6 @@
 from contextlib import suppress
 from typing import Tuple, Union, Literal
+from time import perf_counter
 import numpy as np
 from pymmcore_plus import CMMCorePlus
 from qtpy.QtCore import Qt, QTimer
@@ -147,13 +148,17 @@ class ImagePreview(QWidget):
 
     """
 
-    def __init__(self, parent: QWidget = None, *, 
+    def __init__(self, parent: QWidget = None, *,
                  _clims: Union[Tuple[float, float], Literal["auto"]] = (0, 255),
                  use_with_mda: bool = True,
-                 mmcore: CMMCorePlus ):
+                 mmcore: CMMCorePlus | None = None,
+                 image_payload=None):
         super().__init__(parent=parent)
-        if mmcore is None:
-            raise ValueError("A CMMCorePlus instance must be provided.")
+        if mmcore is None and image_payload is None:
+            raise ValueError(
+                "ImagePreview requires either an mmcore CMMCorePlus instance "
+                "or an image_payload pyqtSignal emitting numpy frames."
+            )
         self._mmcore = mmcore
         self._use_with_mda = use_with_mda
         self._clims = _clims
@@ -178,7 +183,18 @@ class ImagePreview(QWidget):
         #self.progress_bar.setRange(0, 100)
         self.progress_bar.setVisible(False)
         self.layout().addWidget(self.progress_bar)
+
+        # Per-viewer FPS display for static live views.
+        self.fps_label = QLabel("FPS: --.-")
+        self.fps_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        self.layout().addWidget(self.fps_label)
         self.layout().setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self._fps_window_start = perf_counter()
+        self._fps_frame_count = 0
+        self._fps_value = 0.0
 
         # Set up timer
         self.streaming_timer = QTimer(parent=self)
@@ -186,19 +202,26 @@ class ImagePreview(QWidget):
         self.streaming_timer.setInterval(10)  # Default interval; adjust as needed
         self.streaming_timer.timeout.connect(self._on_streaming_timeout)
 
-        # Connect events for the mmcore
-        ev = self._mmcore.events
-        #ev.imageSnapped.connect(self._on_image_snapped)
-        ev.continuousSequenceAcquisitionStarted.connect(self._on_streaming_start)
-        ev.sequenceAcquisitionStarted.connect(self._on_streaming_start)
-        ev.sequenceAcquisitionStopped.connect(self._on_streaming_stop)
-        ev.exposureChanged.connect(self._on_exposure_changed)
+        if self._mmcore is not None:
+            # Connect events for the mmcore
+            ev = self._mmcore.events
+            #ev.imageSnapped.connect(self._on_image_snapped)
+            ev.continuousSequenceAcquisitionStarted.connect(self._on_streaming_start)
+            ev.sequenceAcquisitionStarted.connect(self._on_streaming_start)
+            ev.sequenceAcquisitionStopped.connect(self._on_streaming_stop)
+            ev.exposureChanged.connect(self._on_exposure_changed)
 
-        enev = self._mmcore.mda.events
-        enev.frameReady.connect(self._on_frame_ready)
-        enev.sequenceStarted.connect(self._on_sequence_started)
-        enev.sequenceFinished.connect(self._on_sequence_finished)
-        enev.sequenceCanceled.connect(self._on_sequence_finished)
+            enev = self._mmcore.mda.events
+            enev.frameReady.connect(self._on_frame_ready)
+            enev.sequenceStarted.connect(self._on_sequence_started)
+            enev.sequenceFinished.connect(self._on_sequence_finished)
+            enev.sequenceCanceled.connect(self._on_sequence_finished)
+
+        # Optional non-mmcore frame source (e.g. OpenCVCamera.image_ready).
+        if image_payload is not None and hasattr(image_payload, "connect"):
+            image_payload.connect(
+                self._on_external_frame, type=Qt.ConnectionType.QueuedConnection
+            )
 
         self._progress_total = 0
         self._progress_count = 0
@@ -206,6 +229,8 @@ class ImagePreview(QWidget):
         self.destroyed.connect(self._disconnect)
 
     def _disconnect(self) -> None:
+        if self._mmcore is None:
+            return
         # Disconnect events for the mmcore
         ev = self._mmcore.events
         with suppress(TypeError):
@@ -223,13 +248,15 @@ class ImagePreview(QWidget):
             enev.sequenceCanceled.disconnect()
 
     def _on_streaming_start(self) -> None:
+        self._reset_fps_counter()
         if not self.streaming_timer.isActive():
             self.streaming_timer.start()
 
     def _on_streaming_stop(self) -> None:
         # Stop the streaming timer
-        if not self._mmcore.isSequenceRunning():
+        if self._mmcore is None or not self._mmcore.isSequenceRunning():
             self.streaming_timer.stop()
+            self.fps_label.setText(f"FPS: {self._fps_value:.1f}")
 
     def _on_exposure_changed(self, device: str, value: str) -> None:
         # Adjust timer interval if needed
@@ -239,9 +266,15 @@ class ImagePreview(QWidget):
 
     def _on_streaming_timeout(self) -> None:
         frame = None
-        if not self._mmcore.mda.is_running():
-            with suppress(RuntimeError, IndexError):
-                frame = self._mmcore.getLastImage()
+        new_frames = 0
+        if self._mmcore is None:
+            with self._frame_lock:
+                if self._current_frame is not None:
+                    frame = self._current_frame
+                    self._current_frame = None
+                    new_frames = 1
+        elif not self._mmcore.mda.is_running():
+            frame, new_frames = self._pop_latest_live_frame()
         else:
             with self._frame_lock:
                 if self._current_frame is not None:
@@ -250,14 +283,33 @@ class ImagePreview(QWidget):
         # Update the image if a frame is available
         if frame is not None:
             self._display_image(frame)
+            if new_frames:
+                self._update_fps_counter(new_frames)
 
     def _on_image_snapped(self, img: np.ndarray) -> None:
         self._update_image(img)
+        self._display_image(img)
+        self._update_fps_counter(1)
+
+    def _on_external_frame(self, img: np.ndarray) -> None:
+        """Handle frames coming from a non-mmcore producer (e.g. OpenCVCamera).
+
+        The frame is stashed under the lock and displayed on the next timer
+        tick to keep all draw calls on the GUI thread.
+        """
+        if img is None:
+            return
+        with self._frame_lock:
+            self._current_frame = img
+        if not self.streaming_timer.isActive():
+            self._reset_fps_counter()
+            self.streaming_timer.start()
 
     def _on_frame_ready(self, img: np.ndarray) -> None:
         frame = img
         with self._frame_lock:
             self._current_frame = frame
+        self._update_fps_counter(1)
         if self.progress_bar.isVisible():
             self._progress_count = min(self._progress_count + 1, self._progress_total)
             self.progress_bar.setValue(self._progress_count)
@@ -265,6 +317,7 @@ class ImagePreview(QWidget):
             self.progress_bar.setFormat(f"{self._progress_count}/{self._progress_total}")
 
     def _on_sequence_started(self, sequence, metadata) -> None:
+        self._reset_fps_counter()
         self._progress_total = len(list(sequence.iter_events()))
         self._progress_count = 0
         self.progress_bar.setRange(0, self._progress_total)
@@ -279,6 +332,47 @@ class ImagePreview(QWidget):
         self.progress_bar.setFormat(f"{self._progress_total}/{self._progress_total}")
         # Hide after a short delay
         QTimer.singleShot(500, lambda: self.progress_bar.setVisible(False))
+
+    def _reset_fps_counter(self) -> None:
+        self._fps_window_start = perf_counter()
+        self._fps_frame_count = 0
+        self._fps_value = 0.0
+        self.fps_label.setText("FPS: --.-")
+
+    def _update_fps_counter(self, count: int = 1) -> None:
+        if count <= 0:
+            return
+        self._fps_frame_count += count
+        elapsed = perf_counter() - self._fps_window_start
+        if elapsed < 0.5:
+            return
+        self._fps_value = self._fps_frame_count / elapsed
+        self.fps_label.setText(f"FPS: {self._fps_value:.1f}")
+        self._fps_window_start = perf_counter()
+        self._fps_frame_count = 0
+
+    def _pop_latest_live_frame(self) -> tuple[np.ndarray | None, int]:
+        """Pop all newly queued live frames and return the latest one and count.
+
+        FPS should reflect true incoming frames, not timer refresh ticks.
+        """
+        frame = None
+        new_frames = 0
+        with suppress(RuntimeError, IndexError, TypeError, AttributeError):
+            remaining = int(self._mmcore.getRemainingImageCount())
+            for _ in range(remaining):
+                try:
+                    frame, _ = self._mmcore.popNextImageAndMD()
+                except Exception:
+                    frame = self._mmcore.popNextImage()
+                new_frames += 1
+
+        # Fallback for display continuity only; does not increment FPS.
+        if frame is None:
+            with suppress(RuntimeError, IndexError):
+                frame = self._mmcore.getLastImage()
+
+        return frame, new_frames
 
     def _display_image(self, img: np.ndarray) -> None:
         if img is None:
@@ -297,7 +391,13 @@ class ImagePreview(QWidget):
     def _adjust_image_data(self, img: np.ndarray) -> np.ndarray:
         # NOTE: This is the default implementation for grayscale images
         # NOTE: This is the most processor-intensive part of this widget
-        
+
+        # Color frames pass through unchanged (handled in _convert_to_qimage)
+        if img.ndim == 3:
+            if img.dtype != np.uint8:
+                img = np.clip(img, 0, 255).astype(np.uint8, copy=False)
+            return img
+
         # Ensure the image is in float format for scaling
         img = img.astype(np.float32, copy=False)
 
@@ -326,8 +426,20 @@ class ImagePreview(QWidget):
             # Grayscale image
             bytes_per_line = width
             qimage = QImage(img.data, width, height, bytes_per_line, QImage.Format.Format_Grayscale8)
+        elif img.ndim == 3 and img.shape[2] in (3, 4):
+            # Color image (BGR from OpenCV) -> RGB888
+            if img.shape[2] == 4:
+                rgb = img[..., [2, 1, 0]]  # drop alpha
+            else:
+                rgb = img[..., ::-1]       # BGR -> RGB
+            rgb = np.ascontiguousarray(rgb)
+            bytes_per_line = 3 * width
+            qimage = QImage(
+                rgb.data, width, height, bytes_per_line, QImage.Format.Format_RGB888
+            )
+            # Keep the underlying buffer alive for the life of the QImage
+            qimage._np_data = rgb  # type: ignore[attr-defined]
         else:
-            # Handle other image formats if needed
             return None
 
         return qimage
@@ -388,6 +500,12 @@ class InteractivePreview(pg.ImageView):
         self._current_frame = None
         self._frame_lock = Lock()
 
+        self._fps_window_start = perf_counter()
+        self._fps_frame_count = 0
+        self._fps_value = 0.0
+        self._fps_text = pg.TextItem("FPS: --.-", color=(255, 255, 0), anchor=(1, 0))
+        self.view.addItem(self._fps_text)
+
         if image_payload is not None:
             image_payload.connect(self._on_image_payload)
 
@@ -424,12 +542,14 @@ class InteractivePreview(pg.ImageView):
                 enev.frameReady.disconnect()
 
     def _on_streaming_start(self) -> None:
+        self._reset_fps_counter()
         if not self.streaming_timer.isActive():
             self.streaming_timer.start()
 
     def _on_streaming_stop(self) -> None:
         if not self._mmcore.isSequenceRunning():
             self.streaming_timer.stop()
+            self._fps_text.setText(f"FPS: {self._fps_value:.1f}")
 
     def _on_exposure_changed(self, device: str, value: str) -> None:
         exposure = self._mmcore.getExposure() or 10
@@ -441,9 +561,9 @@ class InteractivePreview(pg.ImageView):
 
     def _on_streaming_timeout(self) -> None:
         frame = None
+        new_frames = 0
         if not self._mmcore.mda.is_running():
-            with suppress(RuntimeError, IndexError):
-                frame = self._mmcore.getLastImage()
+            frame, new_frames = self._pop_latest_live_frame()
         else:
             with self._frame_lock:
                 if self._current_frame is not None:
@@ -451,13 +571,18 @@ class InteractivePreview(pg.ImageView):
                     self._current_frame = None
         if frame is not None:
             self._display_image(frame)
+            if new_frames:
+                self._update_fps_counter(frame.shape, count=new_frames)
 
     def _on_image_snapped(self, img: np.ndarray) -> None:
         with self._frame_lock:
             self._current_frame = img
         self._display_image(img)
+        self._update_fps_counter(img.shape, count=1)
 
     def _on_image_payload(self, img: np.ndarray) -> None:
+        if img is None:
+            return
         #img = self._adjust_image_data(img)
         self.setImage(img.T, 
                       autoHistogramRange=False, 
@@ -465,6 +590,7 @@ class InteractivePreview(pg.ImageView):
                       levelMode='mono', 
                       autoLevels=(self._clims == "auto"),
                       )
+        self._update_fps_counter(img.shape, count=1)
 
     def _display_image(self, img: np.ndarray) -> None:
         if img is None:
@@ -476,6 +602,45 @@ class InteractivePreview(pg.ImageView):
                       levelMode='mono', 
                       autoLevels=(self._clims == "auto"),
                       )
+
+    def _reset_fps_counter(self) -> None:
+        self._fps_window_start = perf_counter()
+        self._fps_frame_count = 0
+        self._fps_value = 0.0
+        self._fps_text.setText("FPS: --.-")
+
+    def _update_fps_counter(self, image_shape: tuple[int, ...], count: int = 1) -> None:
+        if count <= 0:
+            return
+        self._fps_frame_count += count
+        elapsed = perf_counter() - self._fps_window_start
+        if elapsed >= 0.5:
+            self._fps_value = self._fps_frame_count / elapsed
+            self._fps_text.setText(f"FPS: {self._fps_value:.1f}")
+            self._fps_window_start = perf_counter()
+            self._fps_frame_count = 0
+        if image_shape:
+            self._fps_text.setPos(max(image_shape[1] - 1, 0), 0)
+
+    def _pop_latest_live_frame(self) -> tuple[np.ndarray | None, int]:
+        """Pop all newly queued live frames and return the latest one and count."""
+        frame = None
+        new_frames = 0
+        with suppress(RuntimeError, IndexError, TypeError, AttributeError):
+            remaining = int(self._mmcore.getRemainingImageCount())
+            for _ in range(remaining):
+                try:
+                    frame, _ = self._mmcore.popNextImageAndMD()
+                except Exception:
+                    frame = self._mmcore.popNextImage()
+                new_frames += 1
+
+        # Fallback for display continuity only; does not increment FPS.
+        if frame is None:
+            with suppress(RuntimeError, IndexError):
+                frame = self._mmcore.getLastImage()
+
+        return frame, new_frames
 
     def _adjust_image_data(self, img: np.ndarray) -> np.ndarray:
         img = img.astype(np.float32, copy=False)

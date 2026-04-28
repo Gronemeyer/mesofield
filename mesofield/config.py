@@ -148,8 +148,8 @@ class ExperimentConfig(ConfigRegister):
             self._hardware_path_locked = locked
             self.hardware = HardwareManager(hardware_path)
         except Exception as e:
-            self.logger.error(f"Failed to initialize hardware: {e}")
-            raise
+            self.logger.warning(f"Hardware config not available: {e}. Starting in default state.")
+            self.hardware = HardwareManager()
         
         self.notes: list = []
 
@@ -162,7 +162,14 @@ class ExperimentConfig(ConfigRegister):
         self.register("start_on_trigger", False, bool, "Whether to start acquisition on trigger", "hardware")
         self.register("duration", 60, int, "Sequence duration in seconds", "experiment")
         self.register("trial_duration", None, int, "Trial duration in seconds", "experiment")
+        self.register("led_pattern", ["4", "4"], list, "Arduino LED sequence pattern", "hardware")
         self.register("psychopy_filename", "experiment.py", str, "PsychoPy experiment filename", "experiment")
+
+    def set(self, key: str, value: Any) -> None:
+        """Set config values with field-specific normalization where needed."""
+        if key == "led_pattern":
+            value = self._normalize_led_pattern(value)
+        super().set(key, value)
 
     def _resolve_hardware_path(self, path: Optional[str]) -> tuple[str, bool]:
         """Resolve the hardware YAML path.
@@ -182,6 +189,20 @@ class ExperimentConfig(ConfigRegister):
         if not self.experiment_dir:
             self.experiment_dir = os.getcwd()
         return os.path.join(self.experiment_dir, "hardware.yaml"), False
+
+    def load_hardware(self, yaml_path: str) -> None:
+        """Load (or reload) a hardware YAML configuration.
+
+        This replaces the current :class:`HardwareManager` with a new one
+        pointed at *yaml_path*.  Devices are **not** initialised until
+        :meth:`HardwareManager.initialize` is called (which is normally done
+        by :class:`~mesofield.base.Procedure.initialize_hardware`).
+        """
+        abs_path = os.path.abspath(yaml_path)
+        self._hardware_yaml_path = abs_path
+        self._hardware_path_locked = True
+        self.hardware = HardwareManager(abs_path)
+        self.logger.info(f"Loaded hardware config from: {abs_path}")
 
     @property
     def _cores(self):# -> tuple[CMMCorePlus, ...]:
@@ -261,7 +282,9 @@ class ExperimentConfig(ConfigRegister):
                 loops = int(camera.sampling_rate * self.sequence_duration)
             except Exception:
                 loops = 5
-            metadata = self.hardware.__dict__
+
+        metadata = dict(self.hardware.__dict__)
+        metadata["led_sequence"] = self.led_pattern
 
         # convert to a datetime.timedelta and build the time_plan
         time_plan = TIntervalLoops(
@@ -318,20 +341,41 @@ class ExperimentConfig(ConfigRegister):
     @property
     def led_pattern(self) -> list[str]:
         """Get the LED pattern."""
-        return self.get("led_pattern")
+        value = self.get("led_pattern")
+        return self._normalize_led_pattern(value)
     
     @led_pattern.setter
-    def led_pattern(self, value: list) -> None:
+    def led_pattern(self, value: Any) -> None:
+        self.set("led_pattern", value)
+
+    @staticmethod
+    def _normalize_led_pattern(value: Any) -> list[str]:
         if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                raise ValueError("led_pattern must not be empty")
+
             try:
-                value = json.loads(value)
+                parsed = json.loads(raw)
             except json.JSONDecodeError:
-                raise ValueError("led_pattern string must be a valid JSON list")
+                parsed = raw
+
+            if isinstance(parsed, list):
+                value = parsed
+            elif isinstance(parsed, str):
+                value = list(parsed)
+            else:
+                # Numeric tokens like "422222442" parse as int in json.loads.
+                # Treat the original string as compact LED sequence shorthand.
+                value = list(raw)
+
         if isinstance(value, list):
-            value_str = [str(item) for item in value]
-            self.set("led_pattern", value_str)
-        else:
-            raise ValueError("led_pattern must be a list or a JSON string representing a list")
+            normalized = [str(item) for item in value]
+            if not normalized:
+                raise ValueError("led_pattern must not be empty")
+            return normalized
+
+        raise ValueError("led_pattern must be a list or a JSON string representing a list")
     
     # Helper method to generate a unique file path
     def make_path(self, suffix: str, extension: str, bids_type: Optional[str] = None, create_dir: bool = False):
@@ -395,7 +439,7 @@ class ExperimentConfig(ConfigRegister):
         if "Configuration" in loaded_config and "Subjects" in loaded_config:
             config_params = loaded_config.get("Configuration", {})
             for key, value in config_params.items():
-                if isinstance(value, list):
+                if isinstance(value, list) and key != "led_pattern":
                     # Lists in Configuration are treated as selectable choices.
                     # Store the full list as choices and default to the first item.
                     self.register_choices(key, value)

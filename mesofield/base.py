@@ -29,9 +29,14 @@ class ProcedureSignals(QObject):
     
     
 class Procedure:
-    """High level class describing an experiment run in Mesofield."""
+    """High level class describing an experiment run in Mesofield.
 
-    def __init__(self, config_path: Optional[str]):
+    Can be created **without** a *config_path* to start in a default / empty
+    state.  Call :meth:`load_config` later to apply an experiment JSON and
+    bring up hardware.
+    """
+
+    def __init__(self, config_path: Optional[str] = None):
         self.events = ProcedureSignals()
 
         self.config: Configurator
@@ -54,9 +59,16 @@ class Procedure:
 
         self.logger = get_logger(f"PROCEDURE.{self.protocol}")
         self.logger.info(f"Initialized procedure: {self.protocol}")
-        self.initialize_hardware()
-        
-        self.config.hardware._configure_engines(self.config)
+
+        # Only initialise hardware when the hardware manager has a config
+        if self.config.hardware.is_configured:
+            self.initialize_hardware()
+            self.config.hardware._configure_engines(self.config)
+        else:
+            self.logger.info(
+                "Hardware not configured yet – launch in default state. "
+                "Use load_config() to apply a configuration."
+            )
     # ------------------------------------------------------------------
     # Convenience accessors
 
@@ -90,6 +102,8 @@ class Procedure:
             
         except RuntimeError as e:  # pragma: no cover - initialization failures
             self.logger.error(f"Failed to initialize hardware: {e}")
+            self.config.hardware.deinitialize()
+            raise
             
     # ------------------------------------------------------------------
     #TODO: Connect an update event from the GUI controller with this method
@@ -103,6 +117,54 @@ class Procedure:
         if json_config:
             self.config.load_json(json_config)
             self.config.hardware._configure_engines(self.config)
+
+    # ------------------------------------------------------------------
+
+    def load_config(self, json_path: Optional[str] = None,
+                    hardware_yaml_path: Optional[str] = None) -> None:
+        """Hot-load an experiment configuration and/or hardware YAML.
+
+        This is the primary entry-point for the *ConfigWizard* to apply
+        user-selected configuration files at runtime.
+
+        Parameters
+        ----------
+        json_path : str, optional
+            Path to an experiment JSON config file.  When provided, the
+            adjacent ``hardware.yaml`` is also discovered automatically
+            (unless *hardware_yaml_path* is given explicitly).
+        hardware_yaml_path : str, optional
+            Explicit path to a ``hardware.yaml`` file.  Takes precedence
+            over any YAML discovered relative to *json_path*.
+        """
+        # 1. Load hardware YAML first (explicit path takes priority)
+        if hardware_yaml_path:
+            self.config.load_hardware(hardware_yaml_path)
+        elif json_path:
+            # Discover hardware.yaml adjacent to the JSON file
+            candidate = os.path.join(
+                os.path.dirname(os.path.abspath(json_path)), "hardware.yaml"
+            )
+            if os.path.isfile(candidate):
+                self.config.load_hardware(candidate)
+
+        # 2. Load experiment JSON parameters
+        if json_path:
+            self.config.load_json(json_path)
+
+        # 3. Refresh derived attributes
+        self.protocol = self.config.get("protocol", "default_experiment")
+        self.experimenter = self.config.get("experimenter", "researcher")
+        self.data_dir = self.config.data_dir
+        self.h5_path = os.path.join(self.data_dir, f"{self.protocol}.h5")
+
+        # 4. Bring up hardware if now configured
+        if self.config.hardware.is_configured:
+            self.initialize_hardware()
+            self.config.hardware._configure_engines(self.config)
+
+        self.events.hardware_initialized.emit(self.config.hardware.is_configured)
+        self.logger.info("Configuration hot-loaded successfully")
 
     # ------------------------------------------------------------------
     
@@ -135,7 +197,8 @@ class Procedure:
                 self.psychopy_process.start()
 
             self.start_time = datetime.now()
-            self.hardware.encoder.start_recording()
+            if self.hardware.encoder is not None:
+                self.hardware.encoder.start_recording()
             for cam in self.hardware.cameras:
                 cam.start()
         except Exception as e:  # pragma: no cover - hardware errors
@@ -145,7 +208,8 @@ class Procedure:
     # ------------------------------------------------------------------
     def save_data(self) -> None:
         mgr = getattr(self, "data_manager", self.data)
-        self.hardware.cameras[1].core.stopSequenceAcquisition() #type: ignore
+        if len(self.hardware.cameras) > 1:
+            self.hardware.cameras[1].core.stopSequenceAcquisition() #type: ignore
         for cam in self.hardware.cameras:
             cam.stop()
         mgr.save.configuration()
@@ -173,7 +237,8 @@ class Procedure:
     def _cleanup_procedure(self):
         self.logger.info("Cleanup Procedure")
         try:
-            self.hardware.cameras[1].core.stopSequenceAcquisition()
+            if len(self.hardware.cameras) > 1:
+                self.hardware.cameras[1].core.stopSequenceAcquisition()
             self.hardware.cameras[0].core.mda.events.sequenceFinished.disconnect(self._cleanup_procedure)
             self.hardware.stop()
             self.data.stop_queue_logger()

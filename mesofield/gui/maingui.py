@@ -11,64 +11,73 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QVBoxLayout,
     QTabWidget,
-    QLayout
+    QLayout,
+    QToolBar,
 )
 
-from PyQt6.QtGui import QIcon
-from PyQt6.QtCore import QCoreApplication
+from PyQt6.QtGui import QIcon, QAction
+from PyQt6.QtCore import QCoreApplication, Qt
 
 from mesofield.gui.mdagui import MDA
 from mesofield.gui.controller import ConfigController
 from mesofield.gui.speedplotter import SerialWidget
+from mesofield.gui.config_wizard import ConfigWizard
 from mesofield.config import ExperimentConfig
 from mesofield.protocols import Procedure
 
 class MainWindow(QMainWindow):
     def __init__(self, procedure: Procedure):
         super().__init__()
-        #self.config: ExperimentConfig = cast(ExperimentConfig, procedure.config)
         self.procedure = procedure
         self.display_keys = self.procedure.config.display_keys       
         self.setWindowTitle("Mesofield")
-        #============================== Widgets =============================#
-        self.acquisition_gui = MDA(self.procedure.config)
-        self.config_controller = ConfigController(self.procedure, display_keys=self.display_keys)
-        self.encoder_widget = SerialWidget(
-            cfg=self.procedure.config,
-            device_attr="encoder",
-            signal_name="serialSpeedUpdated",
-            label="Encoder",
-            value_label="Speed",
-            value_units="mm/s",
-        )
-        self.initialize_console(self.procedure) # Initialize the IPython console
+
+        #============================== Always-available widgets =============================#
+        self.config_wizard = ConfigWizard(self.procedure)
+        self.initialize_console(self.procedure)
+        #--------------------------------------------------------------------#
+
+        #============================== Toolbar ================================#
+        self._toolbar = QToolBar("Hardware")
+        self._toolbar.setMovable(False)
+        self._toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.addToolBar(self._toolbar)
+        self._prop_browsers: list = []  # open PropertyBrowser dialogs
         #--------------------------------------------------------------------#
 
         #============================== Layout ==============================#
         central_widget = QWidget()
-        # Use a vertical layout: top = acquisition/tabbed panel; bottom = encoder
         self.main_layout = QVBoxLayout(central_widget)
         self.setCentralWidget(central_widget)
-
-        mda_layout = QVBoxLayout()
-        self.main_layout.addLayout(mda_layout)
         self.main_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
 
-        # Build a tab widget with ExperimentConfig and Terminal tabs
+        # Build a tab widget (always present)
         self.right_tabs = QTabWidget()
-        self.right_tabs.addTab(self.config_controller, "ExperimentConfig")
+        self.right_tabs.addTab(self.config_wizard, "⚙ Setup")
         self.right_tabs.addTab(self.console_widget, "Terminal")
 
-        # Horizontal row for acquisition GUI and the tabbed panel
-        top_row = QHBoxLayout()
-        top_row.addWidget(self.acquisition_gui)
-        top_row.addWidget(self.right_tabs)
-        mda_layout.addLayout(top_row)
-
-        # Encoder widget below the top row
-        mda_layout.addWidget(self.encoder_widget)
-
+        # The top row layout will hold [acquisition_gui | right_tabs]
+        self._top_row = QHBoxLayout()
+        self._mda_layout = QVBoxLayout()
+        self._top_row.addLayout(self._mda_layout)
+        self._top_row.addWidget(self.right_tabs)
+        self.main_layout.addLayout(self._top_row)
         #--------------------------------------------------------------------#
+
+        # Tracking for widgets that get built after config is loaded
+        self._acquisition_gui: MDA | None = None
+        self._config_controller: ConfigController | None = None
+        self._encoder_widget: SerialWidget | None = None
+
+        # Connect hot-load signals
+        self.config_wizard.configApplied.connect(self._on_config_applied)
+        self.config_wizard.hardwareReady.connect(self._build_acquisition_ui)
+
+        # If hardware is already configured (e.g. config_path was passed),
+        # build the full UI immediately.
+        if self.procedure.config.hardware.is_configured:
+            self._build_acquisition_ui()
+            self._on_config_applied()
 
     #============================== Methods =================================#    
     def toggle_console(self):
@@ -173,7 +182,7 @@ class MainWindow(QMainWindow):
 
         # 2. shut down all hardware
         try:
-            self.config.hardware.shutdown()
+            self.procedure.config.hardware.shutdown()
         except Exception:
             pass
 
@@ -181,12 +190,108 @@ class MainWindow(QMainWindow):
         QCoreApplication.quit()
 
     #============================== Private Methods =============================#
+
+    def _on_config_applied(self) -> None:
+        """Rebuild config-dependent tabs after the user applies a configuration."""
+        self.display_keys = self.procedure.config.display_keys
+
+        # Rebuild the ConfigController tab
+        if self._config_controller is not None:
+            idx = self.right_tabs.indexOf(self._config_controller)
+            self.right_tabs.removeTab(idx)
+            self._config_controller.deleteLater()
+
+        self._config_controller = ConfigController(
+            self.procedure, display_keys=self.display_keys
+        )
+        # Insert after the Setup tab (index 1) so ordering is:
+        # [Setup] [ExperimentConfig] [Terminal]
+        self.right_tabs.insertTab(1, self._config_controller, "ExperimentConfig")
+        self.right_tabs.setCurrentWidget(self._config_controller)
+
+    def _build_acquisition_ui(self) -> None:
+        """Build (or rebuild) hardware-dependent widgets: MDA viewer and encoder."""
+        # -- MDA / acquisition GUI -------------------------------------------
+        if self._acquisition_gui is not None:
+            self._mda_layout.removeWidget(self._acquisition_gui)
+            self._acquisition_gui.deleteLater()
+
+        self._acquisition_gui = MDA(self.procedure.config)
+        self._mda_layout.insertWidget(0, self._acquisition_gui)
+
+        # -- Encoder widget ---------------------------------------------------
+        if self.procedure.config.hardware.encoder is not None:
+            if self._encoder_widget is not None:
+                self.main_layout.removeWidget(self._encoder_widget)
+                self._encoder_widget.deleteLater()
+
+            self._encoder_widget = SerialWidget(
+                cfg=self.procedure.config,
+                device_attr="encoder",
+                signal_name="serialSpeedUpdated",
+                label="Encoder",
+                value_label="Speed",
+                value_units="mm/s",
+            )
+            self.main_layout.addWidget(self._encoder_widget)
+
+        # -- Refresh the MM config section in the wizard ---------------------
+        self.config_wizard.refresh_mm_section()
+
+        # -- Property browser toolbar buttons --------------------------------
+        self._build_property_browsers()
+
+    def _build_property_browsers(self) -> None:
+        """Add a toolbar button per MicroManager camera that opens a PropertyBrowser."""
+        # Close any existing browsers and clear toolbar actions
+        for dlg in self._prop_browsers:
+            dlg.close()
+            dlg.deleteLater()
+        self._prop_browsers.clear()
+        self._toolbar.clear()
+
+        cameras = self.procedure.config.hardware.cameras
+        mm_cams = [
+            cam for cam in cameras
+            if cam.backend == "micromanager" and hasattr(cam, "core")
+        ]
+        if not mm_cams:
+            return
+
+        try:
+            from pymmcore_widgets import PropertyBrowser
+        except ImportError:
+            # pymmcore-widgets not installed – skip toolbar
+            return
+
+        for cam in mm_cams:
+            browser = PropertyBrowser(mmcore=cam.core, parent=self)
+            browser.setWindowTitle(f"Properties — {cam.name}")
+            browser.resize(900, 600)
+            self._prop_browsers.append(browser)
+
+            action = QAction(f"🔬 {cam.name} Properties", self)
+            action.setToolTip(
+                f"Open the device property browser for {cam.name}"
+            )
+            # Use a default-argument closure to capture the correct browser
+            action.triggered.connect(
+                lambda checked, b=browser: self._show_property_browser(b)
+            )
+            self._toolbar.addAction(action)
+
+    @staticmethod
+    def _show_property_browser(browser) -> None:
+        """Show (or raise) a PropertyBrowser dialog."""
+        browser.show()
+        browser.raise_()
+        browser.activateWindow()
+
     def _on_end(self) -> None:
         """Called when the MDA is finished."""
-        #self.config_controller.save_config()
 
     def _update_config(self, config):
-        self.config = config
+        self.procedure.config = config
                 
     def _on_pause(self, state: bool) -> None:
         """Called when the MDA is paused."""
