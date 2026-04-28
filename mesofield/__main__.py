@@ -144,46 +144,258 @@ def playback(experiment_dir: str, speed: float, loop: bool):
 
 
 @cli.command()
+@click.option('--path', help='Path to a tiff file')
 @click.option('--dir',  help='Save the plot to the processing directory in the Experiment folder')
 @click.option('--sub', help='Subject ID (the name of the subject folder)')
-def trace_meso(dir, sub):
+def trace_meso(path, dir, sub):
     import pandas as pd
     import mesofield.data.proc.load as load
     import mesofield.data.batch as batch
     
-    datadict =  load.file_hierarchy(dir)
-
-    print(f"DEBUG: Available subject keys: {list(datadict.keys())}")
-    print(f"DEBUG: Available session keys for subject '{sub}': {list(datadict[sub].keys())}")
-
-    session_paths = []
-    for key in sorted(datadict[sub].keys()):
-        if key.isdigit():
-            session = datadict[sub][key]
-            if 'widefield' in session:
-                print(f"DEBUG: Session {key} widefield keys: {list(session['widefield'].keys())}")
-                if 'meso_tiff' in session['widefield']:
-                    path = session['widefield']['meso_tiff']
-                    print(f"DEBUG: Found session {key}, meso_tiff path: {path}")
-                    session_paths.append(path)
-                else:
-                    print(f"WARNING: Session {key} 'widefield' keys: {list(session['widefield'].keys())} (missing 'meso_tiff')")
-            else:
-                print(f"WARNING: Session {key} missing 'widefield' key. Available keys: {list(session.keys())}")
-    print(f"DEBUG: Collected session_paths: {session_paths}")
-    
-    results = batch.mean_trace_from_tiff(session_paths)
-    for path, trace in results.items():
-        print(f"{path}: {trace[:10]}") 
-        
-    outdir = os.path.join(dir, "processed", sub)
-    os.makedirs(outdir, exist_ok=True)
-
-    for path, trace in results.items():
+    if path:
+        session_paths = [path]
+        # find the parent experiment file assumn=ing path is under experimentdir/data/sub/ses/func/tiffile
+        experiment_dir = Path(path).parents[4]
+        print(f"DEBUG: Inferred experiment directory: {experiment_dir}")
+        result = batch.mean_trace_from_tiff(session_paths)
+        for path, trace in result.items():
+            print(f"{path}: {trace[:10]}")
+        # save to the processed dir of the experiment dir supporting Windows path
+        outdir = Path(experiment_dir) / "processed"
         df = pd.DataFrame({"Slice": range(len(trace)), "Mean": trace})
+        
         base_name = os.path.splitext(os.path.basename(path))[0]
         filename = f"{base_name}_meso-mean-trace.csv"
         df.to_csv(os.path.join(outdir, filename), index=False)
+    else:
+        datadict =  load.file_hierarchy(dir)
+
+        # print(f"DEBUG: Available subject keys: {list(datadict.keys())}")
+        # print(f"DEBUG: Available session keys for subject '{sub}': {list(datadict[sub].keys())}")
+
+        session_paths = []
+        for key in sorted(datadict[sub].keys()):
+            if key.isdigit():
+                session = datadict[sub][key]
+                if 'widefield' in session:
+                    print(f"DEBUG: Session {key} widefield keys: {list(session['widefield'].keys())}")
+                    if 'meso_tiff' in session['widefield']:
+                        path = session['widefield']['meso_tiff']
+                        print(f"DEBUG: Found session {key}, meso_tiff path: {path}")
+                        session_paths.append(path)
+                    else:
+                        print(f"WARNING: Session {key} 'widefield' keys: {list(session['widefield'].keys())} (missing 'meso_tiff')")
+                else:
+                    print(f"WARNING: Session {key} missing 'widefield' key. Available keys: {list(session.keys())}")
+        print(f"DEBUG: Collected session_paths: {session_paths}")
+        
+        results = batch.mean_trace_from_tiff(session_paths)
+        for path, trace in results.items():
+            print(f"{path}: {trace[:10]}") 
+            
+        outdir = os.path.join(dir, "processed", sub)
+        os.makedirs(outdir, exist_ok=True)
+
+        for path, trace in results.items():
+            df = pd.DataFrame({"Slice": range(len(trace)), "Mean": trace})
+            base_name = os.path.splitext(os.path.basename(path))[0]
+            filename = f"{base_name}_meso-mean-trace.csv"
+            df.to_csv(os.path.join(outdir, filename), index=False)
+
+
+@cli.command()
+@click.option('--dir', required=True, help='Experiment directory containing BIDS formatted /data hierarchy')
+@click.option('--sub', default=None, help='Single subject ID to process (default: all subjects)')
+@click.option('--frame', default=1, show_default=True, help='0-based frame index to extract from each tiff')
+<<<<<<< HEAD
+@click.option('--rotate', default=0, show_default=True, type=int, help='Rotate each frame by N degrees (positive=clockwise, negative=counter-clockwise)')
+@click.option('--filter', 'ses_filter', default=None, help='Session range START:END (1-based, exclusive end). E.g. 1:10 keeps sessions 1-9.')
+def montage_meso(dir, sub, frame, rotate, ses_filter):
+=======
+def montage_meso(dir, sub, frame):
+>>>>>>> 92c0c572a94914ee66aa6917a31e0b8f5c0ba695
+    """Extract a single frame from each session's widefield tiff and save a per-subject montage.
+
+    Each task within a session becomes its own row.  Columns are sessions,
+    so the output image is a grid of (tasks x sessions) panels.
+    """
+    import numpy as np
+    import tifffile
+    import mesofield.data.proc.load as load
+    from PIL import Image, ImageDraw, ImageFont
+
+    datadict = load.file_hierarchy(dir)
+    subjects = [sub] if sub else sorted(datadict.keys())
+
+    outdir = os.path.join(dir, "processed")
+    os.makedirs(outdir, exist_ok=True)
+
+    try:
+        font = ImageFont.truetype("arial.ttf", 18)
+    except OSError:
+        font = ImageFont.load_default()
+
+    label_height = 30
+
+    for subject in subjects:
+        sessions = datadict[subject]
+        ses_keys = sorted(k for k in sessions.keys() if k.isdigit())
+
+<<<<<<< HEAD
+        # Apply session range filter
+        if ses_filter:
+            parts = ses_filter.split(':')
+            start = int(parts[0]) if parts[0] else 1
+            end = int(parts[1]) if len(parts) > 1 and parts[1] else None
+            ses_keys = [k for k in ses_keys if int(k) >= start and (end is None or int(k) < end)]
+
+=======
+>>>>>>> 92c0c572a94914ee66aa6917a31e0b8f5c0ba695
+        # Collect the superset of task names across all sessions (preserving order)
+        all_tasks = []
+        for sk in ses_keys:
+            for tk in sessions[sk]:
+                if tk not in all_tasks:
+                    all_tasks.append(tk)
+
+        # grid[task][ses_key] = normalised 8-bit numpy image
+        grid: dict[str, dict[str, np.ndarray]] = {t: {} for t in all_tasks}
+
+        for ses_key in ses_keys:
+            session = sessions[ses_key]
+            for task in all_tasks:
+                if task not in session or 'meso_tiff' not in session[task]:
+                    print(f"WARNING: sub-{subject} ses-{ses_key} task-{task} missing meso_tiff, skipping")
+                    continue
+
+                tiff_path = session[task]['meso_tiff']
+                try:
+                    tiff_array = tifffile.memmap(tiff_path)
+                    if tiff_array.shape[0] <= frame:
+                        print(f"WARNING: {tiff_path} has only {tiff_array.shape[0]} frames, skipping")
+                        continue
+                    img = np.array(tiff_array[frame])
+                except Exception as e:
+                    print(f"ERROR reading {tiff_path}: {e}")
+                    continue
+
+                img_min, img_max = img.min(), img.max()
+                if img_max > img_min:
+                    img_norm = ((img - img_min) / (img_max - img_min) * 255).astype(np.uint8)
+                else:
+                    img_norm = np.zeros_like(img, dtype=np.uint8)
+<<<<<<< HEAD
+
+                if rotate:
+                    # PIL rotates counter-clockwise, so negate for clockwise convention
+                    img_norm = np.array(Image.fromarray(img_norm).rotate(-rotate, expand=True))
+
+=======
+>>>>>>> 92c0c572a94914ee66aa6917a31e0b8f5c0ba695
+                grid[task][ses_key] = img_norm
+
+        # Skip subject if nothing was loaded
+        if not any(grid[t] for t in all_tasks):
+            print(f"WARNING: No frames found for sub-{subject}, skipping")
+            continue
+
+        # Determine a uniform cell size across the whole grid
+        all_imgs = [img for task_imgs in grid.values() for img in task_imgs.values()]
+        cell_h = max(img.shape[0] for img in all_imgs)
+        cell_w = max(img.shape[1] for img in all_imgs)
+
+        def _resize(img):
+            if img.shape[0] == cell_h and img.shape[1] == cell_w:
+                return img
+            return np.array(Image.fromarray(img).resize((cell_w, cell_h), Image.LANCZOS))
+
+        def _blank():
+            return np.zeros((cell_h, cell_w), dtype=np.uint8)
+
+        def _label_header(text, width):
+            header = Image.new('L', (width, label_height), color=0)
+            draw = ImageDraw.Draw(header)
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_w = bbox[2] - bbox[0]
+            draw.text(((width - text_w) // 2, 4), text, fill=255, font=font)
+            return np.array(header)
+
+<<<<<<< HEAD
+        # Helper: render vertical text as a strip image
+        def _vertical_text(text, height, strip_w=40):
+            """Render *text* rotated 90° so it reads bottom-to-top (left side)
+            or top-to-bottom (right side).  Returns an (height, strip_w) uint8 array."""
+            # draw text horizontally first, then rotate
+            tmp = Image.new('L', (height, strip_w), color=0)
+            draw = ImageDraw.Draw(tmp)
+            bbox = draw.textbbox((0, 0), text, font=font)
+            tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+            draw.text(((height - tw) // 2, (strip_w - th) // 2), text, fill=255, font=font)
+            return tmp  # will be rotated by caller
+
+        side_strip_w = 40
+        grid_height = label_height + cell_h * len(all_tasks)
+        grid_width = cell_w * len(ses_keys)
+
+        # --- Left column: vertical subject name (reads bottom-to-top) ---
+        subject_label = f"sub-{subject}"
+        left_pil = _vertical_text(subject_label, grid_height, side_strip_w)
+        left_strip = np.array(left_pil.rotate(90, expand=True))  # CCW 90°
+
+        # --- Right column: vertical task names (one per row, reads top-to-bottom) ---
+        right_pieces = []
+        # blank for column-header row
+        right_pieces.append(np.zeros((label_height, side_strip_w), dtype=np.uint8))
+        for task in all_tasks:
+            task_label = task if task else "default"
+            tmp = _vertical_text(task_label, cell_h, side_strip_w)
+            right_pieces.append(np.array(tmp.rotate(-90, expand=True)))  # CW 90°
+        right_strip = np.vstack(right_pieces)
+
+        # --- Build the data columns (one per session) ---
+=======
+        # Build the row-label column (task names, one per row)
+        task_label_w = 120
+        row_label_strips = []
+        # blank corner for column-header row
+        row_label_strips.append(np.zeros((label_height, task_label_w), dtype=np.uint8))
+        for task in all_tasks:
+            task_label = task if task else "default"
+            strip = np.zeros((cell_h, task_label_w), dtype=np.uint8)
+            pil_strip = Image.fromarray(strip)
+            draw = ImageDraw.Draw(pil_strip)
+            bbox = draw.textbbox((0, 0), task_label, font=font)
+            tw = bbox[2] - bbox[0]
+            th = bbox[3] - bbox[1]
+            draw.text(((task_label_w - tw) // 2, (cell_h - th) // 2), task_label, fill=255, font=font)
+            row_label_strips.append(np.array(pil_strip))
+        row_labels = np.vstack(row_label_strips)
+
+        # Build the data columns (one per session)
+>>>>>>> 92c0c572a94914ee66aa6917a31e0b8f5c0ba695
+        columns = []
+        for ses_key in ses_keys:
+            col_header = _label_header(f"ses-{ses_key}", cell_w)
+            panels = [col_header]
+            for task in all_tasks:
+                img = grid[task].get(ses_key)
+                panels.append(_resize(img) if img is not None else _blank())
+            columns.append(np.vstack(panels))
+
+<<<<<<< HEAD
+        montage = np.hstack([left_strip] + columns + [right_strip])
+=======
+        montage = np.hstack([row_labels] + columns)
+>>>>>>> 92c0c572a94914ee66aa6917a31e0b8f5c0ba695
+        montage_img = Image.fromarray(montage)
+
+        filename = f"sub-{subject}_frame-{frame}_montage.png"
+        save_path = os.path.join(outdir, filename)
+        montage_img.save(save_path)
+        n_cells = sum(len(v) for v in grid.values())
+        print(f"Saved: {save_path}  ({len(all_tasks)} tasks x {len(ses_keys)} sessions, {n_cells} images)")
+
+    print("Done.")
 
 
 @cli.command()
