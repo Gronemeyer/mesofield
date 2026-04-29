@@ -194,21 +194,49 @@ class DataSaver:
             self.logger.error(f"Error saving timestamps: {e}")
 
     def save_queue(self, rows: list[list[Any]], path: str | None = None) -> None:
-        """Save queued data rows to CSV file specified in DataPaths or override path."""
+        """Save queued data rows to CSV file specified in DataPaths or override path.
+
+        Rows are produced by ``DataManager._queue_writer_loop`` as
+        ``[queue_elapsed, packet_ts, device_ts, device_id, payload]``.
+        If any payload is a ``dict``, its keys are fanned out into
+        dedicated columns; the ``payload`` column then holds the
+        non-dict payloads only (blank when a row has dict columns).
+        """
         if path is None:
             path = self.paths.queue
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
+
+            keys: list[str] = []
+            seen: set[str] = set()
+            for row in rows:
+                payload = row[4] if len(row) > 4 else None
+                if isinstance(payload, dict):
+                    for k in payload:
+                        if k not in seen:
+                            seen.add(k)
+                            keys.append(k)
+
+            base_cols = ["queue_elapsed", "packet_ts", "device_ts", "device_id"]
             with open(path, "w", newline="") as csvfile:
                 writer = csv.writer(csvfile)
-                writer.writerow([
-                    "queue_elapsed",
-                    "packet_ts",
-                    "device_ts",
-                    "device_id",
-                    "payload",
-                ])
-                writer.writerows(rows)
+                if keys:
+                    writer.writerow([*base_cols, "payload", *keys])
+                    for row in rows:
+                        elapsed, ts, dts, dev_id, payload = row[:5]
+                        if isinstance(payload, dict):
+                            writer.writerow(
+                                [elapsed, ts, dts, dev_id, "",
+                                 *(payload.get(k, "") for k in keys)]
+                            )
+                        else:
+                            writer.writerow(
+                                [elapsed, ts, dts, dev_id, payload,
+                                 *("" for _ in keys)]
+                            )
+                else:
+                    writer.writerow([*base_cols, "payload"])
+                    writer.writerows(rows)
             self.logger.info(f"Queue log saved to {path}")
         except Exception as e:
             self.logger.error(f"Error saving queue log: {e}")

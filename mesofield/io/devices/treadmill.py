@@ -1,226 +1,103 @@
-#!/usr/bin/env python3
-"""
-encoder_interface.py
-
-This module provides a serial interface to a Teensy board running the EncoderInterfaceT4 firmware.
-It abstracts the serial communication and encoder data parsing to allow easy integration into larger systems.
+"""Teensy treadmill encoder over USB-serial.
 
 Firmware Data Format:
-  - With SHOW_MICROS defined:
-      "micros,distance (mm),speed (mm/s)"
-  - Without SHOW_MICROS defined:
-      "distance (mm),speed (mm/s)"
-      
+  - With SHOW_MICROS defined:  ``"micros,distance(mm),speed(mm/s)"``
+  - Without SHOW_MICROS:       ``"distance(mm),speed(mm/s)"``
+
 Supported Commands:
   | Command | Description                                  |
   |---------|----------------------------------------------|
   | '?'     | Print version and header info                |
   | 'c'     | Initiate speed output calibration            |
 
-Usage Example:
-    def process_encoder_data(data):
-        print(data)
-
-    encoder_interface = EncoderSerialInterface('/dev/ttyACM0', data_callback=process_encoder_data)
-    encoder_interface.start()
-    
-    # Send a command to get header information.
-    encoder_interface.send_command('?')
-    
-    # Run until interrupted...
+Built on :class:`mesofield.devices.base.BaseSerialDevice`.  Each parsed
+line is recorded as a dict ``{"distance": float, "speed": float,
+"device_us": int|None}`` so that the default
+:meth:`BaseDataProducer.save_data` writes a 4-column CSV
+(``timestamp,distance,speed,device_us``).
 """
-from typing import Any, Callable, ClassVar, Dict, List
+from __future__ import annotations
 
-import serial
-import time
-import logging
-import csv
-from typing import Optional
-from dataclasses import dataclass
-from datetime import datetime
-from PyQt6.QtCore import pyqtSignal, QThread
-
-
-@dataclass
-class EncoderData:
-    distance: float
-    speed: float
-    timestamp: Optional[int] = None
-
-    def __repr__(self):
-        return (f"EncoderData(timestamp={self.timestamp}, "
-                f"distance={self.distance:.3f} mm, speed={self.speed:.3f} mm/s)")
+from typing import Any, ClassVar, Dict, Optional, Tuple
 
 from mesofield import DeviceRegistry
-from mesofield.signals import DeviceSignals
+from mesofield.devices.base import BaseSerialDevice
+
 
 @DeviceRegistry.register("encoder")
-class EncoderSerialInterface(QThread):
-    
-    serialDataReceived = pyqtSignal(int)  # Emits the parsed EncoderData
-    serialStreamStarted = pyqtSignal()         # Emits when streaming starts
-    serialStreamStopped = pyqtSignal()         # Emits when streaming stops
-    serialSpeedUpdated = pyqtSignal(float, float)  # Emits elapsed time and current speed
-    device_id: str = "treadmill"  # Default device ID, can be overridden
+class EncoderSerialInterface(BaseSerialDevice):
+    """Teensy encoder/treadmill device.
+
+    Constructor accepts either a cfg dict (``BaseSerialDevice``-style) or
+    legacy positional/keyword args ``(port, baudrate)`` for backward
+    compatibility with :mod:`mesofield.hardware`.
+    """
+
     device_type: ClassVar[str] = "encoder"
-    file_type: str = "csv"
-    bids_type: Optional[str] = "beh"
-    _started: datetime  # Timestamp when the interface started
-    _stopped: datetime # Timestamp when the interface stopped
-    
-    def __init__(self, port: str, baudrate: int = 192000):
-        super().__init__()
-        self.signals = DeviceSignals()
-        self.logger = logging.getLogger("EncoderSerialInterface")
-        #self.device_id: str
-        self.serial_port = port
-        self.baud_rate = baudrate
-        self.output_path: str = ''  # Path to save recorded data
-        
-        self._recording = False
-        self.session_data = []
+    file_type: ClassVar[str] = "csv"
+    bids_type: ClassVar[Optional[str]] = "beh"
+    default_baudrate: ClassVar[int] = 192_000
+
+    def __init__(
+        self,
+        cfg: Optional[Dict[str, Any]] = None,
+        port: Optional[str] = None,
+        baudrate: Optional[int] = None,
+        **kwargs: Any,
+    ) -> None:
+        if cfg is None:
+            cfg = {}
+        else:
+            cfg = dict(cfg)
+        if port is not None:
+            cfg.setdefault("port", port)
+        if baudrate is not None:
+            cfg.setdefault("baudrate", baudrate)
+        cfg.setdefault("id", "treadmill")
+
+        super().__init__(cfg, **kwargs)
+
+        # Optional Qt adapter for GUI live-preview signals.  Lazy import
+        # so headless sessions don't require PyQt6.
+        self._qt_adapter = None
+        self.serialDataReceived = None
+        self.serialSpeedUpdated = None
         try:
-            self.ser = serial.Serial(port, baudrate, timeout=1)
-        except serial.SerialException as e:
-            self.logger.error(f"Failed to open serial port {port}: {e}")
-            raise
+            from mesofield.gui.qt_device_adapter import QtDeviceAdapter
 
-        self.logger.info(f"EncoderSerialInterface initialized on port {port} with baudrate {baudrate}")
+            self._qt_adapter = QtDeviceAdapter(self)
+            self.serialDataReceived = self._qt_adapter.serialDataReceived
+            self.serialSpeedUpdated = self._qt_adapter.serialSpeedUpdated
+        except Exception:
+            self.logger.debug("Qt adapter unavailable; running headless.")
 
-    def arm(self, config) -> None:
-        """Per-run prep: clear buffered samples."""
-        self.session_data = []
-
-    def start_recording(self, file_path: Optional[str] = None):
-        self._recording = True
-        self._started = datetime.now()
-        if not self.isRunning():
-            self.start()
-        if self.isRunning():
-            # Flush the input buffer to discard any backlog of serial data.
-            self.ser.reset_input_buffer()
-            self.output_path = file_path
-            self.session_data = []
-            self.logger.debug(f"Recording started. Data will be stored to {file_path}")
-        else:
-            self.recording = False
-            self.logger.warning("Cannot start recording: Serial interface is not running.")
-
-    def start(self):
-        self.serialStreamStarted.emit()
-        self.signals.started.emit()
-        super().start()
-
-    def stop(self):
-        if self._recording:
-            self._recording = False
-            self._stopped = datetime.now()
-        else:
-            self.logger.warning("Recording not active; nothing to stop.")
-        self.signals.finished.emit()
-
-    def run(self):
-        self.logger.info(f"Serial read thread started.")
-        while not self.isInterruptionRequested():
-            try:
-                raw_line = self.ser.readline()
-                if not raw_line:
-                    continue
-                line = raw_line.decode('utf-8', errors='replace').strip()
-                if line:
-                    data = self._parse_line(line)
-                    if data:
-                        #self.serialDataReceived.emit(data.timestamp)
-                        self.signals.data.emit(data, datetime.now().timestamp())
-                        self.serialSpeedUpdated.emit(data.timestamp or 0, data.speed)
-                        # Record data if recording is active.
-                        if self._recording:
-                            self.session_data.append(data)
-            except serial.SerialException as e:
-                self.logger.error(f"Serial error: {e}")
-                break
-            except Exception as ex:
-                self.logger.error(f"Unexpected error: {ex}")
-        self.logger.info(f"Exiting serial read loop.")
-
-    def save_data(self, path: Optional[str] = None):
-        """
-        Save the recorded data to a CSV file.
-        This method is called when recording is stopped.
-        """
-        if path:
-            self.output_path = path
-        if not self.session_data:
-            self.logger.warning("No data recorded to save.")
-            return
-        
-        with open(self.output_path, 'w', newline='') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(['timestamp', 'distance_mm', 'speed_mm'])
-            for data in self.session_data:
-                writer.writerow([data.timestamp, data.distance, data.speed])
-        
-        #self.logger.info(f"Recorded data saved to {self.output_path}")
-
-    def get_data(self) -> list[EncoderData]:
-        """
-        Get the recorded data.
-        This method returns the data collected during the recording session.
-        """
-        return list(self.session_data)
-
-    def _parse_line(self, line: str) -> Optional[EncoderData]:
-        parts = line.split(',')
+    # -- BaseSerialDevice hooks ----------------------------------------
+    def parse_line(
+        self, line: bytes
+    ) -> Optional[Tuple[Dict[str, Any], Optional[float]]]:
+        text = line.decode("utf-8", errors="replace").strip()
+        if not text:
+            return None
+        parts = text.split(",")
         try:
             if len(parts) == 3:
-                timestamp = int(parts[0].strip())
+                device_us = int(parts[0].strip())
                 distance = float(parts[1].strip())
                 speed = float(parts[2].strip())
-                return EncoderData(distance=distance, speed=speed, timestamp=timestamp)
             elif len(parts) == 2:
+                device_us = None
                 distance = float(parts[0].strip())
                 speed = float(parts[1].strip())
-                return EncoderData(distance=distance, speed=speed)
             else:
-                self.logger.debug(f"Ignored non-data line: {line}")
+                self.logger.debug("Ignored non-data line: %r", text)
                 return None
         except ValueError:
-            self.logger.debug(f"Failed to parse line: {line}")
+            self.logger.debug("Failed to parse line: %r", text)
             return None
 
-    def send_command(self, command: str):
-        if self.ser.is_open:
-            self.ser.write(command.encode('utf-8'))
-            self.logger.info(f"Sent command: {command}")
-        else:
-            self.logger.warning(f"Serial port not open; command not sent.")
+        return {"distance": distance, "speed": speed, "device_us": device_us}, None
 
-    def shutdown(self):
-        self.requestInterruption()
-        self.wait()
-        if self.ser.is_open:
-            self.ser.close()
-        self.serialStreamStopped.emit()
-        self.logger.info(f"Serial interface stopped and port closed.")
-
-def main():
-    """
-    Demonstration of how to use the EncoderSerialInterface.
-    """
-    def process_encoder_data(data: EncoderData):
-        print(data)
-    
-    port = 'COM6'
-    encoder_interface = EncoderSerialInterface(port)
-    encoder_interface.start()
-
-    try:
-        encoder_interface.send_command('?')
-        while True:
-            time.sleep(1)
-    finally:
-        encoder_interface.stop()
-
-
-if __name__ == '__main__':
-    main()
+    # -- Convenience wrapper for firmware commands ---------------------
+    def send_command(self, command: str) -> bytes:
+        """Send a single-character firmware command (no newline)."""
+        return self.send_line(command, newline=b"")
