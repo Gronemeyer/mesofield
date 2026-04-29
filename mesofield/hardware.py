@@ -50,6 +50,7 @@ class HardwareManager():
         self.cameras: tuple[MMCamera, ...] = ()
         self.encoder = None
         self.nidaq = None
+        self.psychopy = None
         self._viewer = self.yaml.get('viewer_type', 'static')
 
     @property
@@ -84,6 +85,7 @@ class HardwareManager():
         """Initialize all devices from YAML and configure engines.
 
         Does nothing if the manager has no loaded YAML configuration.
+        Validates that exactly one device is flagged ``primary: true``.
         """
         if not self._configured:
             self.logger.warning("Cannot initialize hardware: no YAML config loaded.")
@@ -92,7 +94,45 @@ class HardwareManager():
         self._init_cameras()
         self._init_encoder()
         self._init_daq()
+        self._init_psychopy()
         self._configure_engines(cfg)
+        self._validate_primary()
+
+    def _validate_primary(self) -> None:
+        """Require exactly one device flagged ``primary: true`` in YAML."""
+        primaries = [d for d in self.devices.values() if getattr(d, "is_primary", False)]
+        if len(primaries) != 1:
+            ids = [getattr(d, "device_id", getattr(d, "id", "?")) for d in primaries]
+            raise RuntimeError(
+                f"Exactly one device must be flagged 'primary: true' in hardware.yaml; "
+                f"found {len(primaries)}: {ids}."
+            )
+
+    @property
+    def primary(self):
+        """Return the device flagged ``primary: true`` in YAML."""
+        for d in self.devices.values():
+            if getattr(d, "is_primary", False):
+                return d
+        raise RuntimeError("No device is flagged 'primary: true'.")
+
+    def arm_all(self, cfg) -> None:
+        """Call ``arm(cfg)`` on every device for per-run preparation."""
+        for name, device in self.devices.items():
+            arm = getattr(device, "arm", None)
+            if callable(arm):
+                try:
+                    arm(cfg)
+                except Exception as exc:
+                    self.logger.error(f"Error arming {name}: {exc}")
+
+    def start_all(self) -> None:
+        """Call ``start()`` on every device."""
+        for name, device in self.devices.items():
+            try:
+                device.start()
+            except Exception as exc:
+                self.logger.error(f"Error starting {name}: {exc}")
 
     def deinitialize(self):
         """Tear down all devices and reset to unconfigured state.
@@ -113,6 +153,7 @@ class HardwareManager():
         self.cameras = ()
         self.encoder = None
         self.nidaq = None
+        self.psychopy = None
         self._configured = False
         self.logger.info("Hardware deinitialized – ready for reconfiguration.")
 
@@ -158,6 +199,7 @@ class HardwareManager():
             *[cam.get('widgets', []) for cam in self.yaml.get('cameras', [])],
             self.yaml.get('encoder', {}).get('widgets', []),
             self.yaml.get('nidaq', {}).get('widgets', []),
+            self.yaml.get('psychopy', {}).get('widgets', []),
         ]
         # flatten and dedupe while preserving order
         seen: dict[str, None] = {}
@@ -194,6 +236,7 @@ class HardwareManager():
                 )
                 continue
             cam = CameraClass(cfg)
+            cam.is_primary = bool(cfg.get("primary", False))
             self._apply_output_args(cam, cfg.get('output', {}), cam.name)
             setattr(self, cam.id, cam)
             self.devices[cam.id] = cam
@@ -230,6 +273,7 @@ class HardwareManager():
             return
 
         self._apply_output_args(self.encoder, params.get('output', {}), 'encoder')
+        self.encoder.is_primary = bool(params.get("primary", False))
         self.devices["encoder"] = self.encoder
 
     def _init_daq(self):
@@ -242,7 +286,23 @@ class HardwareManager():
             io_type=params.get('io_type'),
             ctr=params.get('crt', 'ctr0'),
         )
+        self.nidaq.is_primary = bool(params.get("primary", False))
         self.devices["nidaq"] = self.nidaq
+
+    def _init_psychopy(self):
+        params = self.yaml.get("psychopy")
+        if not params:
+            return
+        Cls = DeviceRegistry.get_class("psychopy")
+        if Cls is None:
+            self.logger.error("No class registered under 'psychopy'")
+            return
+        cfg = dict(params)
+        cfg.setdefault("id", "psychopy")
+        device = Cls(cfg)
+        device.is_primary = bool(params.get("primary", False))
+        self.psychopy = device
+        self.devices[device.device_id] = device
 
     # ---- Engine configuration ----------------------------------------------
 

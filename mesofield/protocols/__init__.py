@@ -109,40 +109,41 @@ class Procedure(Protocol):
         
 @runtime_checkable
 class HardwareDevice(Protocol):
-    """Protocol defining the standard interface for all hardware devices."""
-    
+    """Protocol defining the standard interface for all hardware devices.
+
+    Lifecycle: ``initialize`` -> ``arm`` -> ``start`` -> ``stop`` -> ``shutdown``.
+    Every device exposes ``self.signals`` (a :class:`mesofield.signals.DeviceSignals`)
+    carrying ``started``, ``finished``, and ``data`` emitters.
+    """
+
     device_type: str
     device_id: str
-    #config: Dict[str, Any]
-    
+    signals: Any  # DeviceSignals; typed as Any to avoid circular import
+
     def initialize(self) -> bool:
-        """Initialize the hardware device.
-        
-        Returns:
-            bool: True if stopped successfully, False otherwise.
+        """One-time setup (open ports, load configs).  Idempotent."""
+        ...
+
+    def arm(self, config: Any) -> None:
+        """Per-run preparation (writers, output paths, sequence build).
+
+        Called by ``HardwareManager.arm_all`` immediately before
+        ``start_all``.  Devices without per-run prep may no-op.
         """
         ...
-    
+
     def stop(self):
-        """Stop the hardware device after starting it.
-        
-        This method will be called by the HardwareManager when a Procedure cleans up
-        """
+        """Stop the device after a run."""
         ...
-    
+
     def shutdown(self) -> None:
         """Close and clean up resources."""
         ...
-    
+
     def status(self) -> Dict[str, Any]:
-        """Get the current status of the device.
-        
-        Returns:
-        
-            Dict[str, Any]: Dictionary containing device status information.
-        """
+        """Get the current status of the device."""
         ...
-        
+
     @property
     def metadata(self) -> Dict[str, Any]:
         """Return metadata about the hardware."""
@@ -152,7 +153,7 @@ class HardwareDevice(Protocol):
 
 @runtime_checkable
 class DataProducer(HardwareDevice, Protocol):
-    """Protocol defining the interface for data-producing components."""
+    """Protocol for hardware that produces data streamed to the DataQueue."""
 
     sampling_rate: float  # in Hz
     data_type: str
@@ -161,33 +162,35 @@ class DataProducer(HardwareDevice, Protocol):
     is_active: bool
     output_path: str
     metadata_path: Optional[str] = None
-    
+
     def start(self) -> bool:
-        """Start data acquisition or operation.
-        
-        Returns:
-            bool: True if started successfully, False otherwise.
-        """
+        """Start data acquisition.  Should emit ``signals.started``."""
         ...
-    
+
     def stop(self) -> bool:
-        """Stop data acquisition or operation.
-        
-        Returns:
-            bool: True if stopped successfully, False otherwise.
-        """
+        """Stop data acquisition.  Should emit ``signals.finished``."""
         ...
-        
+
     def save_data(self, path: Optional[str] = None):
-        """Save the device data captured during the recording"""
+        """Persist the captured data."""
         ...
-        
+
     def get_data(self) -> Optional[Any]:
-        """Get the latest data from the producer.
-        
-        Returns:
-            Optional[Any]: The latest data, or None if no data available.
-        """
+        """Return the latest data."""
+        ...
+
+
+@runtime_checkable
+class StimulusDevice(HardwareDevice, Protocol):
+    """Protocol for stimulus-presentation devices (e.g. PsychoPy).
+
+    Like :class:`HardwareDevice` but explicitly *not* a data producer:
+    consumers should not expect ``data`` signal emissions and should not
+    call ``save_data``/``get_data``.
+    """
+
+    def start(self) -> bool:
+        """Begin stimulus presentation."""
         ...
     
 

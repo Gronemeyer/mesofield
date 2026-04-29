@@ -1,0 +1,29 @@
+memory_buffer_size: 10000
+viewer_type: "static"
+
+encoder:
+  type: "wheel"
+  port: "COM4"
+  baudrate: 57600
+  cpr: 2400
+  diameter_mm: 80
+  sample_interval_ms: 20
+  development_mode: False
+
+cameras:
+  - id: "dev"
+    name: "devcam1"
+    backend: "micromanager"
+    primary: true   # exactly one device must carry primary: true
+    auto_contrast: True
+    output:
+      bids_type: "func"
+      file_type: "ome.tiff"
+
+  - id: "dev2"
+    name: "devcam2"
+    backend: "micromanager"
+    auto_contrast: True
+    output:
+      bids_type: "func"
+      file_type: "mp4"

@@ -241,9 +241,15 @@ class DataManager:
 
     #@log_this_fr
     def register_devices(self, devices: Iterable[Any]) -> None:
-        """Register a list of hardware devices with the manager."""
+        """Register a list of hardware devices with the manager.
+
+        Any device exposing a :class:`mesofield.signals.DeviceSignals`
+        bundle on ``device.signals`` is registered.  Devices that do not
+        emit on ``signals.data`` (e.g. stimulus devices) are still tracked
+        but contribute nothing to the queue.
+        """
         for dev in devices:
-            if hasattr(dev, "device_type") and hasattr(dev, "get_data"):
+            if hasattr(dev, "signals"):
                 self.register_hardware_device(dev)
 
     def append_to_database(self, df: pd.DataFrame, key: str = "data") -> None:
@@ -300,8 +306,15 @@ class DataManager:
             #     assert self._file is not None
             #     self._file.flush()
 
-    def register_hardware_device(self, device: Any) -> None:  # pragma: no cover - convenience
-        """Track a hardware device and connect its data stream to the queue."""
+    def register_hardware_device(self, device: Any) -> None:
+        """Track a hardware device and connect its data stream to the queue.
+
+        Devices expose a uniform :class:`mesofield.signals.DeviceSignals`
+        bundle on ``device.signals``.  We simply connect ``signals.data``
+        to push ``(payload, device_ts)`` packets onto the queue.  Devices
+        that never emit on ``signals.data`` (e.g. ``StimulusDevice``) are
+        registered but never produce queue entries.
+        """
         dev_id = getattr(device, "device_id", getattr(device, "id", "unknown"))
         if device in self.devices or dev_id in self._registered_ids:
             return
@@ -309,38 +322,19 @@ class DataManager:
         self.devices.append(device)
         self._registered_ids.add(dev_id)
 
-        # Try to connect various callback styles to push data to our queue
-        def _push(payload: Any, device_ts: Any = None, *, dev=device) -> None:
-            dev_id = getattr(dev, "device_id", getattr(dev, "id", "unknown"))
-            #print(f"DataManager: Pushing data from {dev_id} to queue: {payload}")
-            self.queue.push(dev_id, payload, device_ts=device_ts)
+        signals = getattr(device, "signals", None)
+        data_sig = getattr(signals, "data", None) if signals is not None else None
+        if data_sig is None or not hasattr(data_sig, "connect"):
+            return
 
-        # Connect using a standard data_event if present
-        evt = getattr(device, "data_event", None)
-        if evt is not None and hasattr(evt, "connect"):
-            try:
-                evt.connect(_push)
-            except Exception:
-                pass
-            
-        sig = getattr(device, "serialDataReceived", None)
-        if sig is not None and hasattr(sig, "connect"):
-            try:
-                sig.connect(_push)
-            except Exception:
-                pass
+        def _push(payload: Any, device_ts: Any = None, *, _id=dev_id) -> None:
+            self.queue.push(_id, payload, device_ts=device_ts)
 
-        if sig is None and getattr(device, "core", None) is not None:
-            # connect metadata-only from core.mda.events.frameReady
-            sig = getattr(device.core.mda.events, "frameReady", None)
-            if sig is not None and hasattr(sig, "connect"):
-                try:
-                    # frameReady callback signature: (image, metadata) You can find these in the tiff_frame_metadata.json files for reference
-                    sig.connect(lambda _img, event, metadata: _push(payload=metadata['camera_metadata']['ImageNumber'],
-                                                                    device_ts=metadata['camera_metadata']['TimeReceivedByCore']))
-                except Exception:
-                    pass
-                
+        try:
+            data_sig.connect(_push)
+        except Exception:
+            pass
+
     #TODO: move this logic to DataSaver
     def get_device_outputs(self, subject: str, session: str) -> pd.DataFrame:
         """Return a DataFrame of output file paths for registered devices."""

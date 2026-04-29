@@ -66,7 +66,7 @@ def launch(config):
     from PyQt6.QtGui import QIcon
     
     from mesofield.gui.maingui import MainWindow
-    from mesofield.base import Procedure
+    from mesofield.base import Procedure, load_procedure_from_config
     
     app = QApplication([])
     window_icon = QIcon(os.path.join(os.path.dirname(__file__), "gui", "Mesofield_icon.png"))
@@ -122,7 +122,7 @@ def launch(config):
     #TODO put this somewhere it belongs 
 # ====================== End of Splash Screen logic ========================= '''
     time.sleep(0.5) #give the splash screen a moment to show :)
-    procedure = Procedure(config)
+    procedure = load_procedure_from_config(config) if config else Procedure(config)
     
     mesofield = MainWindow(procedure)
     mesofield.show()

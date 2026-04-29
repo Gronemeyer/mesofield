@@ -43,6 +43,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from mesofield import DeviceRegistry
 from mesofield.data.writer import configure_opencv_codec
+from mesofield.signals import DeviceSignals
 from mesofield.utils._logger import get_logger
 
 
@@ -69,21 +70,21 @@ def _resolve_cv_backend(name: str | int | None) -> int:
 class OpenCVCamera(QThread):
     """Background-thread OpenCV camera capturing to MP4.
 
-    Emits:
-      - ``frame_ready(np.ndarray)``: raw BGR frame for live preview / GUI.
-      - ``data_event(payload, device_ts)``: lightweight per-frame metadata
-        consumed by :meth:`DataManager.register_hardware_device` and pushed
-        onto the global :class:`DataQueue`.
+    Emits via ``self.signals`` (a :class:`mesofield.signals.DeviceSignals`):
+      - ``signals.started`` / ``signals.finished`` for lifecycle.
+      - ``signals.data(idx, device_ts)`` per frame, consumed by
+        :meth:`DataManager.register_hardware_device`.
+    Plus Qt live-preview signals (GUI-only, decoupled from DataQueue):
+      - ``frame_ready(np.ndarray)`` / ``image_ready(np.ndarray)``.
     """
 
-    # ----- Qt signals ------------------------------------------------------
+    # ----- Qt signals (GUI-only live preview) ----------------------------
+    # The standardized acquisition-side signals (started/finished/data)
+    # live on ``self.signals`` (a ``DeviceSignals``) -- see ``__init__``.
     frame_ready = pyqtSignal(np.ndarray)
     # Alias used by the mesofield GUI's `InteractivePreview` (matches the
     # signal name expected by `arducam.VideoThread`).
     image_ready = pyqtSignal(np.ndarray)
-    data_event = pyqtSignal(object, object)  # payload, device_ts
-    captureStarted = pyqtSignal()
-    captureStopped = pyqtSignal()
 
     # ----- Protocol attributes --------------------------------------------
     device_type: ClassVar[str] = "camera"
@@ -95,6 +96,7 @@ class OpenCVCamera(QThread):
 
     def __init__(self, cfg: Dict[str, Any]):
         super().__init__()
+        self.signals = DeviceSignals()
         self.cfg: Dict[str, Any] = dict(cfg)
         self.id: str = cfg.get("id", "opencv_camera")
         self.name: str = cfg.get("name", self.id)
@@ -231,6 +233,11 @@ class OpenCVCamera(QThread):
         """No-op for OpenCV backend (no MDA sequence)."""
         self.logger.debug("set_sequence: OpenCV backend has no MDA sequence")
 
+    def arm(self, config: Any) -> None:
+        """Per-run prep: build writer + sequence from the config."""
+        self.set_writer(config.make_path)
+        self.set_sequence(config.build_sequence)
+
     def start(self) -> bool:
         if self.isRunning():
             self.logger.warning("OpenCVCamera.start: already running")
@@ -240,13 +247,9 @@ class OpenCVCamera(QThread):
         self._frame_timestamps = []
         self._started = datetime.now()
         self.is_active = True
-        self.captureStarted.emit()
+        self.signals.started.emit()
         super().start()  # spawns QThread.run
         return True
-
-    # alias for HardwareManager compatibility
-    def start_recording(self) -> bool:
-        return self.start()
 
     def stop(self) -> bool:
         if not self.isRunning() and not self._stop:
@@ -256,7 +259,7 @@ class OpenCVCamera(QThread):
         self.wait(5000)
         self.is_active = False
         self._stopped = datetime.now()
-        self.captureStopped.emit()
+        self.signals.finished.emit()
         return True
 
     def shutdown(self) -> None:
@@ -368,11 +371,11 @@ class OpenCVCamera(QThread):
                     except Exception as exc:  # pragma: no cover - codec failure
                         self.logger.error(f"VideoWriter.write failed: {exc}")
 
-                # Emit signals (queue + GUI). `image_ready` mirrors the
-                # arducam VideoThread signal name expected by the GUI viewer.
+                # GUI live-preview signals (Qt-native, decoupled from queue)
                 self.frame_ready.emit(frame)
                 self.image_ready.emit(frame)
-                self.data_event.emit(idx, ts)
+                # Standardized data signal -> DataQueue
+                self.signals.data.emit(idx, ts)
 
                 # Frame pacing — only sleep if we have headroom
                 if period:

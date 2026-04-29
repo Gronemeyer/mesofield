@@ -7,6 +7,7 @@ from datetime import datetime
 
 from PyQt6.QtCore import pyqtSignal, QThread
 
+from mesofield.signals import DeviceSignals
 from mesofield.utils._logger import get_logger
 # We're not importing DataAcquisitionDevice directly to avoid metaclass conflicts
 # SerialWorker will implement the protocol through duck typing instead
@@ -67,6 +68,7 @@ class SerialWorker(QThread):
                  development_mode: bool = True):
         
         super().__init__()
+        self.signals = DeviceSignals()
         self.logger = get_logger(f"SerialWorker-{serial_port}")
         self.logger.debug(f"Initializing SerialWorker with serial port: {serial_port}, "
                          f"baud rate: {baud_rate}, sample interval: {sample_interval} ms, "
@@ -120,21 +122,25 @@ class SerialWorker(QThread):
         self.clicks = []
         self.start_time = None
 
+    def arm(self, config) -> None:
+        """Per-run prep: clear buffers."""
+        self.init_data()
 
     def start_recording(self) -> None:
-        self.serialStreamStarted.emit()
+        # Backwards-compat alias; ``start()`` is the standard entry point.
         self.start()
 
-
     def start(self):
+        self.serialStreamStarted.emit()
+        self.signals.started.emit()
         return super().start()
-    
-    
+
     def stop(self):
         self.requestInterruption()
         self.wait()
         self._stopped = datetime.now()
         self.serialStreamStopped.emit()
+        self.signals.finished.emit()
 
 
     def run(self):
@@ -158,7 +164,8 @@ class SerialWorker(QThread):
                 
                 # Emit signals, store data, and push to the queue
                 self.stored_data.append(clicks)  # Store data for later retrieval
-                self.serialDataReceived.emit(clicks)  # Emit PyQt signal for real-time plotting
+                self.serialDataReceived.emit(clicks)  # GUI plotting
+                self.signals.data.emit(clicks, time.time())
                 
                 # Optionally, simulate processing the data for speed calculation
                 self.process_data(clicks)
@@ -196,7 +203,8 @@ class SerialWorker(QThread):
                     data = self.arduino.readline().decode('utf-8').strip()
                     if data:
                         clicks = int(data)
-                        self.serialDataReceived.emit(clicks)  # Emit PyQt signal for real-time plotting
+                        self.serialDataReceived.emit(clicks)  # GUI plotting
+                        self.signals.data.emit(clicks, time.time())
                         self.process_data(clicks)
                 except ValueError:
                     print(f"Non-integer data received: {data}")

@@ -6,6 +6,7 @@ from pymmcore_plus import CMMCorePlus, DeviceType
 from pymmcore_plus.core._device import CameraDevice 
 
 from mesofield.protocols import HardwareDevice, DataProducer
+from mesofield.signals import DeviceSignals
 from mesofield.engines import DevEngine, MesoEngine, PupilEngine
 from mesofield.io.devices.arducam import VideoThread
 from mesofield.io import CustomWriter, CV2Writer
@@ -25,11 +26,14 @@ class MMCamera(DataProducer, HardwareDevice):
     writer: CustomWriter | CV2Writer
     
     def __init__(self, cfg: dict):
+        self.signals = DeviceSignals()
         self.camera_device: Optional[CameraDevice | VideoThread] = None
         self.core: Optional[CMMCorePlus | VideoThread] = None
         self.cfg = cfg
         self.id = cfg["id"]
         self.name = cfg["name"]
+        self.device_id = self.id
+        self.is_primary: bool = bool(cfg.get("primary", False))
         self._started: datetime # Timestamp when the device was started
         self._stopped: datetime # Timestamp when the device was stopped
         self.backend = cfg.get("backend", "").lower()
@@ -49,6 +53,41 @@ class MMCamera(DataProducer, HardwareDevice):
 
         # automatically apply all YAML properties
         self.initialize()
+        self._wire_signals()
+
+    def _wire_signals(self) -> None:
+        """Bridge MMCore MDA events to the standard DeviceSignals."""
+        if self.backend != "micromanager" or self.core is None:
+            return
+        evt = self.core.mda.events  # type: ignore[union-attr]
+
+        def _on_started(*_args, **_kw):
+            self.signals.started.emit()
+
+        def _on_finished(*_args, **_kw):
+            self.signals.finished.emit()
+
+        def _on_frame(_img, _event, metadata):
+            try:
+                cam_meta = metadata.get("camera_metadata", {}) if isinstance(metadata, dict) else {}
+                idx = cam_meta.get("ImageNumber")
+                ts = cam_meta.get("TimeReceivedByCore")
+                self.signals.data.emit(idx, ts)
+            except Exception:
+                pass
+
+        try:
+            evt.sequenceStarted.connect(_on_started)
+        except Exception:
+            pass
+        try:
+            evt.sequenceFinished.connect(_on_finished)
+        except Exception:
+            pass
+        try:
+            evt.frameReady.connect(_on_frame)
+        except Exception:
+            pass
 
     def _setup_micromanager(self, cfg):
         core = CMMCorePlus(cfg.get("micromanager_path"))
@@ -120,6 +159,11 @@ class MMCamera(DataProducer, HardwareDevice):
                     if setter:
                         setter(dev_id, prop, val)
 
+    def arm(self, config) -> None:
+        """Per-run prep: build the writer and MDA sequence from config."""
+        self.set_writer(config.make_path)
+        self.set_sequence(config.build_sequence)
+
     def start(self) -> bool:
         #self.is_active = True
         self._started = datetime.now()
@@ -127,8 +171,19 @@ class MMCamera(DataProducer, HardwareDevice):
         return True
 
     def stop(self) -> bool:
-        #self.is_active = False
+        """Stop acquisition.  Non-primary MM cameras must be told explicitly
+        to halt their sequence acquisition (the primary camera's MDA driver
+        does not stop them)."""
         self._stopped = datetime.now()
+        if (
+            self.backend == "micromanager"
+            and not self.is_primary
+            and self.core is not None
+        ):
+            try:
+                self.core.stopSequenceAcquisition()
+            except Exception as exc:
+                self.logger.warning(f"stopSequenceAcquisition failed: {exc}")
         return True
 
     def get_data(self):

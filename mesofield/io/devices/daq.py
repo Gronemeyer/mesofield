@@ -1,4 +1,4 @@
-from typing import Any, Callable, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List
 
 from dataclasses import dataclass
 import threading 
@@ -9,24 +9,9 @@ import nidaqmx.system
 import nidaqmx
 from nidaqmx.constants import Edge
 
+from mesofield.signals import DeviceSignals
 from mesofield.utils._logger import get_logger
 
-
-#TODO move this to mesofield/io/events.py or similar
-class Event:
-    """Simple event handler carrying (payload, device_ts)."""
-    def __init__(self):
-        self._callbacks: List[Callable[[Any, Any], None]] = []
-
-    def connect(self, callback: Callable[[Any, Any], None]):
-        self._callbacks.append(callback)
-
-    def emit(self, payload=None, device_ts=None):
-        for cb in self._callbacks:
-            try:
-                cb(payload, device_ts)
-            except Exception:
-                pass
 
 @dataclass
 class Nidaq:
@@ -48,7 +33,7 @@ class Nidaq:
     def __post_init__(self):
         self._started: datetime # Timestamp when the device was started
         self._stopped: datetime # Timestamp when the device was stopped
-        self.data_event = Event()
+        self.signals = DeviceSignals()
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}[{self.device_id}]")
         self.pulse_width = 0.001
         self.poll_interval = 0.01
@@ -60,6 +45,10 @@ class Nidaq:
     def initialize(self) -> None:
         """Initialize the device."""
         pass
+
+    def arm(self, config) -> None:
+        """No per-run prep needed."""
+        return None
 
     def test_connection(self):
         self.logger.info(f"Testing connection to NI-DAQ device: {self.device_name}")
@@ -95,6 +84,7 @@ class Nidaq:
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._worker, daemon=True)
         self._thread.start()
+        self.signals.started.emit()
 
     def _worker(self):
         prev_count = 0
@@ -115,7 +105,7 @@ class Nidaq:
                 event_data = [ts] * (new_count - prev_count)
                 with self._lock:
                     self._exposure_times.extend(event_data)
-                self.data_event.emit(cnt, dt)
+                self.signals.data.emit(cnt, ts)
                 prev_count = new_count
             
             # 4) Wait before next trigger
@@ -137,6 +127,7 @@ class Nidaq:
             self._thread.join()
         self._stopped = datetime.now()
         nidaqmx.system.Device(self.device_name).reset_device()
+        self.signals.finished.emit()
     
     def shutdown(self) -> None:
         """Close the device."""

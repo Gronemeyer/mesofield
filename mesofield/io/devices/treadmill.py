@@ -52,22 +52,8 @@ class EncoderData:
                 f"distance={self.distance:.3f} mm, speed={self.speed:.3f} mm/s)")
 
 from mesofield import DeviceRegistry
+from mesofield.signals import DeviceSignals
 
-class Event:
-    """Simple event handler carrying (payload, device_ts)."""
-    def __init__(self):
-        self._callbacks: List[Callable[[Any, Any], None]] = []
-
-    def connect(self, callback: Callable[[Any, Any], None]):
-        self._callbacks.append(callback)
-
-    def emit(self, payload=None, device_ts=None):
-        for cb in self._callbacks:
-            try:
-                cb(payload, device_ts)
-            except Exception:
-                pass
-            
 @DeviceRegistry.register("encoder")
 class EncoderSerialInterface(QThread):
     
@@ -81,10 +67,10 @@ class EncoderSerialInterface(QThread):
     bids_type: Optional[str] = "beh"
     _started: datetime  # Timestamp when the interface started
     _stopped: datetime # Timestamp when the interface stopped
-    data_event = Event()
     
     def __init__(self, port: str, baudrate: int = 192000):
         super().__init__()
+        self.signals = DeviceSignals()
         self.logger = logging.getLogger("EncoderSerialInterface")
         #self.device_id: str
         self.serial_port = port
@@ -100,6 +86,10 @@ class EncoderSerialInterface(QThread):
             raise
 
         self.logger.info(f"EncoderSerialInterface initialized on port {port} with baudrate {baudrate}")
+
+    def arm(self, config) -> None:
+        """Per-run prep: clear buffered samples."""
+        self.session_data = []
 
     def start_recording(self, file_path: Optional[str] = None):
         self._recording = True
@@ -118,15 +108,16 @@ class EncoderSerialInterface(QThread):
 
     def start(self):
         self.serialStreamStarted.emit()
+        self.signals.started.emit()
         super().start()
 
     def stop(self):
         if self._recording:
             self._recording = False
             self._stopped = datetime.now()
-            #self.session_data = list(self.session_data)
         else:
             self.logger.warning("Recording not active; nothing to stop.")
+        self.signals.finished.emit()
 
     def run(self):
         self.logger.info(f"Serial read thread started.")
@@ -140,7 +131,7 @@ class EncoderSerialInterface(QThread):
                     data = self._parse_line(line)
                     if data:
                         #self.serialDataReceived.emit(data.timestamp)
-                        self.data_event.emit(data, datetime.now()) # this will fo to the DataManager.DataQueue
+                        self.signals.data.emit(data, datetime.now().timestamp())
                         self.serialSpeedUpdated.emit(data.timestamp or 0, data.speed)
                         # Record data if recording is active.
                         if self._recording:

@@ -441,6 +441,7 @@ class ConfigWizard(QWidget):
 
     configApplied = pyqtSignal()
     hardwareReady = pyqtSignal()
+    procedureChanged = pyqtSignal(object)  # emitted when a JSON declares a different Procedure subclass
 
     _SETTINGS_KEY_JSON = "ConfigWizard/last_json"
     _SETTINGS_KEY_YAML = "ConfigWizard/last_yaml"
@@ -570,10 +571,29 @@ class ConfigWizard(QWidget):
             return
 
         try:
-            self.procedure.load_config(
-                json_path=json_path,
-                hardware_yaml_path=yaml_path,
-            )
+            # If the JSON declares a custom Procedure subclass that differs
+            # from the currently active class, instantiate the new one and
+            # propagate to the parent (MainWindow).  Otherwise just hot-load
+            # the new config in place.
+            from mesofield.base import load_procedure_from_config
+
+            if json_path and os.path.isfile(json_path):
+                candidate = load_procedure_from_config(json_path)
+                if type(candidate) is not type(self.procedure):
+                    if yaml_path:
+                        candidate.load_config(hardware_yaml_path=yaml_path)
+                    self.procedure = candidate
+                    self.procedureChanged.emit(candidate)
+                else:
+                    self.procedure.load_config(
+                        json_path=json_path,
+                        hardware_yaml_path=yaml_path,
+                    )
+            else:
+                self.procedure.load_config(
+                    json_path=json_path,
+                    hardware_yaml_path=yaml_path,
+                )
         except Exception as exc:
             QMessageBox.critical(
                 self,

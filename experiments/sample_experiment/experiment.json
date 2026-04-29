@@ -1,0 +1,31 @@
+{
+    "Configuration": {
+        "experimenter": "developer",
+        "protocol": "DEV",
+        "duration": 10,
+        "start_on_trigger": false
+    },
+    "procedure_file": "procedure.py",
+    "procedure_class": "SampleProcedure",
+    "Subjects": {
+        "STREHAB07": {
+            "sex": "F",
+            "genotype": "aldh1l1-gcamp8s",
+            "DOB": "2025-01-02",
+            "DOS": "2025-06-20",
+            "session": "10",
+            "task": "widefield",
+            "weight": "20.30"
+        }
+    },
+    "DisplayKeys": [
+        "subject",
+        "session",
+        "task",
+        "experimenter",
+        "protocol",
+        "duration",
+        "start_on_trigger",
+        "weight"
+    ]
+}

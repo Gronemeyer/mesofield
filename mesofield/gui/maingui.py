@@ -72,6 +72,7 @@ class MainWindow(QMainWindow):
         # Connect hot-load signals
         self.config_wizard.configApplied.connect(self._on_config_applied)
         self.config_wizard.hardwareReady.connect(self._build_acquisition_ui)
+        self.config_wizard.procedureChanged.connect(self._on_procedure_changed)
 
         # If hardware is already configured (e.g. config_path was passed),
         # build the full UI immediately.
@@ -190,6 +191,14 @@ class MainWindow(QMainWindow):
         QCoreApplication.quit()
 
     #============================== Private Methods =============================#
+
+    def _on_procedure_changed(self, new_procedure) -> None:
+        """The ConfigWizard discovered a different ``Procedure`` subclass.
+
+        Rebind the live reference so all subsequent UI rebuilds operate on
+        the user's custom subclass.
+        """
+        self.procedure = new_procedure
 
     def _on_config_applied(self) -> None:
         """Rebuild config-dependent tabs after the user applies a configuration."""
