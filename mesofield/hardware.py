@@ -165,6 +165,9 @@ class HardwareManager():
             except Exception as e:
                 self.logger.error(f"Error stopping {name}: {e}")
 
+    # Symmetric alias to ``start_all`` / ``arm_all`` used by ``Procedure``.
+    stop_all = stop
+
     def shutdown(self):
         """Shutdown all devices."""
         for name, device in self.devices.items():
