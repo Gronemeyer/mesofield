@@ -202,7 +202,12 @@ class ConfigController(QWidget):
         self._action_buttons_layout.addWidget(self.add_note_button)
         layout.addLayout(self._action_buttons_layout)
 
-        # Dynamic hardware-specific controls
+        # Absorb extra vertical space here so the form + primary action buttons
+        # stay anchored to the top, and hardware-specific controls stay pinned
+        # to the bottom edge regardless of window height.
+        layout.addStretch(1)
+
+        # Dynamic hardware-specific controls (pinned to bottom of the panel)
         self.dynamic_controller = DynamicController(self.procedure.config, parent=self)
         layout.addWidget(self.dynamic_controller)
         # ------------------------------------------------------------------------------------- #

@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QTabWidget,
     QLayout,
     QToolBar,
+    QSizePolicy,
 )
 
 from PyQt6.QtGui import QIcon, QAction
@@ -51,16 +52,23 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         self.main_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
 
-        # Build a tab widget (always present)
+        # Build a tab widget (always present). Pin its horizontal size so the
+        # ConfigController tab (fixed width) doesn't get stretched when the
+        # main window is enlarged — extra horizontal space goes to the MDA
+        # acquisition view on the left instead.
         self.right_tabs = QTabWidget()
         self.right_tabs.addTab(self.config_wizard, "⚙ Setup")
         self.right_tabs.addTab(self.console_widget, "Terminal")
+        self.right_tabs.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
+        )
 
         # The top row layout will hold [acquisition_gui | right_tabs]
         self._top_row = QHBoxLayout()
         self._mda_layout = QVBoxLayout()
-        self._top_row.addLayout(self._mda_layout)
-        self._top_row.addWidget(self.right_tabs)
+        # Give all extra width to the MDA column; right_tabs stays at sizeHint.
+        self._top_row.addLayout(self._mda_layout, 1)
+        self._top_row.addWidget(self.right_tabs, 0)
         self.main_layout.addLayout(self._top_row)
         #--------------------------------------------------------------------#
 
@@ -217,6 +225,12 @@ class MainWindow(QMainWindow):
         # [Setup] [ExperimentConfig] [Terminal]
         self.right_tabs.insertTab(1, self._config_controller, "ExperimentConfig")
         self.right_tabs.setCurrentWidget(self._config_controller)
+
+        # Pin the right column width to the ConfigController's fixed width
+        # (plus a small allowance for tab frame/margins) so the tab area is
+        # not stretched by wider tabs (e.g. the Terminal/Setup wizard).
+        cc_width = self._config_controller.width() or self._config_controller.sizeHint().width()
+        self.right_tabs.setFixedWidth(cc_width + 12)
 
     def _build_acquisition_ui(self) -> None:
         """Build (or rebuild) hardware-dependent widgets: MDA viewer and encoder."""
