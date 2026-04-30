@@ -580,8 +580,18 @@ class ConfigWizard(QWidget):
             if json_path and os.path.isfile(json_path):
                 candidate = load_procedure_from_config(json_path)
                 if type(candidate) is not type(self.procedure):
+                    # The candidate's __init__ already loaded the JSON and
+                    # initialized hardware from <json_dir>/hardware.yaml. Only
+                    # reload if the user explicitly picked a *different* YAML;
+                    # otherwise we'd orphan the live HardwareManager (devices
+                    # still hold the cameras) and loop on re-initialization.
                     if yaml_path:
-                        candidate.load_config(hardware_yaml_path=yaml_path)
+                        existing_yaml = getattr(
+                            candidate.config, "_hardware_yaml_path", None
+                        )
+                        picked_yaml = os.path.abspath(yaml_path)
+                        if not existing_yaml or picked_yaml != os.path.abspath(existing_yaml):
+                            candidate.load_config(hardware_yaml_path=yaml_path)
                     self.procedure = candidate
                     self.procedureChanged.emit(candidate)
                 else:
