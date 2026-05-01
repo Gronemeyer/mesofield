@@ -207,6 +207,11 @@ class MainWindow(QMainWindow):
         the user's custom subclass.
         """
         self.procedure = new_procedure
+        # Refresh the embedded IPython console's namespace so that typing
+        # ``procedure`` in the Terminal returns the live, hardware-initialized
+        # instance instead of the empty default created at launch.
+        if getattr(self, "kernel", None) is not None:
+            self.kernel.shell.push({"procedure": new_procedure})
 
     def _on_config_applied(self) -> None:
         """Rebuild config-dependent tabs after the user applies a configuration."""
