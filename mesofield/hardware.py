@@ -71,13 +71,64 @@ class HardwareManager():
         self.logger.info(f"Loaded hardware config: {config_file}")
 
     def __repr__(self):
-        return (
-            "<HardwareManager>\n"
-            f"  Cameras: {[cam for cam in self.cameras]}\n"
-            f"  Devices: {list(self.devices.keys())}\n"
-            f"  Config: {self.yaml}\n"
-            "</HardwareManager>"
+        # Compact, IPython-friendly summary. Devices are introspected
+        # generically: any attribute in ``_REPR_FIELDS`` that exists and
+        # has a meaningful value is shown. Top-level YAML config is
+        # summarized to its keys (full content is still in ``self.yaml``).
+        _REPR_FIELDS = (
+            "device_id", "device_type", "backend",
+            "port", "baudrate", "sampling_rate",
+            "is_primary", "is_active",
         )
+
+        def _short(dev) -> str:
+            attrs = []
+            for k in _REPR_FIELDS:
+                if not hasattr(dev, k):
+                    continue
+                v = getattr(dev, k)
+                if v in (None, "", False):
+                    continue
+                attrs.append(f"{k}={v!r}")
+            # Pull fps from the device's camera-style cfg if available.
+            cfg = getattr(dev, "cfg", None)
+            if isinstance(cfg, dict):
+                cam_id = getattr(dev, "id", "") or getattr(dev, "device_id", "")
+                fps = cfg.get("properties", {}).get(cam_id, {}).get("fps") \
+                    or cfg.get("fps")
+                if fps is not None:
+                    attrs.append(f"fps={fps!r}")
+                output = cfg.get("output") or {}
+                suffix = output.get("suffix")
+                ftype = output.get("file_type")
+                if suffix or ftype:
+                    attrs.append(
+                        "output=" + repr(f"{suffix or '?'}.{ftype or '?'}")
+                    )
+            return f"{type(dev).__name__}(" + ", ".join(attrs) + ")"
+
+        lines = ["<HardwareManager>"]
+        if self.cameras:
+            lines.append("  Cameras:")
+            for cam in self.cameras:
+                lines.append(f"    - {_short(cam)}")
+        else:
+            lines.append("  Cameras: <none>")
+
+        extras = {
+            k: v for k, v in self.devices.items() if v not in self.cameras
+        }
+        if extras:
+            lines.append("  Devices:")
+            for name, dev in extras.items():
+                lines.append(f"    - {name}: {_short(dev)}")
+
+        if self.config_file:
+            lines.append(f"  Config file: {self.config_file}")
+        if self.yaml:
+            lines.append(f"  Config keys: {sorted(self.yaml.keys())}")
+        lines.append("</HardwareManager>")
+        return "\n".join(lines)
 
     # ---- Public interface --------------------------------------------------
 
@@ -95,8 +146,61 @@ class HardwareManager():
         self._init_encoder()
         self._init_daq()
         self._init_psychopy()
+        self._init_extras()
         self._configure_engines(cfg)
         self._validate_primary()
+
+    # Top-level YAML keys handled by dedicated initializers above.
+    # Anything else with a ``type:`` field is dispatched through
+    # ``_init_extras`` against the global :class:`DeviceRegistry`.
+    _RESERVED_YAML_KEYS = frozenset({
+        "cameras", "encoder", "nidaq", "psychopy",
+        "memory_buffer_size", "blue_led_power_mw", "violet_led_power_mw",
+        "viewer_type", "widgets",
+    })
+
+    def _init_extras(self) -> None:
+        """Instantiate any extra YAML stanza with a registered ``type:``.
+
+        Lets users add custom devices to ``hardware.yaml`` without
+        editing :class:`HardwareManager`. The stanza must be a mapping
+        whose ``type`` field matches a key registered via
+        ``@DeviceRegistry.register(...)``.
+        """
+        for key, params in (self.yaml or {}).items():
+            if key in self._RESERVED_YAML_KEYS:
+                continue
+            if not isinstance(params, dict):
+                continue
+            type_key = params.get("type")
+            if not type_key:
+                continue
+            Cls = DeviceRegistry.get_class(type_key)
+            if Cls is None:
+                self.logger.warning(
+                    f"YAML stanza '{key}' has type='{type_key}' but no class "
+                    f"is registered for it; skipping."
+                )
+                continue
+            cfg = dict(params)
+            cfg.setdefault("id", key)
+            try:
+                device = Cls(cfg)
+            except Exception as exc:
+                self.logger.error(f"Failed to construct '{key}' ({type_key}): {exc}")
+                continue
+            self._apply_output_args(device, params.get("output", {}), key)
+            device.is_primary = bool(params.get("primary", False))
+            try:
+                if hasattr(device, "initialize"):
+                    device.initialize()
+            except Exception as exc:
+                self.logger.error(f"initialize() failed for '{key}': {exc}")
+                continue
+            dev_id = getattr(device, "device_id", key)
+            self.devices[dev_id] = device
+            setattr(self, dev_id, device)
+            self.logger.info(f"Registered extra device '{dev_id}' (type={type_key}).")
 
     def _validate_primary(self) -> None:
         """Require exactly one device flagged ``primary: true`` in YAML."""

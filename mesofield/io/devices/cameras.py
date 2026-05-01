@@ -214,15 +214,33 @@ class MMCamera(DataProducer, HardwareDevice):
         return sorted(base)
     
     def __repr__(self):
-        # Module info
+        # Compact one-liner so HardwareManager listings stay readable.
+        # Use ``cam.info()`` for the verbose dump.
+        cam_props = self.properties.get(self.id, {}) if isinstance(self.properties, dict) else {}
+        fps = cam_props.get("fps")
+        out = self.cfg.get("output", {}) if isinstance(self.cfg, dict) else {}
+        bits = [f"id={self.id!r}", f"backend={self.backend!r}"]
+        if fps is not None:
+            bits.append(f"fps={fps}")
+        if self.is_primary:
+            bits.append("primary=True")
+        if out.get("suffix") or out.get("file_type"):
+            bits.append(
+                f"output={out.get('suffix','?')}.{out.get('file_type','?')!r}"
+            )
+        if self._engine is not None:
+            bits.append(f"engine={type(self._engine).__name__!r}")
+        return f"<MMCamera {' '.join(bits)}>"
+
+    def info(self) -> str:
+        """Return the verbose multi-line description (module path, MRO, properties)."""
         module = inspect.getmodule(self)
         module_name = module.__name__ if module else "<unknown>"
         module_file = getattr(module, "__file__", "<built-in>")
-        # Inheritance tree (object → … → MMCamera)
         mro = inspect.getmro(self.__class__)
-        inheritance = " → ".join(cls.__name__ for cls in reversed(mro))
+        inheritance = " -> ".join(cls.__name__ for cls in reversed(mro))
         return (
-            f"\n<MMCamera.{self.id}>\n"
+            f"<MMCamera.{self.id}>\n"
             f"  backend     = {self.backend!r}\n"
             f"  module      = {module_name!r} ({module_file!r})\n"
             f"  properties  = {self.properties!r}\n"
