@@ -23,6 +23,7 @@ import importlib.util
 import json
 import os
 import sys
+import threading
 import uuid
 from datetime import datetime
 from typing import Any, Optional, Type
@@ -58,6 +59,9 @@ class Procedure:
 
     def __init__(self, config_path: Optional[str] = None):
         self.events = ProcedureSignals()
+        self._finished_event = threading.Event()
+        self.events.procedure_finished.connect(self._finished_event.set)
+        self.events.procedure_error.connect(lambda _msg: self._finished_event.set())
 
         self.config: Configurator
         experiment_dir = os.path.dirname(os.path.abspath(config_path)) if config_path else None
@@ -212,6 +216,49 @@ class Procedure:
     def cleanup(self) -> None:
         """Public cleanup entry-point (manual stop)."""
         self._cleanup_procedure()
+
+    def run_until_finished(self, timeout: Optional[float] = None) -> bool:
+        """Run the procedure and block until cleanup completes.
+
+        Starts the procedure via :meth:`run`, then waits for the
+        ``procedure_finished`` (or ``procedure_error``) signal.  Handles
+        ``KeyboardInterrupt`` and ``timeout`` by invoking :meth:`cleanup`
+        automatically, so callers (e.g. ``__main__`` blocks in experiment
+        scripts) do not need to wire up their own threading events.
+
+        Parameters
+        ----------
+        timeout:
+            Optional hard ceiling in seconds.  When ``None`` (default), waits
+            indefinitely for the primary device's ``finished`` signal.  When
+            provided, forces cleanup if the deadline passes.
+
+        Returns
+        -------
+        bool
+            ``True`` if the procedure finished on its own, ``False`` if
+            cleanup was forced by timeout or interrupt.
+        """
+        self._finished_event.clear()
+        deadline = None if timeout is None else (datetime.now().timestamp() + timeout)
+        try:
+            self.run()
+            while not self._finished_event.is_set():
+                remaining = None
+                if deadline is not None:
+                    remaining = deadline - datetime.now().timestamp()
+                    if remaining <= 0:
+                        self.logger.warning(
+                            "run_until_finished: timeout reached, forcing cleanup"
+                        )
+                        break
+                self._finished_event.wait(timeout=min(0.5, remaining) if remaining else 0.5)
+        except KeyboardInterrupt:
+            self.logger.info("run_until_finished: KeyboardInterrupt, cleaning up")
+        finally:
+            if not self._finished_event.is_set():
+                self.cleanup()
+        return self._finished_event.is_set()
 
     def _cleanup_procedure(self):
         self.logger.info("Cleanup Procedure")
