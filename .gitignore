@@ -1,4 +1,5 @@
 #mesofield
+mesofield/_version.py
 /data/
 /logs/
 /mesofield/logs/

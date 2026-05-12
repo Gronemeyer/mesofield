@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=45", "setuptools-scm[toml]>=6.2", "wheel"]
+requires = ["setuptools>=68", "setuptools-scm>=8", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "mesofield"
-version = "1.2.1"
+dynamic = ["version"]
 description = "Mesofield is an open-source image acquisition Python software package build for the Sipe Laboratory at Pennsylvania State University."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -89,5 +89,7 @@ Issues = "https://github.com/Gronemeyer/mesofield/issues"
 [tool.setuptools.packages.find]
 exclude = ["tests*", ".github*"]
 
-[tool.setuptools.package-data]
-mesofield = ["VERSION"]
+[tool.setuptools_scm]
+write_to = "mesofield/_version.py"
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"
