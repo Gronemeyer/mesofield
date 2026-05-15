@@ -497,6 +497,36 @@ def refresh_db(experiment_dir, db_path):
     click.echo(f"Database refreshed from {experiment_dir}")
 
 
+@cli.command('init')
+@click.argument('directory', type=click.Path())
+@click.option('--name', default=None,
+              help='Experiment protocol name (default: directory basename uppercased).')
+@click.option('--force', is_flag=True,
+              help='Overwrite an existing non-empty directory.')
+def init(directory, name, force):
+    """Scaffold a new mesofield experiment in DIRECTORY.
+
+    Generates `experiment.json`, `hardware.yaml`, `procedure.py`, and a
+    `devices/` subdirectory with an annotated thermal-sensor example.
+    The scaffolded experiment uses a mock encoder so it runs out of the
+    box without any real hardware -- replace the mock_wheel stanza in
+    hardware.yaml with your real device when ready.
+    """
+    from mesofield.scaffold import scaffold_experiment
+
+    try:
+        out = scaffold_experiment(Path(directory), name=name, force=force)
+    except FileExistsError as exc:
+        click.secho(str(exc), fg="red")
+        raise SystemExit(1)
+    click.secho(f"Scaffolded experiment at {out}", fg="green")
+    click.echo("Next steps:")
+    click.echo(f"  1. cd {out}")
+    click.echo("  2. python procedure.py    # runs the mock acquisition")
+    click.echo(f"  3. open data/sub-SUBJ01/ses-01/manifest.json")
+    click.echo("Read the generated README.md for customization tips.")
+
+
 @cli.command('retrofit-manifest')
 @click.argument('path', type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option('--force', is_flag=True,
