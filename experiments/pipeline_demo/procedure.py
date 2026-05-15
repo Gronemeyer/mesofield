@@ -5,8 +5,11 @@ terminates cleanly without any GUI or real hardware. The
 AcquisitionManifest is written by the base `Procedure._cleanup_procedure`
 hook -- subclasses do not have to import or know about mesokit-schema.
 
-Registers `MockEncoderDevice` against the device type tag `mock_wheel`
-at import time so `hardware.yaml` can reference it.
+Registers two synthetic device types so `hardware.yaml` can reference
+them without touching real hardware:
+
+  - mock_wheel  : MockEncoderDevice (CSV samples)
+  - mock_camera : MockFrameProducer (OME-TIFF + frame metadata JSON)
 """
 
 from __future__ import annotations
@@ -15,10 +18,12 @@ import threading
 
 from mesofield import DeviceRegistry
 from mesofield.base import Procedure
+from mesofield.examples.mock_camera import MockFrameProducer
 from mesofield.examples.mock_encoder import MockEncoderDevice
 
 
 DeviceRegistry._registry.setdefault("mock_wheel", MockEncoderDevice)
+DeviceRegistry._registry.setdefault("mock_camera", MockFrameProducer)
 
 
 class PipelineDemoProcedure(Procedure):
