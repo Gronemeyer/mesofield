@@ -535,14 +535,31 @@ def _build_default_sources() -> tuple[DefaultSource, ...]:
     return tuple(sources)
 
 
-DEFAULT_SOURCES: tuple[DefaultSource, ...] = _build_default_sources()
+# Deferred to a lazy attribute (via __getattr__ below) so importing this
+# module does not force the source registry to populate -- the producer-paired
+# parsers live in mesofield.io.devices, and importing them eagerly creates a
+# circular import while datakit is still bootstrapping.
+_DEFAULT_SOURCES: tuple[DefaultSource, ...] | None = None
+
+
+def _get_default_sources() -> tuple[DefaultSource, ...]:
+    global _DEFAULT_SOURCES
+    if _DEFAULT_SOURCES is None:
+        _DEFAULT_SOURCES = _build_default_sources()
+    return _DEFAULT_SOURCES
+
+
+def __getattr__(name: str):
+    if name == "DEFAULT_SOURCES":
+        return _get_default_sources()
+    raise AttributeError(name)
 
 
 def build_default_dataset(
     input_path: Path,
     *,
     output_path: Optional[Path] = None,
-    sources: Iterable[DefaultSource] | None = DEFAULT_SOURCES,
+    sources: Iterable[DefaultSource] | None = None,
     tags: Iterable[str] | None = None,
 ) -> Path:
     """Replicate the classic experiment build using the minimalist loader."""
@@ -551,6 +568,9 @@ def build_default_dataset(
     store = ExperimentStore(inventory_frame)
     base_inventory = store.inventory
     missing_columns: list[str] = []
+
+    if sources is None:
+        sources = _get_default_sources()
 
     if tags is not None:
         missing_columns = store.register_sources(tags)

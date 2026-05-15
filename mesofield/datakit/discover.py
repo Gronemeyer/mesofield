@@ -7,7 +7,7 @@ from pathlib import Path
 
 from ._utils._logger import get_logger
 from .datamodel import Manifest, ManifestEntry
-from .sources import SOURCE_REGISTRY
+from .sources import available_tags, get_source_class
 
 _BIDS_COMPONENT_PATTERN = re.compile(r"(sub|ses|task)-([A-Za-z0-9]+)", re.IGNORECASE)
 
@@ -29,9 +29,9 @@ def _discover_entries(root: Path) -> list[ManifestEntry]:
     logger.info("Starting file discovery", extra={"phase": "discover", "experiment_dir": str(root)})
 
     entries: list[ManifestEntry] = []
-    for tag in sorted(SOURCE_REGISTRY.keys()):
+    for tag in available_tags():
         logger.debug("Discovering files", extra={"phase": "discover", "tag": tag})
-        source_class = SOURCE_REGISTRY[tag]
+        source_class = get_source_class(tag)
 
         for pattern in getattr(source_class, "patterns", ()):  # type: ignore[arg-type]
             for origin in ("processed", "data"):
