@@ -145,6 +145,22 @@ class BaseDevice:
         reserved = set(self._MANIFEST_RESERVED_KEYS)
         return {k: v for k, v in self.cfg.items() if k not in reserved}
 
+    def sidecars(self) -> list:
+        """Auxiliary files this device writes alongside its primary output.
+
+        Default: none. Override to declare extra sidecars (masks, regions,
+        derived parameter files) so they ride in the manifest with a `role`
+        and `schema_version` instead of being discovered by glob.
+
+        The camera classes' per-frame metadata JSON is the primary sidecar
+        and lives on `self.metadata_path` -- not here. Use this method for
+        the *extra* files only.
+
+        Returns a list of `mesokit_schema.SidecarEntry`-shaped mappings or
+        instances. The Procedure relativises any absolute paths.
+        """
+        return []
+
 
 # ---------------------------------------------------------------------------
 # BaseDataProducer

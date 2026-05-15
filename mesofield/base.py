@@ -35,6 +35,7 @@ from mesokit_schema import (
     AcquisitionManifest,
     ProducerEntry,
     SessionIdentity,
+    SidecarEntry,
     TimeBasis,
 )
 
@@ -318,15 +319,36 @@ class Procedure:
             / f"ses-{self.config.session}"
         )
         session_root.mkdir(parents=True, exist_ok=True)
+
+        def _relativise(p: Any) -> Optional[str]:
+            if not p:
+                return None
+            try:
+                return str(Path(p).resolve().relative_to(session_root.resolve()))
+            except ValueError:
+                return str(p)
+
+        def _coerce_sidecars(raw) -> list[SidecarEntry]:
+            out: list[SidecarEntry] = []
+            for item in raw or []:
+                if isinstance(item, SidecarEntry):
+                    rel = _relativise(item.path) or item.path
+                    out.append(item.model_copy(update={"path": rel}))
+                else:
+                    data = dict(item)
+                    rel = _relativise(data.get("path"))
+                    if rel is not None:
+                        data["path"] = rel
+                    out.append(SidecarEntry.model_validate(data))
+            return out
+
         producers: list[ProducerEntry] = []
         for device_id, device in self.config.hardware.devices.items():
             output_path = getattr(device, "output_path", None)
             if not output_path:
                 continue
-            try:
-                rel = str(Path(output_path).resolve().relative_to(session_root.resolve()))
-            except ValueError:
-                rel = str(output_path)
+            sidecars_method = getattr(device, "sidecars", None)
+            sidecar_list = sidecars_method() if callable(sidecars_method) else []
             producers.append(
                 ProducerEntry(
                     device_id=device_id,
@@ -334,12 +356,14 @@ class Procedure:
                     data_type=getattr(device, "data_type", device_id),
                     bids_type=getattr(device, "bids_type", None),
                     file_type=getattr(device, "file_type", "csv"),
-                    output_path=rel,
+                    output_path=_relativise(output_path) or str(output_path),
+                    metadata_path=_relativise(getattr(device, "metadata_path", None)),
                     sampling_rate_hz=getattr(device, "sampling_rate", None) or None,
                     time_basis=TimeBasis(
                         clock_source=getattr(device, "clock_source", "wall_unix_s"),
                     ),
                     calibration=dict(getattr(device, "calibration", {}) or {}),
+                    sidecars=_coerce_sidecars(sidecar_list),
                 )
             )
 
