@@ -33,6 +33,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 from mesokit_schema import (
     AcquisitionManifest,
+    DataqueuePayloadSchema,
     ProducerEntry,
     SessionIdentity,
     SidecarEntry,
@@ -342,6 +343,13 @@ class Procedure:
                     out.append(SidecarEntry.model_validate(data))
             return out
 
+        def _coerce_dataqueue_schema(raw) -> Optional[DataqueuePayloadSchema]:
+            if raw is None:
+                return None
+            if isinstance(raw, DataqueuePayloadSchema):
+                return raw
+            return DataqueuePayloadSchema.model_validate(raw)
+
         producers: list[ProducerEntry] = []
         for device_id, device in self.config.hardware.devices.items():
             output_path = getattr(device, "output_path", None)
@@ -349,6 +357,7 @@ class Procedure:
                 continue
             sidecars_method = getattr(device, "sidecars", None)
             sidecar_list = sidecars_method() if callable(sidecars_method) else []
+            dq_schema_raw = getattr(device, "dataqueue_payload_schema", None)
             producers.append(
                 ProducerEntry(
                     device_id=device_id,
@@ -364,6 +373,7 @@ class Procedure:
                     ),
                     calibration=dict(getattr(device, "calibration", {}) or {}),
                     sidecars=_coerce_sidecars(sidecar_list),
+                    dataqueue_schema=_coerce_dataqueue_schema(dq_schema_raw),
                 )
             )
 

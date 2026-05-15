@@ -186,6 +186,13 @@ class BaseDataProducer(BaseDevice):
     # Declared clock source for the AcquisitionManifest's TimeBasis. Matches
     # what `record()` stamps (`time.time()`). Camera subclasses override.
     clock_source: ClassVar[str] = "wall_unix_s"
+    # Typed contract for what this producer pushes onto the session-wide
+    # dataqueue (see mesokit_schema.DataqueuePayloadSchema). Set on a
+    # subclass when the parser needs to locate this producer's rows in
+    # dataqueue.csv. Leave `None` for producers that don't write to the
+    # queue (e.g. cameras whose alignment is per-frame metadata, not queue
+    # rows). The Procedure copies the value into ProducerEntry.dataqueue_schema.
+    dataqueue_payload_schema: ClassVar[Optional[dict]] = None
 
     def __init__(self, cfg: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
         super().__init__(cfg, **kwargs)

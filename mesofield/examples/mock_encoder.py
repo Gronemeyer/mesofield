@@ -35,6 +35,15 @@ class MockEncoderDevice(BaseDataProducer):
     file_type: ClassVar[str] = "csv"
     bids_type: ClassVar[Optional[str]] = "beh"
 
+    # Declare the dataqueue payload contract so the test_pipeline e2e can
+    # round-trip it and prove the schema reaches the manifest.
+    dataqueue_payload_schema: ClassVar[Optional[dict]] = {
+        "device_id": "wheel",
+        "payload_format": "scalar",
+        "payload_fields": {},
+        "description": "Mock click count pushed by _run_loop().",
+    }
+
     def __init__(self, cfg: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
         super().__init__(cfg, **kwargs)
         self.sample_interval_s: float = float(

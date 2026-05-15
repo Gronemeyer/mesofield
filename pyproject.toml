@@ -34,7 +34,7 @@ dependencies = [
     "jupyter_core",
     "markdown-it-py",
     "matplotlib",
-    "mesokit-schema>=0.3.0",
+    "mesokit-schema>=0.4.0",
     "nidaqmx",
     "numpy",
     "packaging",

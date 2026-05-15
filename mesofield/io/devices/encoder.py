@@ -42,6 +42,17 @@ class SerialWorker(BaseSerialDevice):
     file_type: ClassVar[str] = "csv"
     bids_type: ClassVar[Optional[str]] = "beh"
 
+    # Typed contract for the parser's dataqueue lookup. The parser today
+    # hardcodes `anchor_filter_pattern = "encoder"` and matches against the
+    # device_id column; this declaration is what it'll read off the manifest
+    # in Step 4.6 instead. payload is a plain int click count.
+    dataqueue_payload_schema: ClassVar[Optional[dict]] = {
+        "device_id": "encoder",
+        "payload_format": "scalar",
+        "payload_fields": {},
+        "description": "Integer click count (the raw integer that record() pushes).",
+    }
+
     def __init__(
         self,
         cfg: Optional[Dict[str, Any]] = None,

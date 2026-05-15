@@ -51,6 +51,21 @@ class EncoderSerialInterface(BaseSerialDevice):
     bids_type: ClassVar[Optional[str]] = "beh"
     default_baudrate: ClassVar[int] = 192_000
 
+    # Typed contract for the parser's dataqueue lookup. parse_line returns a
+    # dict {distance, speed, device_us}, so the dataqueue payload column holds
+    # a dict-repr. In Step 4.6 the parser will read payload_fields off the
+    # manifest instead of hardcoding the "EncoderData timestamp=N" regex.
+    dataqueue_payload_schema: ClassVar[Optional[dict]] = {
+        "device_id": "treadmill",
+        "payload_format": "dict",
+        "payload_fields": {
+            "distance": "float",
+            "speed": "float",
+            "device_us": "int",
+        },
+        "description": "Dict payload pushed by parse_line(); device_us is the master clock anchor.",
+    }
+
     def __init__(
         self,
         cfg: Optional[Dict[str, Any]] = None,
