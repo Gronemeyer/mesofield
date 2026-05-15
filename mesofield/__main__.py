@@ -496,6 +496,62 @@ def refresh_db(experiment_dir, db_path):
     db.refresh(experiment_dir)
     click.echo(f"Database refreshed from {experiment_dir}")
 
+
+@cli.command('retrofit-manifest')
+@click.argument('path', type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option('--force', is_flag=True,
+              help='Overwrite existing manifest.json files (default: skip).')
+@click.option('--dry-run', is_flag=True,
+              help='Print what would be written without touching disk.')
+def retrofit_manifest(path, force, dry_run):
+    """Reconstruct mesokit-schema AcquisitionManifests for legacy sessions.
+
+    PATH is either a single session directory (``data/sub-X/ses-Y/``) or an
+    experiment root that contains many sessions under ``data/``. Hardware
+    calibration is not present in legacy acquisitions; producers get an
+    empty ``calibration`` dict. Frame-metadata sidecars (``*_frame_metadata.json``)
+    are attached to their tiffs. Multi-task sessions write one manifest
+    per task as ``manifest_task-<T>.json``.
+    """
+    from mesofield.retrofit import (
+        discover_sessions,
+        manifest_filename,
+        synthesize_manifests,
+    )
+
+    sessions = list(discover_sessions(Path(path)))
+    if not sessions:
+        click.secho(f"No BIDS sessions found under {path}", fg="yellow")
+        raise SystemExit(1)
+
+    written = skipped = empty = 0
+    for session in sessions:
+        by_task = synthesize_manifests(session)
+        if not by_task:
+            click.echo(f"empty {session}  (no producer files)")
+            empty += 1
+            continue
+        multi_task = len(by_task) > 1
+        for task, manifest in by_task.items():
+            out_path = session / manifest_filename(task, multi_task)
+            if out_path.exists() and not force:
+                click.echo(f"skip  {out_path}  (exists; use --force to overwrite)")
+                skipped += 1
+                continue
+            verb = "would write" if dry_run else "wrote"
+            click.echo(
+                f"{verb}  {out_path}  ({len(manifest.producers)} producers, task={task})"
+            )
+            if not dry_run:
+                manifest.write(out_path)
+                written += 1
+
+    summary = (
+        f"\n{'(dry-run) ' if dry_run else ''}"
+        f"sessions={len(sessions)} written={written} skipped={skipped} empty={empty}"
+    )
+    click.echo(summary)
+
 @cli.command()
 @click.option('--dir', required=True, help='Directory containing video files to convert')
 @click.option('--pattern', default='*.mp4', help='Glob pattern to match files (e.g., "*.mp4", "pupil*.mp4")')

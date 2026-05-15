@@ -25,13 +25,26 @@ import os
 import sys
 import threading
 import uuid
-from datetime import datetime
-from typing import Any, Optional, Type
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, Optional, Type
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
+from mesokit_schema import (
+    AcquisitionManifest,
+    ProducerEntry,
+    SessionIdentity,
+    TimeBasis,
+)
+
 from mesofield.config import ExperimentConfig
 from mesofield.data.manager import DataManager
+
+try:
+    from mesofield._version import __version__ as _MESOFIELD_VERSION
+except Exception:  # pragma: no cover
+    _MESOFIELD_VERSION = "0.0.0+unknown"
 from mesofield.hardware import HardwareManager
 from mesofield.protocols import Configurator
 from mesofield.utils._logger import get_logger
@@ -191,7 +204,7 @@ class Procedure:
             self.hardware.primary.signals.finished.connect(self._cleanup_procedure)
 
             # 5. Start everything
-            self.start_time = datetime.now()
+            self.start_time = datetime.now(timezone.utc)
             self.events.procedure_started.emit()
             self.hardware.start_all()
 
@@ -269,13 +282,85 @@ class Procedure:
                 pass
             self.hardware.stop_all()
             self.data.stop_queue_logger()
-            self.stopped_time = datetime.now()
+            self.stopped_time = datetime.now(timezone.utc)
             self.save_data()
+            self._write_acquisition_manifest()
             self.on_finished()
             self.events.procedure_finished.emit()
         except Exception as e:
             self.logger.error(f"Error during cleanup: {e}")
             self.events.procedure_error.emit(str(e))
+        finally:
+            # `events.procedure_finished` is a pyqtSignal; its Python-side
+            # `.connect`s only run with a live QApplication. Setting the
+            # event directly here keeps `run_until_finished` working in
+            # headless contexts (tests, CLI smoke runs, batch scripts).
+            self._finished_event.set()
+
+    # ------------------------------------------------------------------
+    # Acquisition manifest (mesokit-schema contract)
+
+    def manifest_extra(self) -> Dict[str, Any]:
+        """Override to inject extra session-level metadata into the
+        AcquisitionManifest's ``extra`` block. Default: empty."""
+        return {}
+
+    def _write_acquisition_manifest(self) -> None:
+        """Emit a `mesokit_schema.AcquisitionManifest` next to the data.
+
+        Called automatically during cleanup. Override to disable or change
+        where the manifest lands; use :meth:`manifest_extra` if you only
+        want to attach extra session metadata.
+        """
+        session_root = (
+            Path(self.data_dir)
+            / f"sub-{self.config.subject}"
+            / f"ses-{self.config.session}"
+        )
+        session_root.mkdir(parents=True, exist_ok=True)
+        producers: list[ProducerEntry] = []
+        for device_id, device in self.config.hardware.devices.items():
+            output_path = getattr(device, "output_path", None)
+            if not output_path:
+                continue
+            try:
+                rel = str(Path(output_path).resolve().relative_to(session_root.resolve()))
+            except ValueError:
+                rel = str(output_path)
+            producers.append(
+                ProducerEntry(
+                    device_id=device_id,
+                    device_type=getattr(device, "device_type", "device"),
+                    data_type=getattr(device, "data_type", device_id),
+                    bids_type=getattr(device, "bids_type", None),
+                    file_type=getattr(device, "file_type", "csv"),
+                    output_path=rel,
+                    sampling_rate_hz=getattr(device, "sampling_rate", None) or None,
+                    time_basis=TimeBasis(
+                        clock_source=getattr(device, "clock_source", "wall_unix_s"),
+                    ),
+                    calibration=dict(getattr(device, "calibration", {}) or {}),
+                )
+            )
+
+        manifest = AcquisitionManifest(
+            mesofield_version=str(_MESOFIELD_VERSION),
+            acquisition_complete=True,
+            started_at=self.start_time,
+            ended_at=self.stopped_time,
+            session=SessionIdentity(
+                subject=str(self.config.subject),
+                session=str(self.config.session),
+                task=str(self.config.task) if self.config.task else None,
+                experimenter=self.experimenter,
+                protocol=self.protocol,
+            ),
+            producers=producers,
+            extra=self.manifest_extra(),
+        )
+        out = session_root / "manifest.json"
+        manifest.write(out)
+        self.logger.info(f"Wrote AcquisitionManifest -> {out}")
 
     # ------------------------------------------------------------------
 

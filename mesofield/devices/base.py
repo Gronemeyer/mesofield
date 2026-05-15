@@ -128,6 +128,23 @@ class BaseDevice:
             "is_primary": self.is_primary,
         }
 
+    # Keys that describe orchestration / GUI / routing rather than calibration.
+    # Stripped from `cfg` when building the `calibration` payload that ends up
+    # in the AcquisitionManifest. Subclasses can extend this tuple.
+    _MANIFEST_RESERVED_KEYS: ClassVar[tuple[str, ...]] = (
+        "id", "device_id", "type", "primary", "widgets", "output",
+    )
+
+    @property
+    def calibration(self) -> Dict[str, Any]:
+        """Device-specific constants worth recording with the data.
+
+        Default: everything in `cfg` that isn't an orchestration key. Override
+        on a subclass to curate the list explicitly.
+        """
+        reserved = set(self._MANIFEST_RESERVED_KEYS)
+        return {k: v for k, v in self.cfg.items() if k not in reserved}
+
 
 # ---------------------------------------------------------------------------
 # BaseDataProducer
@@ -150,6 +167,9 @@ class BaseDataProducer(BaseDevice):
     bids_type: ClassVar[Optional[str]] = "beh"
     sampling_rate: float = 0.0
     data_type: ClassVar[str] = "samples"
+    # Declared clock source for the AcquisitionManifest's TimeBasis. Matches
+    # what `record()` stamps (`time.time()`). Camera subclasses override.
+    clock_source: ClassVar[str] = "wall_unix_s"
 
     def __init__(self, cfg: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
         super().__init__(cfg, **kwargs)
