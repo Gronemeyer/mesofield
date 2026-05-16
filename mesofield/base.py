@@ -124,6 +124,11 @@ class Procedure:
         try:
             self.config.hardware.initialize(self.config)
             self.data = DataManager(self.h5_path)
+            # Register devices eagerly so iPython terminals and GUI inspectors
+            # see them on `procedure.data.devices` before run() is called.
+            # `Procedure.run()` short-circuits the re-registration via its
+            # `if not self.data.devices:` guard.
+            self.data.register_devices(self.config.hardware.devices.values())
             self.logger.info("Hardware initialized successfully")
         except RuntimeError as e:
             self.logger.error(f"Failed to initialize hardware: {e}")
