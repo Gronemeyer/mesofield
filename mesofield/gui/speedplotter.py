@@ -66,8 +66,8 @@ class SerialWidget(QWidget):
         self.layout = QVBoxLayout()
 
         if self.connected:
-            port = getattr(self.device, 'serial_port', '?')
-            baud = getattr(self.device, 'baud_rate', '?')
+            port = getattr(self.device, 'port', '?')
+            baud = getattr(self.device, 'baudrate', '?')
             status_text = "Click 'Start Live View' to begin."
             info_text = f'{self.label} on Port: {port} | Baud: {baud}'
         else:
