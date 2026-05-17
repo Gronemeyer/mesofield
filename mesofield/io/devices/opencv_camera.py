@@ -43,8 +43,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from mesofield import DeviceRegistry
 from mesofield.data.writer import configure_opencv_codec
-from mesofield.signals import DeviceSignals
-from mesofield.utils._logger import get_logger
+from mesofield.io.devices.base_camera import BaseCamera
 
 
 _DEFAULT_CV_BACKEND = "MSMF"
@@ -67,7 +66,7 @@ def _resolve_cv_backend(name: str | int | None) -> int:
 
 
 @DeviceRegistry.register("opencv_camera")
-class OpenCVCamera(QThread):
+class OpenCVCamera(BaseCamera, QThread):
     """Background-thread OpenCV camera capturing to MP4.
 
     Emits via ``self.signals`` (a :class:`mesofield.signals.DeviceSignals`):
@@ -76,47 +75,46 @@ class OpenCVCamera(QThread):
         :meth:`DataManager.register_hardware_device`.
     Plus Qt live-preview signals (GUI-only, decoupled from DataQueue):
       - ``frame_ready(np.ndarray)`` / ``image_ready(np.ndarray)``.
+
+    Inherits the common camera surface (identity, output paths, manifest
+    metadata, ``arm``/``set_sequence`` defaults) from :class:`BaseCamera`,
+    and runs its own capture loop on top of :class:`QThread`.
     """
 
     # ----- Qt signals (GUI-only live preview) ----------------------------
-    # The standardized acquisition-side signals (started/finished/data)
-    # live on ``self.signals`` (a ``DeviceSignals``) -- see ``__init__``.
+    # Class-level pyqtSignals are valid because QThread is a QObject.
     frame_ready = pyqtSignal(np.ndarray)
     # Alias used by the mesofield GUI's `InteractivePreview` (matches the
     # signal name expected by `arducam.VideoThread`).
     image_ready = pyqtSignal(np.ndarray)
 
-    # ----- Protocol attributes --------------------------------------------
-    device_type: ClassVar[str] = "camera"
-    file_type: str = "mp4"
-    bids_type: Optional[str] = "beh"
-    sampling_rate: float = 30.0
-    data_type: str = "video"
-    is_active: bool = False
+    # ----- Camera surface overrides (BaseCamera defaults are tiff/func) --
+    file_type: ClassVar[str] = "mp4"
+    bids_type: ClassVar[Optional[str]] = "beh"
+    data_type: ClassVar[str] = "video"
 
     def __init__(self, cfg: Dict[str, Any]):
-        super().__init__()
-        self.signals = DeviceSignals()
-        self.cfg: Dict[str, Any] = dict(cfg)
-        self.id: str = cfg.get("id", "opencv_camera")
-        self.name: str = cfg.get("name", self.id)
-        self.device_id: str = self.id
-        self.backend: str = "opencv"
-        self.viewer: str = cfg.get("viewer_type", "live")
-        self.auto_contrast: Any = cfg.get("auto_contrast")
-
-        self.device_index: int = int(cfg.get("device_index", 0))
-        self.cv_backend_name: str = str(cfg.get("cv_backend", _DEFAULT_CV_BACKEND))
-        self.sampling_rate = float(cfg.get("fps", self.sampling_rate))
-        self.fourcc: str = str(cfg.get("fourcc", "H264"))
-        self.is_color: bool = bool(cfg.get("color", True))
+        QThread.__init__(self)
+        # BaseCamera surface (signals, identity, viewer cosmetics, output
+        # slots, logger). image_ready is already a class-level pyqtSignal,
+        # so _init_camera_surface's `if not hasattr(self, 'image_ready')`
+        # guard leaves it alone.
+        self._init_camera_surface(cfg, backend="opencv")
+        # OpenCV-specific knobs.
+        self.device_index: int = int(self.cfg.get("device_index", 0))
+        self.cv_backend_name: str = str(self.cfg.get("cv_backend", _DEFAULT_CV_BACKEND))
+        # Default fps if cfg didn't carry one (BaseCamera reads `fps` from cfg).
+        if not self.sampling_rate:
+            self.sampling_rate = 30.0
+        self.fourcc: str = str(self.cfg.get("fourcc", "H264"))
+        self.is_color: bool = bool(self.cfg.get("color", True))
 
         # Optional explicit width/height overrides; otherwise driver default
-        self._req_width: Optional[int] = cfg.get("width")
-        self._req_height: Optional[int] = cfg.get("height")
+        self._req_width: Optional[int] = self.cfg.get("width")
+        self._req_height: Optional[int] = self.cfg.get("height")
 
-        # Apply YAML "properties" block (mirrors MMCamera semantics)
-        self.properties: Dict[str, Any] = cfg.get("properties", {}) or {}
+        # Apply YAML "properties" block (mirrors MMCamera semantics).
+        self.properties: Dict[str, Any] = self.cfg.get("properties", {}) or {}
         for key, val in self.properties.items():
             if key == "fps":
                 self.sampling_rate = float(val)
@@ -125,27 +123,12 @@ class OpenCVCamera(QThread):
             elif key == "auto_contrast":
                 self.auto_contrast = val
 
-        # Filled in later
-        self.output_path: Optional[str] = None
-        self.metadata_path: Optional[str] = None
-        self.writer: Optional[Any] = None  # cv2.VideoWriter
+        # Capture loop state.
         self._capture: Optional[Any] = None  # cv2.VideoCapture
         self._frame_index: int = 0
         self._frame_timestamps: list[tuple[int, float]] = []  # (idx, perf_counter)
         self._stop = False
 
-        # Match the MMCamera surface: a few attributes that other parts of
-        # mesofield poke at directly. ``core`` / ``camera_device`` are kept
-        # as ``None`` so isinstance() checks against pymmcore types fail
-        # cleanly without raising.
-        self.core: Optional[Any] = None
-        self.camera_device: Optional[Any] = None
-        self._engine = None
-
-        self._started: Optional[datetime] = None
-        self._stopped: Optional[datetime] = None
-
-        self.logger = get_logger(f"{__name__}.OpenCVCamera[{self.id}]")
         self.initialize()
 
     # ----- HardwareDevice protocol ----------------------------------------
@@ -182,13 +165,13 @@ class OpenCVCamera(QThread):
         return True
 
     def status(self) -> Dict[str, Any]:
-        return {
-            "active": self.is_active,
+        st = super().status()
+        st.update({
             "device_index": self.device_index,
             "cv_backend": self.cv_backend_name,
             "frames_written": self._frame_index,
-            "output_path": self.output_path,
-        }
+        })
+        return st
 
     # Backwards-compat alias used elsewhere in the codebase
     def get_status(self) -> Dict[str, Any]:
@@ -196,30 +179,22 @@ class OpenCVCamera(QThread):
 
     @property
     def metadata(self) -> Dict[str, Any]:
-        return {
-            "device_id": self.device_id,
-            "device_type": self.device_type,
-            "backend": self.backend,
+        md = super().metadata
+        md.update({
             "device_index": self.device_index,
             "cv_backend": self.cv_backend_name,
-            "fps": self.sampling_rate,
             "width": getattr(self, "_frame_width", None),
             "height": getattr(self, "_frame_height", None),
             "fourcc": self.fourcc,
-            "file_type": self.file_type,
-            "bids_type": self.bids_type,
-        }
+        })
+        return md
 
     # ----- DataProducer protocol -------------------------------------------
     def set_writer(self, make_path: Callable[[str, str, str, bool], str]) -> None:
-        """Generate the output path and create the MP4 writer.
-
-        Mirrors :meth:`MMCamera.set_writer` so :class:`Procedure.prerun` can
-        treat both camera classes interchangeably. The capture thread may
-        already be running for live-preview; once the writer is attached,
-        subsequent frames are written to disk.
-        """
-        self.output_path = make_path(self.name, self.file_type, self.bids_type, True)
+        """Generate the output path and open the cv2.VideoWriter."""
+        # BaseCamera.set_writer resolves self.output_path; we then build the
+        # MP4 writer + the per-frame metadata sidecar path.
+        super().set_writer(make_path)
         self.metadata_path = self.output_path + "_frame_metadata.json"
         self._open_writer(self.output_path)
         # Reset timing so saved timestamps reflect the recording start, not
@@ -228,15 +203,6 @@ class OpenCVCamera(QThread):
         self._frame_timestamps = []
         self._frame_index = 0
         self.logger.info(f"Writer set to {self.output_path}")
-
-    def set_sequence(self, build_mda: Callable[[Any], Any]) -> None:
-        """No-op for OpenCV backend (no MDA sequence)."""
-        self.logger.debug("set_sequence: OpenCV backend has no MDA sequence")
-
-    def arm(self, config: Any) -> None:
-        """Per-run prep: build writer + sequence from the config."""
-        self.set_writer(config.make_path)
-        self.set_sequence(config.build_sequence)
 
     def start(self) -> bool:
         if self.isRunning():
@@ -270,6 +236,58 @@ class OpenCVCamera(QThread):
             except Exception:
                 pass
             self.writer = None
+
+    # --- live preview contract (BaseCamera abstract methods) ------------
+    # `snap()` reads a frame from a one-shot VideoCapture; the live capture
+    # thread is the same one driven by start()/stop(), just without a
+    # writer attached.
+
+    def snap(self) -> np.ndarray:
+        """Open the camera, read one frame, return it without recording."""
+        import cv2
+
+        backend_id = _resolve_cv_backend(self.cv_backend_name)
+        cap = cv2.VideoCapture(self.device_index, backend_id)
+        try:
+            if not cap.isOpened():
+                raise RuntimeError("OpenCVCamera.snap: could not open camera")
+            if self._req_width:
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(self._req_width))
+            if self._req_height:
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(self._req_height))
+            ok, frame = cap.read()
+            if not ok or frame is None:
+                raise RuntimeError("OpenCVCamera.snap: VideoCapture.read failed")
+            # Fan the snapped frame out to GUI subscribers too.
+            try:
+                self.image_ready.emit(frame)
+            except Exception:
+                pass
+            return frame
+        finally:
+            cap.release()
+
+    def start_live(self) -> None:
+        """Start the capture thread WITHOUT a writer (preview-only)."""
+        if self.isRunning():
+            return
+        # Ensure no writer is attached so the capture loop's
+        # `if self.writer is not None` guard skips disk writes.
+        self.writer = None
+        self._stop = False
+        self._frame_index = 0
+        self._frame_timestamps = []
+        self.is_active = True
+        super().start()
+
+    def stop_live(self) -> None:
+        """End preview capture started by start_live."""
+        if not self.isRunning() and not self._stop:
+            return
+        self._stop = True
+        self.requestInterruption()
+        self.wait(5000)
+        self.is_active = False
 
     def get_data(self) -> Optional[Dict[str, Any]]:
         """Return the most recent frame index/timestamp pair, or ``None``."""

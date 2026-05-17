@@ -1,55 +1,54 @@
-from typing import Optional, Callable, Any
+from typing import Optional, Callable, Any, ClassVar
 from datetime import datetime
 import inspect
 
 from pymmcore_plus import CMMCorePlus, DeviceType
-from pymmcore_plus.core._device import CameraDevice 
+from pymmcore_plus.core._device import CameraDevice
 
 from mesofield.protocols import HardwareDevice, DataProducer
-from mesofield.signals import DeviceSignals
 from mesofield.engines import DevEngine, MesoEngine, PupilEngine
 from mesofield.io.devices.arducam import VideoThread
+from mesofield.io.devices.base_camera import BaseCamera
 from mesofield.io import CustomWriter, CV2Writer
 from mesofield import DeviceRegistry
-from mesofield.utils._logger import get_logger
 
 
 @DeviceRegistry.register("camera")
-class MMCamera(DataProducer, HardwareDevice):
+class MMCamera(BaseCamera, DataProducer, HardwareDevice):
+    """Micro-Manager-backed camera.
 
-    device_type = "camera"
+    Inherits the common camera surface (identity, output paths, manifest
+    metadata, ``arm`` / ``set_sequence`` defaults, ``status``, ``calibration``)
+    from :class:`BaseCamera`, and duck-types the ``DataProducer`` /
+    ``HardwareDevice`` Protocols so existing isinstance() checks keep
+    working. The actual frame flow is driven by pymmcore-plus's MDA event
+    system; this class wires those events into the standard
+    :class:`DeviceSignals` bundle and constructs a :class:`CustomWriter`
+    (OME-TIFF) or :class:`CV2Writer` (MP4) for the output.
+    """
+
     sampling_rate: float = 30.0  # Default sampling rate in Hz
-    file_type: str = "ome.tiff"
-    bids_type: Optional[str]
-    output_path: Optional[str] = None
-    metadata_path: Optional[str] = None
+    file_type: ClassVar[str] = "ome.tiff"
+    bids_type: ClassVar[Optional[str]] = "func"
     writer: CustomWriter | CV2Writer
-    
+
     def __init__(self, cfg: dict):
-        self.signals = DeviceSignals()
+        # BaseCamera surface (signals, identity, viewer cosmetics, output
+        # slots, logger). MMCamera carries an explicit `backend` (set from
+        # cfg), so we pass through the cfg-declared value here.
+        backend = str(cfg.get("backend", "")).lower()
+        if backend not in {"micromanager", "opencv"}:
+            raise ValueError(f"Unknown camera backend '{backend}'")
+        self._init_camera_surface(cfg, backend=backend)
+        # MMCamera-specific state.
         self.camera_device: Optional[CameraDevice | VideoThread] = None
         self.core: Optional[CMMCorePlus | VideoThread] = None
-        self.cfg = cfg
-        self.id = cfg["id"]
-        self.name = cfg["name"]
-        self.device_id = self.id
-        self.is_primary: bool = bool(cfg.get("primary", False))
-        self._started: datetime # Timestamp when the device was started
-        self._stopped: datetime # Timestamp when the device was stopped
-        self.backend = cfg.get("backend", "").lower()
-        self.properties = cfg.get("properties", {})
-        self.viewer = cfg.get("viewer_type", "static")
-        self.auto_contrast = cfg.get("auto_contrast")
-        self._engine = None
-        self.is_active = False
-        self.logger = get_logger(f"{__name__}.MMCamera[{self.id}]")
+        self.properties = self.cfg.get("properties", {})
 
         if self.backend == "micromanager":
-            self._setup_micromanager(cfg)
+            self._setup_micromanager(self.cfg)
         elif self.backend == "opencv":
             self._setup_opencv()
-        else:
-            raise ValueError(f"Unknown camera backend '{self.backend}'")
 
         # automatically apply all YAML properties
         self.initialize()
@@ -106,29 +105,13 @@ class MMCamera(DataProducer, HardwareDevice):
         self.camera_device = vid
         self.core = vid
 
-    def set_writer(self, make_path: Callable[[str, str, str, bool], str]):
-        """
-        Set the writer for this camera.
-        
-        Expects to be give `ExperimentConfig.make_path` function
-        which is used to generate the output path for the camera data.
-        """
-        self.output_path = make_path(self.name, self.file_type, self.bids_type, True)
-        
-        if self.file_type == "ome.tiff":
-            self.writer = CustomWriter(filename=self.output_path)
-        elif self.file_type == "mp4":
-            self.writer = CV2Writer(filename=self.output_path, fps=int(self.sampling_rate))
-        self.metadata_path = self.writer._frame_metadata_filename
-        self.logger.info(f"Writer set to {self.writer}")
+    # `set_writer` is inherited from BaseCamera: it resolves the output path
+    # and picks the writer (CustomWriter for OME-TIFF, CV2Writer for MP4)
+    # from the shared `_WRITER_FOR_FILE_TYPE` mapping. Override only if you
+    # need to swap the mapping for a specific MMCamera subclass.
 
     def set_sequence(self, build_mda: Callable[[DataProducer], Any]):
-        """
-        Set the sequence for this camera.
-        
-        Expects to be given `ExperimentConfig.build_sequence` method, which provides an MDA sequence
-        for the camera. This is only applicable for the Micromanager backend.
-        """
+        """Build the MDA sequence (Micro-Manager backend only)."""
         if self.backend == "micromanager":
             self.sequence = build_mda(self)
             self.logger.info("MDA sequence set for Micromanager backend.")
@@ -159,10 +142,7 @@ class MMCamera(DataProducer, HardwareDevice):
                     if setter:
                         setter(dev_id, prop, val)
 
-    def arm(self, config) -> None:
-        """Per-run prep: build the writer and MDA sequence from config."""
-        self.set_writer(config.make_path)
-        self.set_sequence(config.build_sequence)
+    # `arm()` is inherited from BaseCamera: it calls set_writer + set_sequence.
 
     def start(self) -> bool:
         #self.is_active = True
@@ -188,7 +168,33 @@ class MMCamera(DataProducer, HardwareDevice):
 
     def get_data(self):
         return getattr(self.camera_device, "get_frame", lambda: None)() if self.is_active else None
-    
+
+    # --- live preview contract (BaseCamera abstract methods) ------------
+    # Implementations delegate to mmcore so the GUI's snap/live buttons
+    # work without touching pymmcore directly.
+
+    def snap(self):
+        """Capture and return a single frame via ``mmcore.snap()``."""
+        if self.backend != "micromanager" or self.core is None:
+            raise RuntimeError("snap() requires the micromanager backend")
+        return self.core.snap()
+
+    def start_live(self) -> None:
+        """Begin continuous (untimed) sequence acquisition for preview."""
+        if self.backend != "micromanager" or self.core is None:
+            raise RuntimeError("start_live() requires the micromanager backend")
+        if not self.core.isSequenceRunning():
+            self.core.startContinuousSequenceAcquisition()
+
+    def stop_live(self) -> None:
+        """End the continuous sequence acquisition started by start_live."""
+        if self.backend != "micromanager" or self.core is None:
+            return
+        try:
+            self.core.stopSequenceAcquisition()
+        except Exception as exc:
+            self.logger.debug(f"stopSequenceAcquisition: {exc}")
+
     def shutdown(self):
         if self.backend == "micromanager" and hasattr(self.core, "reset"):
             self.core.mda.cancel()

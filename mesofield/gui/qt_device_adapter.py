@@ -1,21 +1,28 @@
 """Qt adapter that bridges pure-Python device signals into ``pyqtSignal``s.
 
-GUI code (e.g. live plotting) needs Qt signals so that emissions are
-delivered on the main thread.  Devices built on
+GUI code (e.g. live plotting, image previews) needs Qt signals so that
+emissions are delivered on the main thread with QueuedConnection
+semantics.  Devices built on
 :class:`mesofield.devices.base.BaseDataProducer` use ``psygnal`` and
-remain Qt-free.  This module is the seam:  attach a
-:class:`QtDeviceAdapter` to a device and read its ``pyqtSignal``s
-(``serialDataReceived``, ``serialSpeedUpdated``) instead of the device
-attributes directly.
+remain Qt-free.  This module is the seam: attach an adapter to a
+device, expose the adapter's ``pyqtSignal`` as an attribute on the
+device, and the GUI reads that attribute.
 
-Used internally by ``EncoderDevice`` / ``TreadmillDevice`` so that legacy
-GUI widgets (``SerialWidget``) keep working unchanged.
+Two adapters live here:
+
+- :class:`QtDeviceAdapter` — for serial-style devices. Bridges
+  ``signals.data`` into ``serialDataReceived`` / ``serialSpeedUpdated``.
+- :class:`QtImageAdapter` — for camera-shaped devices. Provides an
+  ``image_ready(np.ndarray)`` pyqtSignal that the MDA viewer subscribes
+  to. The device pushes frames into the adapter via
+  ``adapter.emit_frame(frame)``.
 """
 
 from __future__ import annotations
 
 from typing import Any, Optional
 
+import numpy as np
 from PyQt6.QtCore import QObject, pyqtSignal
 
 
@@ -67,4 +74,36 @@ class QtDeviceAdapter(QObject):
         try:
             self.serialSpeedUpdated.emit(float(t), float(value))
         except (TypeError, ValueError):
+            pass
+
+
+class QtImageAdapter(QObject):
+    """Bridges per-frame ndarray emissions into a Qt ``image_ready`` signal.
+
+    The MDA gui's static-viewer branch subscribes via
+    ``preview = ImagePreview(image_payload=cam.image_ready, ...)``, which
+    calls ``image_payload.connect(cb, type=QueuedConnection)`` -- so
+    ``image_ready`` MUST be a real ``pyqtSignal``. Devices built on
+    :class:`BaseDataProducer` are non-Qt; they hold an instance of this
+    adapter and expose its ``image_ready`` attribute as their own.
+
+    Usage::
+
+        class MyCam(BaseDataProducer):
+            def __init__(self, cfg=None, **kwargs):
+                super().__init__(cfg, **kwargs)
+                self._qt_image_adapter = QtImageAdapter()
+                self.image_ready = self._qt_image_adapter.image_ready
+
+            def _run_loop(self):
+                ...
+                self._qt_image_adapter.emit_frame(frame)
+    """
+
+    image_ready = pyqtSignal(np.ndarray)
+
+    def emit_frame(self, frame: np.ndarray) -> None:
+        try:
+            self.image_ready.emit(frame)
+        except Exception:
             pass

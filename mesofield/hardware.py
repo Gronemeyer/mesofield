@@ -200,6 +200,13 @@ class HardwareManager():
             dev_id = getattr(device, "device_id", key)
             self.devices[dev_id] = device
             setattr(self, dev_id, device)
+            # Camera-class extras land in self.cameras too so the MDA gui
+            # builds a live-view widget for them. This is the path
+            # MockFrameProducer takes; real MMCameras come through
+            # _init_cameras (which keys off the dedicated `cameras:` YAML
+            # stanza) and never touch this branch.
+            if getattr(device, "device_type", None) == "camera" and device not in self.cameras:
+                self.cameras = self.cameras + (device,)
             self.logger.info(f"Registered extra device '{dev_id}' (type={type_key}).")
 
     def _validate_primary(self) -> None:

@@ -3,20 +3,91 @@ from pymmcore_plus import CMMCorePlus
 from PyQt6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
+    QPushButton,
     QVBoxLayout,
     QWidget,
-    QSizePolicy
+    QSizePolicy,
 )
 
 from pymmcore_widgets import (
     MDAWidget,
     ExposureWidget,
-    LiveButton,
-    SnapButton,
 )
 
 from mesofield.data.writer import CustomWriter
 from mesofield.gui.viewer import ImagePreview, InteractivePreview
+from mesofield.utils._logger import get_logger
+
+
+_logger = get_logger(__name__)
+
+
+class CameraButtons(QWidget):
+    """Snap + Live toggle wired through the BaseCamera contract.
+
+    Replaces pymmcore-widgets' ``SnapButton`` / ``LiveButton`` (which only
+    worked for mmcore-backed cameras) with two buttons that call
+    ``cam.snap()`` / ``cam.start_live()`` / ``cam.stop_live()``.  Those
+    methods are defined on :class:`mesofield.io.devices.base_camera.BaseCamera`
+    and implemented by every camera subclass, so the GUI no longer cares
+    whether the underlying backend is Micro-Manager, OpenCV, or the
+    synthetic :class:`MockFrameProducer`.
+
+    The widget delegates frame display to the camera's existing signal
+    plumbing:
+
+    - MMCamera: ``cam.snap()`` calls ``mmcore.snap()`` which fires the
+      ``imageSnapped`` event the :class:`ImagePreview` is already wired
+      to; ``cam.start_live()`` triggers ``startContinuousSequenceAcquisition``
+      and frames flow through the MDA events.
+    - OpenCVCamera / MockFrameProducer: ``snap()`` and the live loop emit
+      ``cam.image_ready`` (a ``pyqtSignal(np.ndarray)``) which the
+      ``ImagePreview`` subscribes to via ``image_payload``.
+    """
+
+    def __init__(self, cam) -> None:
+        super().__init__()
+        self.cam = cam
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(layout)
+
+        self.snap_btn = QPushButton("Snap")
+        self.snap_btn.setToolTip(f"cam.snap()  [{cam.backend} backend]")
+        self.snap_btn.clicked.connect(self._on_snap)
+        layout.addWidget(self.snap_btn)
+
+        self.live_btn = QPushButton("Live")
+        self.live_btn.setCheckable(True)
+        self.live_btn.setToolTip(
+            f"toggle cam.start_live() / cam.stop_live()  [{cam.backend} backend]"
+        )
+        self.live_btn.toggled.connect(self._on_live_toggled)
+        layout.addWidget(self.live_btn)
+
+    def _on_snap(self) -> None:
+        try:
+            self.cam.snap()
+        except Exception as exc:
+            _logger.warning("snap failed on %s: %s", self.cam.device_id, exc)
+
+    def _on_live_toggled(self, checked: bool) -> None:
+        try:
+            if checked:
+                self.cam.start_live()
+                self.live_btn.setText("Stop Live")
+            else:
+                self.cam.stop_live()
+                self.live_btn.setText("Live")
+        except Exception as exc:
+            _logger.warning(
+                "live toggle failed on %s: %s", self.cam.device_id, exc
+            )
+            # Reset the toggle state if start/stop failed.
+            self.live_btn.blockSignals(True)
+            self.live_btn.setChecked(not checked)
+            self.live_btn.setText("Live")
+            self.live_btn.blockSignals(False)
 
 class CustomMDAWidget(MDAWidget):
     def run_mda(self) -> None:
@@ -112,29 +183,19 @@ class MDA(QWidget):
             core_box = QGroupBox(title=str(cam.name))
             core_box.setLayout(QVBoxLayout())
             core_box.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-            auto_contrast = getattr(cam, "auto_contrast")
+            auto_contrast = getattr(cam, "auto_contrast", True)
 
-            # Preview widget based on cam.viewer
+            # Preview widget: ImagePreview drives display.
+            # - mmcore-backed cameras wire the preview to mmcore events;
+            # - everyone else feeds it via the camera's `image_ready` Qt
+            #   signal (an attribute on every BaseCamera subclass).
             if cam.viewer == "static":
                 if isinstance(cam.core, CMMCorePlus):
                     preview = ImagePreview(
                         mmcore=cam.core,
                         _clims='auto' if auto_contrast else (0, 255),
                     )
-
-                    # Buttons row
-                    btn_box = QWidget()
-                    btn_box.setLayout(QHBoxLayout())
-                    snap_btn = SnapButton(mmcore=cam.core)
-                    live_btn = LiveButton(mmcore=cam.core)
-                    btn_box.layout().addWidget(snap_btn)
-                    btn_box.layout().addWidget(live_btn)
-                    core_box.layout().addWidget(btn_box)
-                    core_box.layout().addWidget(preview)
-                    cores_groupbox.layout().addWidget(core_box)
-                    self.layout().addWidget(cores_groupbox)
                 else:
-                    # Static viewer for non-Micromanager cameras (e.g. OpenCV).
                     image_signal = getattr(cam, "image_ready", None)
                     if image_signal is None and cam.core is not None:
                         image_signal = getattr(cam.core, "image_ready", None)
@@ -143,28 +204,25 @@ class MDA(QWidget):
                         image_payload=image_signal,
                         _clims='auto' if auto_contrast else (0, 255),
                     )
-                    starter = getattr(cam, "start", None)
-                    if starter is None and cam.core is not None:
-                        starter = getattr(cam.core, "start", None)
-                    if callable(starter):
-                        starter()
-                    core_box.layout().addWidget(preview)
-                    cores_groupbox.layout().addWidget(core_box)
-                    self.layout().addWidget(cores_groupbox)
             else:
-                # Dynamic / pyqtgraph viewer.
+                # Interactive / pyqtgraph viewer.
                 image_signal = getattr(cam, "image_ready", None)
                 if image_signal is None and cam.core is not None:
                     image_signal = getattr(cam.core, "image_ready", None)
                 preview = InteractivePreview(image_payload=image_signal)
-                starter = getattr(cam, "start", None)
-                if starter is None and cam.core is not None:
-                    starter = getattr(cam.core, "start", None)
-                if callable(starter):
-                    starter()
-                core_box.layout().addWidget(preview)
-                cores_groupbox.layout().addWidget(core_box)
-                self.layout().addWidget(cores_groupbox)
+
+            # Unified snap + live buttons -- driven by BaseCamera methods.
+            # Works for MMCamera (via mmcore), OpenCVCamera (capture thread),
+            # and MockFrameProducer (synthetic frames). Non-mmcore cameras
+            # used to auto-start on widget creation; now the user clicks
+            # "Live" to start, matching mmcore camera UX.
+            core_box.layout().addWidget(CameraButtons(cam))
+            core_box.layout().addWidget(preview)
+            cores_groupbox.layout().addWidget(core_box)
+
+        # Add the cores_groupbox once, not once per camera (the old code
+        # added it inside the loop, producing duplicate top-level widgets).
+        self.layout().addWidget(cores_groupbox)
 
 
 

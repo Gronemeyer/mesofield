@@ -1,0 +1,24 @@
+{
+    "Configuration": {
+        "experimenter": "demo",
+        "protocol": "TWO_CAM_DEMO",
+        "duration": 10,
+        "start_on_trigger": false
+    },
+    "procedure_file": "procedure.py",
+    "procedure_class": "TwoCamDemoProcedure",
+    "Subjects": {
+        "DEMO": {
+            "session": "01",
+            "task": "freeview"
+        }
+    },
+    "DisplayKeys": [
+        "subject",
+        "session",
+        "task",
+        "experimenter",
+        "protocol",
+        "duration"
+    ]
+}
