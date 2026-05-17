@@ -131,6 +131,54 @@ def launch(config):
 
 
 @cli.command()
+@click.argument('config', type=click.Path(exists=True, dir_okay=False), required=False, default=None)
+def viewer(config):
+    """Launch the standalone TIFF ROI viewer.
+
+    CONFIG is an optional path to an ``experiment.json``. When provided, the
+    viewer's "Open TIFF…" dialog opens in that experiment's data directory
+    (``<experiment>/data`` if it exists, otherwise the JSON's parent dir).
+    Hardware is NOT initialized — this is a read-only inspection tool.
+    """
+    import json
+    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtGui import QIcon
+    from mesofield.data.proc.analysis import TiffViewer
+
+    initial_dir = ""
+    if config:
+        cfg_path = Path(config).resolve()
+        try:
+            with open(cfg_path) as f:
+                data = json.load(f)
+        except Exception:
+            data = {}
+        # Prefer an explicit save_dir from the config; fall back to
+        # <experiment>/data, then the JSON's parent directory.
+        save_dir = data.get('save_dir') if isinstance(data, dict) else None
+        candidates = []
+        if save_dir:
+            candidates.append(Path(save_dir))
+            candidates.append(Path(save_dir) / 'data')
+        candidates.append(cfg_path.parent / 'data')
+        candidates.append(cfg_path.parent)
+        for c in candidates:
+            if c and c.exists():
+                initial_dir = str(c)
+                break
+
+    app = QApplication([])
+    icon_path = os.path.join(os.path.dirname(__file__), "gui", "Mesofield_icon.png")
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+
+    win = TiffViewer(initial_dir=initial_dir or None)
+    win.resize(1100, 800)
+    win.show()
+    app.exec()
+
+
+@cli.command()
 @click.argument('experiment_dir')
 @click.option('--speed', default=1.0, show_default=True, help='Playback speed multiplier')
 @click.option('--loop/--no-loop', default=False, show_default=True, help='Loop playback when finished')

@@ -44,6 +44,18 @@ class MainWindow(QMainWindow):
         self._toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBar(self._toolbar)
         self._prop_browsers: list = []  # open PropertyBrowser dialogs
+        self._prop_actions: list = []  # QAction objects for property browsers
+        #--------------------------------------------------------------------#
+
+        #=========================== Toolbar action ==========================#
+        # Place frequently used tools on the main hardware toolbar.
+        self._act_tiff_viewer = QAction("TIFF Viewer\u2026", self)
+        self._act_tiff_viewer.setToolTip(
+            "Open the TIFF ROI viewer (read-only; refuses files in the active recording)."
+        )
+        self._act_tiff_viewer.triggered.connect(self._open_tiff_viewer)
+        self._toolbar.addAction(self._act_tiff_viewer)
+        self._tiff_viewer = None  # keep a reference so the window isn't GC'd
         #--------------------------------------------------------------------#
 
         #============================== Layout ==============================#
@@ -93,6 +105,34 @@ class MainWindow(QMainWindow):
         """Switch to the Terminal tab."""
         terminal_index = self.right_tabs.indexOf(self.console_widget)
         self.right_tabs.setCurrentIndex(terminal_index)
+
+    def _open_tiff_viewer(self):
+        """Launch the TIFF ROI viewer pre-pointed at the current experiment dir.
+
+        The viewer is given a reference to the running ``Procedure`` so it can
+        refuse to open any file inside the active recording's output directory
+        while a camera is acquiring.
+        """
+        from mesofield.gui.tiff_viewer import TiffViewer
+
+        cfg = self.procedure.config
+        initial_dir = (
+            getattr(cfg, "bids_dir", None)
+            or getattr(cfg, "save_dir", None)
+            or ""
+        )
+
+        # Re-use existing window if still open; otherwise create a new one.
+        if self._tiff_viewer is not None and self._tiff_viewer.isVisible():
+            self._tiff_viewer.raise_()
+            self._tiff_viewer.activateWindow()
+            return
+
+        viewer = TiffViewer(initial_dir=initial_dir, procedure=self.procedure)
+        viewer.setWindowFlag(Qt.WindowType.Window, True)
+        viewer.resize(1100, 800)
+        viewer.show()
+        self._tiff_viewer = viewer
     
                 
     def initialize_console(self, procedure):
@@ -271,12 +311,18 @@ class MainWindow(QMainWindow):
 
     def _build_property_browsers(self) -> None:
         """Add a toolbar button per MicroManager camera that opens a PropertyBrowser."""
-        # Close any existing browsers and clear toolbar actions
+        # Close any existing browsers and remove only property-browser actions
         for dlg in self._prop_browsers:
             dlg.close()
             dlg.deleteLater()
         self._prop_browsers.clear()
-        self._toolbar.clear()
+        # Remove previously-added property-browser actions but keep other toolbar actions
+        for act in getattr(self, "_prop_actions", []):
+            try:
+                self._toolbar.removeAction(act)
+            except Exception:
+                pass
+        self._prop_actions.clear()
 
         cameras = self.procedure.config.hardware.cameras
         mm_cams = [
@@ -307,6 +353,7 @@ class MainWindow(QMainWindow):
                 lambda checked, b=browser: self._show_property_browser(b)
             )
             self._toolbar.addAction(action)
+            self._prop_actions.append(action)
 
     @staticmethod
     def _show_property_browser(browser) -> None:

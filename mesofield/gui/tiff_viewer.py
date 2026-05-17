@@ -1,4 +1,5 @@
 import sys
+import os
 import json
 import logging
 from typing import List, Tuple, Optional
@@ -7,7 +8,7 @@ import numpy as np
 import tifffile
 import pyqtgraph as pg
 
-from PyQt6.QtCore import QObject, pyqtSignal, QRunnable, QThreadPool, Qt, QPointF
+from PyQt6.QtCore import QObject, pyqtSignal, QRunnable, QThreadPool, Qt, QPointF, QTimer
 from PyQt6.QtWidgets import (
     QApplication,
     QWidget,
@@ -24,6 +25,7 @@ from PyQt6.QtWidgets import (
     QDoubleSpinBox,
     QGroupBox,
     QGridLayout,
+    QMessageBox,
 )
 
 # Configure logging
@@ -66,7 +68,9 @@ class ROIWorker(QRunnable):
         x0: int,
         y0: int,
         mask: np.ndarray,
-        chunk: int = 1000
+        chunk: int = 1000,
+        frame_start: int = 1,
+        frame_end: Optional[int] = None,
     ):
         super().__init__()
         self.index = index
@@ -77,6 +81,10 @@ class ROIWorker(QRunnable):
         self.y0 = y0
         self.mask = mask.astype(bool)
         self.chunk = chunk
+        # Inclusive start, exclusive end, both 0-indexed.
+        self.frame_start = max(0, int(frame_start))
+        self.frame_end = int(frame_end) if frame_end is not None else int(shape[0])
+        self.frame_end = max(self.frame_start + 1, min(self.frame_end, int(shape[0])))
         self.signals = ROIWorkerSignals()
 
     def run(self) -> None:
@@ -87,7 +95,7 @@ class ROIWorker(QRunnable):
             dtype=np.dtype(self.dtype_str),
             shape=self.shape
         )
-        total_frames = self.shape[0] - 1  # skip the first frame
+        total_frames = self.frame_end - self.frame_start
         img_h, img_w = self.shape[1], self.shape[2]
 
         # Compute clipped ROI bounds
@@ -101,8 +109,8 @@ class ROIWorker(QRunnable):
         result = np.empty(total_frames, dtype=float)
 
         # Process in chunks to update progress
-        for start in range(1, self.shape[0], self.chunk):
-            end = min(self.shape[0], start + self.chunk)
+        for start in range(self.frame_start, self.frame_end, self.chunk):
+            end = min(self.frame_end, start + self.chunk)
             block = mmap[
                 start:end,
                 self.y0:y1,
@@ -110,7 +118,7 @@ class ROIWorker(QRunnable):
             ]
             # Compute sums within clipped mask
             sums = (block * mask_clipped).sum(axis=(1, 2))
-            idx0 = start - 1
+            idx0 = start - self.frame_start
             length = end - start
             result[idx0:idx0 + length] = sums / mask_sum
 
@@ -166,7 +174,9 @@ class EnhancedROIWorker(QRunnable):
         y0: int,
         mask: np.ndarray,
         baseline_frames: int = 100,
-        chunk: int = 1000
+        chunk: int = 1000,
+        frame_start: int = 1,
+        frame_end: Optional[int] = None,
     ):
         super().__init__()
         self.index = index
@@ -178,6 +188,9 @@ class EnhancedROIWorker(QRunnable):
         self.mask = mask.astype(bool)
         self.baseline_frames = baseline_frames
         self.chunk = chunk
+        self.frame_start = max(0, int(frame_start))
+        self.frame_end = int(frame_end) if frame_end is not None else int(shape[0])
+        self.frame_end = max(self.frame_start + 1, min(self.frame_end, int(shape[0])))
         self.signals = EnhancedROIWorkerSignals()
 
     def run(self) -> None:
@@ -188,7 +201,7 @@ class EnhancedROIWorker(QRunnable):
             dtype=np.dtype(self.dtype_str),
             shape=self.shape
         )
-        total_frames = self.shape[0] - 1  # skip the first frame
+        total_frames = self.frame_end - self.frame_start
         img_h, img_w = self.shape[1], self.shape[2]
 
         # Compute clipped ROI bounds
@@ -208,19 +221,19 @@ class EnhancedROIWorker(QRunnable):
         raw_series = np.empty(total_frames, dtype=float)
 
         # Process in chunks to update progress
-        for start in range(1, self.shape[0], self.chunk):
-            end = min(self.shape[0], start + self.chunk)
-            
+        for start in range(self.frame_start, self.frame_end, self.chunk):
+            end = min(self.frame_end, start + self.chunk)
+
             # Load data block
             data_block = mmap[start:end, self.y0:y1, self.x0:x1].astype(np.float32)
-            
+
             # Compute mean for each frame
             for i in range(len(data_block)):
                 frame = data_block[i]
                 frame_pixels = frame[mask_clipped]
-                raw_series[start - 1 + i] = frame_pixels.mean()
+                raw_series[start - self.frame_start + i] = frame_pixels.mean()
 
-            percent = int((start - 1 + len(data_block)) * 100 / total_frames)
+            percent = int((start - self.frame_start + len(data_block)) * 100 / total_frames)
             self.signals.progress.emit(self.index, percent)
 
         # Compute baseline (median of first N frames)
@@ -233,11 +246,88 @@ class EnhancedROIWorker(QRunnable):
         self.signals.finished.emit(self.index, raw_series, df_f_series)
 
 
+class PixelTraceWorkerSignals(QObject):
+    finished = pyqtSignal(int, int, int, np.ndarray)  # x, y, bin, series
+
+
+class PixelTraceWorker(QRunnable):
+    """Compute the mean time-series over an NxN window around (x, y).
+
+    Runs off the GUI thread; uses a fresh np.memmap so it does not block
+    or contend with the viewer's display memmap.
+    """
+    def __init__(self, filepath: str, dtype_str: str, shape: Tuple[int, int, int],
+                 x: int, y: int, bin_size: int,
+                 frame_start: int = 0, frame_end: Optional[int] = None):
+        super().__init__()
+        self.filepath = filepath
+        self.dtype_str = dtype_str
+        self.shape = shape
+        self.x = int(x)
+        self.y = int(y)
+        self.bin_size = max(1, int(bin_size))
+        self.frame_start = max(0, int(frame_start))
+        self.frame_end = int(frame_end) if frame_end is not None else int(shape[0])
+        self.frame_end = max(self.frame_start + 1, min(self.frame_end, int(shape[0])))
+        self.signals = PixelTraceWorkerSignals()
+
+    def run(self) -> None:
+        mmap = np.memmap(self.filepath, mode='r',
+                         dtype=np.dtype(self.dtype_str), shape=self.shape)
+        n_frames, h, w = self.shape
+        half = self.bin_size // 2
+        y0 = max(0, self.y - half)
+        x0 = max(0, self.x - half)
+        y1 = min(h, y0 + self.bin_size)
+        x1 = min(w, x0 + self.bin_size)
+        s, e = self.frame_start, self.frame_end
+        if self.bin_size == 1:
+            series = np.asarray(mmap[s:e, self.y, self.x], dtype=float)
+        else:
+            block = mmap[s:e, y0:y1, x0:x1]
+            series = block.mean(axis=(1, 2)).astype(float)
+        self.signals.finished.emit(self.x, self.y, self.bin_size, series)
+
+
+class PixelTraceWindow(QWidget):
+    """Pop-up window showing a single pixel/bin time-series. Closable."""
+    closed = pyqtSignal(object)  # emits self on close
+
+    def __init__(self, x: int, y: int, bin_size: int, series: np.ndarray,
+                 color: str = 'y', parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self.setWindowTitle(f"Pixel ({x}, {y})  {bin_size}x{bin_size}")
+        self.setWindowFlag(Qt.WindowType.Window, True)
+        self.resize(640, 320)
+
+        layout = QVBoxLayout(self)
+        header = QHBoxLayout()
+        header.addWidget(QLabel(
+            f"<b>Pixel</b> ({x}, {y}) &nbsp; <b>Bin</b> {bin_size}x{bin_size} "
+            f"&nbsp; <b>Frames</b> {len(series)}"
+        ))
+        header.addStretch(1)
+        self.btn_close = QPushButton("Close")
+        self.btn_close.clicked.connect(self.close)
+        header.addWidget(self.btn_close)
+        layout.addLayout(header)
+
+        self.plot = pg.PlotWidget()
+        self.plot.plot(np.arange(len(series)), series, pen=color)
+        self.plot.setLabel('bottom', 'Frame')
+        self.plot.setLabel('left', 'Intensity')
+        layout.addWidget(self.plot)
+
+    def closeEvent(self, event):
+        self.closed.emit(self)
+        super().closeEvent(event)
+
+
 class TiffViewer(QWidget):
     """
     Main application widget for interactive TIFF viewing and ROI analysis.
     """
-    def __init__(self):
+    def __init__(self, initial_dir: Optional[str] = None, procedure=None):
         super().__init__()
         self.filepath: Optional[str] = None
         self.mmap: Optional[np.memmap] = None
@@ -245,6 +335,13 @@ class TiffViewer(QWidget):
         self.results: dict = {}
         self.df_f_results: dict = {}
         self.colors = ['r', 'g', 'b', 'c', 'm']
+        # Optional reference to the running Procedure so we can refuse to open
+        # files that are part of an in-progress recording.
+        self._procedure = procedure
+        self._initial_dir: Optional[str] = initial_dir
+        # Pixel-trace state
+        self._pixel_windows: List[PixelTraceWindow] = []
+        self._pixel_marker = None  # transient pg.RectROI showing last pick
 
         self._setup_ui()
         self._connect_signals()
@@ -283,8 +380,21 @@ class TiffViewer(QWidget):
         self.chk_corr = QCheckBox("Compute Correlation")
         self.chk_corr.setChecked(True)
         self.lbl_align = QLabel("")
-        
-        for widget in [self.btn_compute, self.btn_export_svg, self.chk_df_f, self.chk_corr, self.lbl_align]:
+
+        # Pixel-trace controls
+        self.btn_pick_pixel = QPushButton("Pick Pixel")
+        self.btn_pick_pixel.setCheckable(True)
+        self.btn_pick_pixel.setToolTip(
+            "Click a pixel on the image to plot its time-series.\n"
+            "Use the bin selector to average an NxN window around the click."
+        )
+        self.combo_bin = QComboBox()
+        for n in (1, 2, 3, 5, 7, 9):
+            self.combo_bin.addItem(f"{n}x{n}", n)
+        self.combo_bin.setCurrentIndex(2)  # default 3x3
+
+        for widget in [self.btn_compute, self.btn_export_svg, self.chk_df_f, self.chk_corr,
+                       self.btn_pick_pixel, QLabel("Bin:"), self.combo_bin, self.lbl_align]:
             ctrl_layout.addWidget(widget)
         
         main_layout.addWidget(ctrl_panel)
@@ -299,7 +409,21 @@ class TiffViewer(QWidget):
         self.spin_baseline.setRange(10, 1000)
         self.spin_baseline.setValue(100)
         params_layout.addWidget(self.spin_baseline, 0, 1)
-        
+
+        # Frame range (1-indexed, inclusive on both ends) — applied to all
+        # ROI / ΔF/F / pixel-trace computations.
+        params_layout.addWidget(QLabel("First Frame:"), 0, 2)
+        self.spin_first_frame = QSpinBox()
+        self.spin_first_frame.setRange(1, 1)
+        self.spin_first_frame.setValue(1)
+        params_layout.addWidget(self.spin_first_frame, 0, 3)
+
+        params_layout.addWidget(QLabel("Last Frame:"), 0, 4)
+        self.spin_last_frame = QSpinBox()
+        self.spin_last_frame.setRange(1, 1)
+        self.spin_last_frame.setValue(1)
+        params_layout.addWidget(self.spin_last_frame, 0, 5)
+
         main_layout.addWidget(params_group)
 
         # --- Image display ---
@@ -309,9 +433,25 @@ class TiffViewer(QWidget):
         main_layout.addWidget(self.img_view)
 
         # --- Slider and progress bar ---
+        playback_layout = QHBoxLayout()
+        self.btn_play = QPushButton("Play")
+        self.btn_play.setCheckable(True)
+        self.btn_play.setEnabled(False)
+        self.spin_fps = QDoubleSpinBox()
+        self.spin_fps.setRange(0.1, 240.0)
+        self.spin_fps.setDecimals(1)
+        self.spin_fps.setValue(30.0)
+        self.spin_fps.setSuffix(" fps")
+        playback_layout.addWidget(self.btn_play)
+        playback_layout.addWidget(self.spin_fps)
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setEnabled(False)
-        main_layout.addWidget(self.slider)
+        playback_layout.addWidget(self.slider, 1)
+        main_layout.addLayout(playback_layout)
+
+        # Playback timer
+        self._play_timer = QTimer(self)
+        self._play_timer.timeout.connect(self._advance_frame)
 
         self.progress = QProgressBar()
         self.progress.setVisible(False)
@@ -338,20 +478,120 @@ class TiffViewer(QWidget):
         self.btn_load_roi.clicked.connect(self.load_rois)
         self.btn_compute.clicked.connect(self.compute_rois)
         self.btn_export_svg.clicked.connect(self.export_svg)
+        self.btn_play.toggled.connect(self._on_play_toggled)
+        self.spin_fps.valueChanged.connect(self._on_fps_changed)
+        self.btn_pick_pixel.toggled.connect(self._on_pick_pixel_toggled)
+        # Frame-range interlock so first <= last.
+        self.spin_first_frame.valueChanged.connect(self._on_first_frame_changed)
+        self.spin_last_frame.valueChanged.connect(self._on_last_frame_changed)
+        # Mouse click in the image scene -> pixel trace (when picking enabled).
+        # pyqtgraph's GraphicsScene exposes sigMouseClicked at runtime even
+        # though Qt's QGraphicsScene type stubs do not advertise it.
+        self.view_box.scene().sigMouseClicked.connect(self._on_image_clicked)  # type: ignore[attr-defined]
+
+    def _is_recording_active(self) -> bool:
+        """Return True if any camera attached to the procedure is running."""
+        proc = self._procedure
+        if proc is None:
+            return False
+        try:
+            cams = proc.config.hardware.cameras
+        except Exception:
+            return False
+        for cam in cams or ():
+            if getattr(cam, "is_running", False):
+                return True
+        return False
+
+    def _recording_dir(self) -> Optional[str]:
+        """Return the active experiment's output directory, if any."""
+        proc = self._procedure
+        if proc is None:
+            return None
+        cfg = getattr(proc, "config", None)
+        if cfg is None:
+            return None
+        for attr in ("bids_dir", "save_dir", "data_dir"):
+            d = getattr(cfg, attr, None)
+            if d:
+                try:
+                    return os.path.abspath(d)
+                except Exception:
+                    return None
+        return None
+
+    def _is_inside_recording_dir(self, path: str) -> bool:
+        rec_dir = self._recording_dir()
+        if not rec_dir:
+            return False
+        try:
+            abs_path = os.path.abspath(path)
+            return os.path.normcase(abs_path).startswith(
+                os.path.normcase(rec_dir + os.sep)
+            )
+        except Exception:
+            return False
 
     def open_file(self) -> None:
         """Open a TIFF file and memory-map it for fast access."""
+        start_dir = self._initial_dir or ""
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select TIFF", "", "*.tif *.tiff"
+            self, "Select TIFF", start_dir, "*.tif *.tiff"
         )
         if not path:
             return
+
+        # Refuse to open files that belong to an in-progress recording.
+        # The active experiment's writer may still hold the file open and
+        # mapping/reading it concurrently risks corruption or a crash.
+        if self._is_recording_active() and self._is_inside_recording_dir(path):
+            QMessageBox.warning(
+                self,
+                "Recording in progress",
+                "This file is inside the active experiment's output directory "
+                "while a recording is running.\n\n"
+                "Wait until acquisition finishes before opening it.",
+            )
+            return
+
+        # Clear stale ROIs/results and release the previous memmap before
+        # loading a new stack. ROIs reference the old image item and the
+        # previous numpy.memmap holds a file handle that must be released
+        # (especially on Windows) to avoid a crash on reopen.
+        self.clear_rois()
+        if self.mmap is not None:
+            try:
+                del self.mmap
+            except Exception:
+                pass
+            self.mmap = None
+
         self.filepath = path
-        self.mmap = tifffile.memmap(path)
+        # Read-only memmap so we never collide with an experiment writer.
+        self.mmap = tifffile.memmap(path, mode='r')
+        self._initial_dir = os.path.dirname(path)
         total_frames = self.mmap.shape[0]
+        # Reset so the first frame of the new stack auto-ranges/levels once.
+        self._first_shown = False
+        # Block slider signals while reconfiguring its range to avoid
+        # display_frame firing with a transient/out-of-range index.
+        self.slider.blockSignals(True)
         self.slider.setRange(1, total_frames - 1)
         self.slider.setValue(1)
         self.slider.setEnabled(True)
+        self.slider.blockSignals(False)
+        self.btn_play.setEnabled(True)
+        # Configure frame-range spinboxes for the new stack.
+        # Default: skip the first frame (matches previous behavior) and
+        # include everything through the last.
+        self.spin_first_frame.blockSignals(True)
+        self.spin_last_frame.blockSignals(True)
+        self.spin_first_frame.setRange(1, total_frames)
+        self.spin_last_frame.setRange(1, total_frames)
+        self.spin_first_frame.setValue(min(2, total_frames))
+        self.spin_last_frame.setValue(total_frames)
+        self.spin_first_frame.blockSignals(False)
+        self.spin_last_frame.blockSignals(False)
         self.display_frame(1)
 
     def display_frame(self, index: int) -> None:
@@ -359,7 +599,128 @@ class TiffViewer(QWidget):
         if self.mmap is None:
             return
         image = np.asarray(self.mmap[index])
-        self.img_view.setImage(image, autoLevels=(index == 1))
+        first = (index == 1) and not getattr(self, "_first_shown", False)
+        # Preserve the user's current zoom/pan and contrast on subsequent
+        # frames; only auto-range/level on the very first frame of a stack.
+        self.img_view.setImage(
+            image,
+            autoLevels=first,
+            autoRange=first,
+            autoHistogramRange=first,
+        )
+        if first:
+            self._first_shown = True
+
+    def _on_play_toggled(self, playing: bool) -> None:
+        if playing and self.mmap is not None:
+            self._play_timer.start(max(1, int(1000.0 / self.spin_fps.value())))
+            self.btn_play.setText("Pause")
+        else:
+            self._play_timer.stop()
+            self.btn_play.setText("Play")
+
+    def _on_fps_changed(self, fps: float) -> None:
+        if self._play_timer.isActive():
+            self._play_timer.start(max(1, int(1000.0 / fps)))
+
+    def _advance_frame(self) -> None:
+        if self.mmap is None:
+            return
+        nxt = self.slider.value() + 1
+        if nxt > self.slider.maximum():
+            nxt = self.slider.minimum()
+        self.slider.setValue(nxt)
+
+    # ---- Pixel-trace picking ----------------------------------------------
+    def _on_pick_pixel_toggled(self, on: bool) -> None:
+        """Switch the image cursor to indicate pick mode."""
+        if on:
+            self.img_view.setCursor(Qt.CursorShape.CrossCursor)
+        else:
+            self.img_view.unsetCursor()
+
+    def _on_first_frame_changed(self, val: int) -> None:
+        if val > self.spin_last_frame.value():
+            self.spin_last_frame.setValue(val)
+
+    def _on_last_frame_changed(self, val: int) -> None:
+        if val < self.spin_first_frame.value():
+            self.spin_first_frame.setValue(val)
+
+    def _frame_range(self) -> Tuple[int, int]:
+        """Return (frame_start, frame_end) as 0-indexed half-open range."""
+        s = max(0, self.spin_first_frame.value() - 1)
+        e = self.spin_last_frame.value()  # 1-indexed inclusive == 0-indexed exclusive
+        if self.mmap is not None:
+            n = int(self.mmap.shape[0])
+            e = min(e, n)
+            s = min(s, max(0, e - 1))
+        return s, e
+
+    def _on_image_clicked(self, ev) -> None:
+        """Handle a click on the image while pixel-pick mode is active."""
+        if not self.btn_pick_pixel.isChecked():
+            return
+        if self.mmap is None or self.filepath is None:
+            return
+        if ev.button() != Qt.MouseButton.LeftButton:
+            return
+        # Map scene click -> image (pixel) coords
+        try:
+            scene_pos = ev.scenePos()
+            img_pt = self.img_item.mapFromScene(scene_pos)
+        except Exception:
+            return
+        x = int(img_pt.x())
+        y = int(img_pt.y())
+        h, w = self.mmap.shape[1], self.mmap.shape[2]
+        if not (0 <= x < w and 0 <= y < h):
+            return
+        ev.accept()
+
+        bin_size = int(self.combo_bin.currentData() or 1)
+
+        # Draw a marker showing the picked region on the image.
+        if self._pixel_marker is not None:
+            try:
+                self.view_box.removeItem(self._pixel_marker)
+            except Exception:
+                pass
+            self._pixel_marker = None
+        half = bin_size // 2
+        rx = max(0, x - half)
+        ry = max(0, y - half)
+        marker = pg.RectROI([rx, ry], [bin_size, bin_size],
+                            pen=pg.mkPen('y', width=1), movable=False, resizable=False)
+        # Disable the default handle so it's just a visual marker.
+        for handle in list(marker.getHandles()):
+            marker.removeHandle(handle)
+        self.view_box.addItem(marker)
+        self._pixel_marker = marker
+
+        # Compute trace off the GUI thread.
+        fs, fe = self._frame_range()
+        worker = PixelTraceWorker(
+            self.filepath, self.mmap.dtype.str, self.mmap.shape,
+            x, y, bin_size,
+            frame_start=fs, frame_end=fe,
+        )
+        worker.signals.finished.connect(self._on_pixel_trace_ready)
+        thread_pool.start(worker)
+
+    def _on_pixel_trace_ready(self, x: int, y: int, bin_size: int,
+                              series: np.ndarray) -> None:
+        """Show the pixel trace in a closable popup window."""
+        color = self.colors[len(self._pixel_windows) % len(self.colors)]
+        win = PixelTraceWindow(x, y, bin_size, series, color=color, parent=self)
+        win.closed.connect(self._on_pixel_window_closed)
+        win.show()
+        self._pixel_windows.append(win)
+
+    def _on_pixel_window_closed(self, win) -> None:
+        if win in self._pixel_windows:
+            self._pixel_windows.remove(win)
+    # -----------------------------------------------------------------------
 
     def add_roi(self) -> None:
         """Add a new ROI of the selected shape to the image view."""
@@ -383,6 +744,13 @@ class TiffViewer(QWidget):
         for _, roi in self.rois:
             self.view_box.removeItem(roi)
         self.rois.clear()
+        # Also remove the transient pixel-pick marker, if any.
+        if self._pixel_marker is not None:
+            try:
+                self.view_box.removeItem(self._pixel_marker)
+            except Exception:
+                pass
+            self._pixel_marker = None
         self.plot_widget.clear()
         self.plot_widget.setVisible(False)
         self.corr_widget.clear()
@@ -571,7 +939,8 @@ class TiffViewer(QWidget):
         self.df_f_results.clear()
 
         baseline_frames = self.spin_baseline.value()
-        
+        fs, fe = self._frame_range()
+
         for idx, (_, roi) in enumerate(self.rois):
             h, w = self.mmap.shape[1], self.mmap.shape[2]
             ones = np.ones((h, w), dtype=np.uint8)
@@ -591,7 +960,8 @@ class TiffViewer(QWidget):
                 worker = EnhancedROIWorker(
                     idx, self.filepath, self.mmap.dtype.str,
                     self.mmap.shape, x0, y0, mask,
-                    baseline_frames=baseline_frames
+                    baseline_frames=baseline_frames,
+                    frame_start=fs, frame_end=fe,
                 )
                 worker.signals.progress.connect(
                     lambda _, pct: self.progress.setValue(pct)
@@ -600,7 +970,8 @@ class TiffViewer(QWidget):
             else:
                 worker = ROIWorker(
                     idx, self.filepath, self.mmap.dtype.str,
-                    self.mmap.shape, x0, y0, mask
+                    self.mmap.shape, x0, y0, mask,
+                    frame_start=fs, frame_end=fe,
                 )
                 worker.signals.progress.connect(
                     lambda _, pct: self.progress.setValue(pct)
