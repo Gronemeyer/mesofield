@@ -46,6 +46,18 @@ class MainWindow(QMainWindow):
         self._prop_browsers: list = []  # open PropertyBrowser dialogs
         #--------------------------------------------------------------------#
 
+        #============================== Menu bar ===============================#
+        menu_bar = self.menuBar()
+        tools_menu = menu_bar.addMenu("&Tools")
+        self._act_tiff_viewer = QAction("TIFF Viewer\u2026", self)
+        self._act_tiff_viewer.setToolTip(
+            "Open the TIFF ROI viewer (read-only; refuses files in the active recording)."
+        )
+        self._act_tiff_viewer.triggered.connect(self._open_tiff_viewer)
+        tools_menu.addAction(self._act_tiff_viewer)
+        self._tiff_viewer = None  # keep a reference so the window isn't GC'd
+        #--------------------------------------------------------------------#
+
         #============================== Layout ==============================#
         central_widget = QWidget()
         self.main_layout = QVBoxLayout(central_widget)
@@ -93,6 +105,34 @@ class MainWindow(QMainWindow):
         """Switch to the Terminal tab."""
         terminal_index = self.right_tabs.indexOf(self.console_widget)
         self.right_tabs.setCurrentIndex(terminal_index)
+
+    def _open_tiff_viewer(self):
+        """Launch the TIFF ROI viewer pre-pointed at the current experiment dir.
+
+        The viewer is given a reference to the running ``Procedure`` so it can
+        refuse to open any file inside the active recording's output directory
+        while a camera is acquiring.
+        """
+        from mesofield.data.proc.analysis import TiffViewer
+
+        cfg = self.procedure.config
+        initial_dir = (
+            getattr(cfg, "bids_dir", None)
+            or getattr(cfg, "save_dir", None)
+            or ""
+        )
+
+        # Re-use existing window if still open; otherwise create a new one.
+        if self._tiff_viewer is not None and self._tiff_viewer.isVisible():
+            self._tiff_viewer.raise_()
+            self._tiff_viewer.activateWindow()
+            return
+
+        viewer = TiffViewer(initial_dir=initial_dir, procedure=self.procedure)
+        viewer.setWindowFlag(Qt.WindowType.Window, True)
+        viewer.resize(1100, 800)
+        viewer.show()
+        self._tiff_viewer = viewer
     
                 
     def initialize_console(self, procedure):

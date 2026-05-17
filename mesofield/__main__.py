@@ -131,6 +131,54 @@ def launch(config):
 
 
 @cli.command()
+@click.argument('config', type=click.Path(exists=True, dir_okay=False), required=False, default=None)
+def viewer(config):
+    """Launch the standalone TIFF ROI viewer.
+
+    CONFIG is an optional path to an ``experiment.json``. When provided, the
+    viewer's "Open TIFF…" dialog opens in that experiment's data directory
+    (``<experiment>/data`` if it exists, otherwise the JSON's parent dir).
+    Hardware is NOT initialized — this is a read-only inspection tool.
+    """
+    import json
+    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtGui import QIcon
+    from mesofield.data.proc.analysis import TiffViewer
+
+    initial_dir = ""
+    if config:
+        cfg_path = Path(config).resolve()
+        try:
+            with open(cfg_path) as f:
+                data = json.load(f)
+        except Exception:
+            data = {}
+        # Prefer an explicit save_dir from the config; fall back to
+        # <experiment>/data, then the JSON's parent directory.
+        save_dir = data.get('save_dir') if isinstance(data, dict) else None
+        candidates = []
+        if save_dir:
+            candidates.append(Path(save_dir))
+            candidates.append(Path(save_dir) / 'data')
+        candidates.append(cfg_path.parent / 'data')
+        candidates.append(cfg_path.parent)
+        for c in candidates:
+            if c and c.exists():
+                initial_dir = str(c)
+                break
+
+    app = QApplication([])
+    icon_path = os.path.join(os.path.dirname(__file__), "gui", "Mesofield_icon.png")
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+
+    win = TiffViewer(initial_dir=initial_dir or None)
+    win.resize(1100, 800)
+    win.show()
+    app.exec()
+
+
+@cli.command()
 @click.argument('experiment_dir')
 @click.option('--speed', default=1.0, show_default=True, help='Playback speed multiplier')
 @click.option('--loop/--no-loop', default=False, show_default=True, help='Loop playback when finished')
@@ -147,60 +195,93 @@ def playback(experiment_dir: str, speed: float, loop: bool):
 @click.option('--path', help='Path to a tiff file')
 @click.option('--dir',  help='Save the plot to the processing directory in the Experiment folder')
 @click.option('--sub', help='Subject ID (the name of the subject folder)')
-def trace_meso(path, dir, sub):
+@click.option('--method', default='collapse_first', show_default=True, help='ΔF/F computation method: collapse_first or pixelwise')
+def trace_meso(path, dir, sub, method):
+    """Compute and save mesoscopic ΔF/F traces.
+
+    When --path is provided, process only that TIFF.
+    Otherwise, scan --dir (optionally filtered by --sub), batch all discovered
+    meso_tiff files in one call, and write per-subject CSV outputs.
+    """
     import pandas as pd
     import mesofield.data.proc.load as load
     import mesofield.data.batch as batch
     
     if path:
-        session_paths = [path]
-        # find the parent experiment file assumn=ing path is under experimentdir/data/sub/ses/func/tiffile
-        experiment_dir = Path(path).parents[4]
+        tiff_path = Path(path)
+        # Assume input path is experiment_dir/data/sub/ses/func/<tiff_file>
+        experiment_dir = tiff_path.parents[4]
         print(f"DEBUG: Inferred experiment directory: {experiment_dir}")
-        result = batch.mean_trace_from_tiff(session_paths)
-        for path, trace in result.items():
-            print(f"{path}: {trace[:10]}")
-        # save to the processed dir of the experiment dir supporting Windows path
+
+        results = batch.dff_trace_from_tiff([str(tiff_path)], method=method)
         outdir = Path(experiment_dir) / "processed"
-        df = pd.DataFrame({"Slice": range(len(trace)), "Mean": trace})
-        
-        base_name = os.path.splitext(os.path.basename(path))[0]
-        filename = f"{base_name}_meso-mean-trace.csv"
-        df.to_csv(os.path.join(outdir, filename), index=False)
-    else:
-        datadict =  load.file_hierarchy(dir)
+        outdir.mkdir(parents=True, exist_ok=True)
 
-        # print(f"DEBUG: Available subject keys: {list(datadict.keys())}")
-        # print(f"DEBUG: Available session keys for subject '{sub}': {list(datadict[sub].keys())}")
-
-        session_paths = []
-        for key in sorted(datadict[sub].keys()):
-            if key.isdigit():
-                session = datadict[sub][key]
-                if 'widefield' in session:
-                    print(f"DEBUG: Session {key} widefield keys: {list(session['widefield'].keys())}")
-                    if 'meso_tiff' in session['widefield']:
-                        path = session['widefield']['meso_tiff']
-                        print(f"DEBUG: Found session {key}, meso_tiff path: {path}")
-                        session_paths.append(path)
-                    else:
-                        print(f"WARNING: Session {key} 'widefield' keys: {list(session['widefield'].keys())} (missing 'meso_tiff')")
-                else:
-                    print(f"WARNING: Session {key} missing 'widefield' key. Available keys: {list(session.keys())}")
-        print(f"DEBUG: Collected session_paths: {session_paths}")
-        
-        results = batch.mean_trace_from_tiff(session_paths)
-        for path, trace in results.items():
-            print(f"{path}: {trace[:10]}") 
-            
-        outdir = os.path.join(dir, "processed", sub)
-        os.makedirs(outdir, exist_ok=True)
-
-        for path, trace in results.items():
+        for source_path, trace in results.items():
+            print(f"{source_path}: {trace[:10]}")
             df = pd.DataFrame({"Slice": range(len(trace)), "Mean": trace})
-            base_name = os.path.splitext(os.path.basename(path))[0]
-            filename = f"{base_name}_meso-mean-trace.csv"
-            df.to_csv(os.path.join(outdir, filename), index=False)
+            filename = f"{Path(source_path).stem}_meso-{method}-trace.csv"
+            df.to_csv(outdir / filename, index=False)
+        return
+
+    datadict = load.file_hierarchy(dir)
+    subjects = [sub] if sub else sorted(datadict.keys())
+    print(f"DEBUG: Processing subjects: {subjects}")
+
+    # Collect every meso_tiff across requested subjects into a single list so
+    # batch processing runs once (shared progress bar and shared thread pool).
+    all_paths: list[str] = []
+    path_to_subject: dict[str, str] = {}
+
+    for subject in subjects:
+        if subject not in datadict:
+            print(f"WARNING: Subject '{subject}' not found in {dir}; skipping.")
+            continue
+
+        subject_sessions = datadict[subject]
+        for session_key in sorted(subject_sessions.keys()):
+            if not session_key.isdigit():
+                continue
+
+            session = subject_sessions[session_key]
+            if 'widefield' not in session:
+                print(
+                    f"WARNING: [{subject}] Session {session_key} missing 'widefield' key. "
+                    f"Available keys: {list(session.keys())}"
+                )
+                continue
+
+            widefield = session['widefield']
+            if 'meso_tiff' not in widefield:
+                print(
+                    f"WARNING: [{subject}] Session {session_key} 'widefield' keys: "
+                    f"{list(widefield.keys())} (missing 'meso_tiff')"
+                )
+                continue
+
+            discovered_path = widefield['meso_tiff']
+            print(f"DEBUG: [{subject}] Found session {session_key}, meso_tiff path: {discovered_path}")
+            all_paths.append(discovered_path)
+            path_to_subject[discovered_path] = subject
+
+    print(f"DEBUG: Total meso_tiff files collected across all subjects: {len(all_paths)}")
+    if not all_paths:
+        print("WARNING: No meso_tiff files found for any subject.")
+        return
+
+    results = batch.dff_trace_from_tiff(all_paths, method=method)
+    processed_root = Path(dir) / "processed"
+
+    for tiff_path, trace in results.items():
+        subject = path_to_subject[tiff_path]
+        print(f"[{subject}] {tiff_path}: {trace[:10]}")
+
+        outdir = processed_root / subject
+        outdir.mkdir(parents=True, exist_ok=True)
+
+        df = pd.DataFrame({"Slice": range(len(trace)), "Mean": trace})
+        filename = f"{Path(tiff_path).stem}_meso-{method}-trace.csv"
+        df.to_csv(outdir / filename, index=False)
 
 
 @cli.command()
