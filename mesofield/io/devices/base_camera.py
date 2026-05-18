@@ -3,7 +3,7 @@
 Three concrete cameras converge on this base:
 
   - :class:`mesofield.io.devices.cameras.MMCamera`  (Micro-Manager backend)
-  - :class:`mesofield.io.devices.opencv_camera.OpenCVCamera`  (OpenCV/UVC)
+  - :class:`mesofield.io.devices.cameras.OpenCVCamera`  (OpenCV/UVC)
   - :class:`mesofield.examples.mock_camera.MockFrameProducer`  (synthetic)
 
 They have wildly different acquisition loops (mmcore-driven MDA vs Qt thread
@@ -85,6 +85,9 @@ class BaseCamera:
         self.output_path: Optional[str] = None
         self.metadata_path: Optional[str] = None
         self.writer: Any = None
+        # Injected once by HardwareManager.initialize() so the camera can
+        # resolve paths (`config.make_path`) outside the per-run `arm()`.
+        self.config: Any = None
         # MDA gui reads `cam.core` (None for non-mmcore cameras). MMCamera
         # overrides during backend setup; others leave it None.
         self.core: Any = None
@@ -187,9 +190,42 @@ class BaseCamera:
         """Capture a single frame outside any recording, return it as an ndarray.
 
         Used by the GUI's snap button. Implementations should NOT alter
-        recording state -- snap is preview-only.
+        recording state -- snap is preview-only -- but they SHOULD call
+        :meth:`_save_snap_png` so each snap also lands a ``*_snap.png``.
         """
         raise NotImplementedError(f"{type(self).__name__}.snap() not implemented")
+
+    def _save_snap_png(self, frame: Any) -> Optional[str]:
+        """Write a snapped frame to ``<name>_snap.png`` at the BIDS path.
+
+        No-op when no :class:`ExperimentConfig` has been injected. Uses
+        ``config.make_path`` so the snapshot follows the same BIDS layout
+        (and ``bids_type``) as the camera's recordings.
+        """
+        if frame is None or self.config is None:
+            return None
+        make_path = getattr(self.config, "make_path", None)
+        if make_path is None:
+            return None
+        try:
+            import numpy as np
+            from PIL import Image
+
+            path = make_path(f"{self.name}_snap", "png", self.bids_type, True)
+            arr = np.asarray(frame)
+            if arr.ndim == 3 and arr.shape[2] == 3:
+                arr = arr[..., ::-1]  # OpenCV BGR -> RGB
+            if arr.dtype != np.uint8:
+                # Scale to 8-bit so the snapshot PNG is viewable.
+                lo, hi = float(arr.min()), float(arr.max())
+                scale = 255.0 / (hi - lo) if hi > lo else 1.0
+                arr = np.clip((arr.astype(np.float32) - lo) * scale, 0, 255).astype(np.uint8)
+            Image.fromarray(arr).save(path)
+            self.logger.info(f"Snapshot saved to {path}")
+            return path
+        except Exception as exc:
+            self.logger.error(f"Failed to save snapshot PNG: {exc}")
+            return None
 
     def start_live(self) -> None:
         """Begin continuous live preview WITHOUT writing to disk.

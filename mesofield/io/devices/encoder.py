@@ -1,6 +1,6 @@
 """Wheel encoder over USB-serial.
 
-Subclass of :class:`mesofield.devices.base.BaseSerialDevice` that reads
+Subclass of :class:`mesofield.io.devices.base.BaseSerialDevice` that reads
 integer click counts (one per line) from an Arduino-style firmware.
 Emitted payload is the raw click count (``int``); speed and distance
 are derived in analysis from the wheel diameter and CPR carried in the
@@ -26,7 +26,7 @@ import numpy as np
 import pandas as pd
 
 from mesofield import DeviceRegistry
-from mesofield.devices.base import BaseSerialDevice
+from mesofield.io.devices.base import BaseSerialDevice
 from mesofield.utils._logger import get_logger
 from mesofield.datakit.sources.register import SourceContext, TimeseriesSource
 from mesofield.datakit.timeline import DataqueueIndex

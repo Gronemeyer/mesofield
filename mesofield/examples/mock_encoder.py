@@ -1,7 +1,7 @@
 """Synthetic encoder device for headless / GUI-only iteration.
 
 Produces random click counts on a daemon thread without any serial
-hardware.  Subclass :class:`mesofield.devices.base.BaseDataProducer`
+hardware.  Subclass :class:`mesofield.io.devices.base.BaseDataProducer`
 directly because there is no physical port to manage.
 
 Usage in ``hardware.yaml``::
@@ -25,7 +25,7 @@ import threading
 import time
 from typing import Any, ClassVar, Dict, Optional
 
-from mesofield.devices.base import BaseDataProducer
+from mesofield.io.devices.base import BaseDataProducer
 
 
 class MockEncoderDevice(BaseDataProducer):

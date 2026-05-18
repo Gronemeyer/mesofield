@@ -47,7 +47,7 @@ from typing import Any, ClassVar, Dict, Optional
 
 import numpy as np
 
-from mesofield.devices.base import BaseDataProducer
+from mesofield.io.devices.base import BaseDataProducer
 from mesofield.io.devices.base_camera import BaseCamera
 
 

@@ -160,7 +160,15 @@ def configure_opencv_codec() -> None:
 
 
 class CV2Writer(_5DWriterBase[Any]):
-    """Write incoming MDA frames directly to an mp4/avi video using OpenCV."""
+    """Write frames to an mp4/avi video using OpenCV.
+
+    Two usage modes share the same codec/fourcc/metadata logic:
+
+    - **MDA-driven** (``new_array`` / ``write_frame`` / ``finalize_metadata``)
+      when handed to ``CMMCorePlus.run_mda`` as an output handler.
+    - **Direct** (``begin`` / ``add_frame`` / ``finish``) for cameras that run
+      their own capture loop (e.g. :class:`OpenCVCamera`).
+    """
 
     def __init__(self, filename: Path | str, fps: int = 30, fourcc: str = "H264") -> None:
         configure_opencv_codec()
@@ -171,6 +179,8 @@ class CV2Writer(_5DWriterBase[Any]):
         self._fps = fps
         self._fourcc = fourcc
         self._frame_metadata_filename = self._filename + FRAME_MD_FILENAME
+        # Direct-use (non-MDA) capture-loop writer; opened by `begin`.
+        self._direct_writer: Any = None
 
         super().__init__()
 
@@ -206,6 +216,49 @@ class CV2Writer(_5DWriterBase[Any]):
 
         regular_dict = dict(self.frame_metadatas)
         json_str = json.dumps(regular_dict, indent=4, cls=CustomJSONEncoder)
+        with open(self._frame_metadata_filename, "w") as file:
+            file.write(json_str)
+
+    # ----- direct (non-MDA) capture-loop interface ----------------------
+    def begin(self, width: int, height: int, is_color: bool = True) -> None:
+        """Open the underlying ``cv2.VideoWriter`` for a self-driven loop."""
+        import cv2
+
+        Path(self._filename).parent.mkdir(parents=True, exist_ok=True)
+        fourcc = cv2.VideoWriter.fourcc(*self._fourcc)
+        writer = cv2.VideoWriter(
+            self._filename, fourcc, float(self._fps), (width, height), isColor=is_color
+        )
+        if not writer.isOpened():
+            raise RuntimeError(
+                f"cv2.VideoWriter failed to open '{self._filename}' "
+                f"(fourcc={self._fourcc}, fps={self._fps})"
+            )
+        self._direct_writer = writer
+
+    def add_frame(self, frame: np.ndarray) -> None:
+        """Write one frame to the direct-mode video (uint8 frames pass through)."""
+        if self._direct_writer is None:
+            raise RuntimeError("CV2Writer.add_frame called before begin()")
+        if frame.dtype != np.uint8:
+            import cv2
+
+            frame = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        self._direct_writer.write(frame)
+
+    def finish(self, extra_metadata: dict | None = None) -> None:
+        """Release the direct-mode writer and write the metadata sidecar."""
+        if self._direct_writer is not None:
+            try:
+                self._direct_writer.release()
+            except Exception:
+                pass
+            self._direct_writer = None
+
+        payload: dict[str, Any] = {"frame_metadatas": dict(self.frame_metadatas)}
+        if extra_metadata:
+            payload.update(extra_metadata)
+        json_str = json.dumps(payload, indent=4, cls=CustomJSONEncoder)
         with open(self._frame_metadata_filename, "w") as file:
             file.write(json_str)
  

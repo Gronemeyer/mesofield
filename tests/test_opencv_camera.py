@@ -20,7 +20,7 @@ pytest.importorskip("cv2")
 from PyQt6.QtCore import QCoreApplication  # noqa: E402
 
 from mesofield.data.manager import DataManager  # noqa: E402
-from mesofield.io.devices.opencv_camera import OpenCVCamera, _resolve_cv_backend  # noqa: E402
+from mesofield.io.devices.cameras import OpenCVCamera, _resolve_cv_backend  # noqa: E402
 from mesofield.protocols import DataProducer, HardwareDevice  # noqa: E402
 
 
