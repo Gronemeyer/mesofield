@@ -32,6 +32,29 @@ def _infer_experiment_root(path: Path) -> Path:
     return path.parent
 
 
+def _build_dataset(
+    input_path: Path,
+    *,
+    output_path: Path | None = None,
+    tags: list[str] | None = None,
+    format: str = "h5",
+    progress: bool = False,
+    shell: bool = False,
+) -> None:
+    from mesofield.datakit.loader import build_default_dataset, launch_dataset_shell
+
+    result_path = build_default_dataset(
+        input_path,
+        output_path=output_path,
+        tags=tags,
+        format=format,
+        progress=progress,
+    )
+    print(f"Dataset saved to {result_path}")
+    if shell:
+        launch_dataset_shell(result_path)
+
+
 def _load_source(path: Path, tag: str, *, defer_load: bool = False) -> None:
     _ensure_datasource_registry()
     experiment_root = _infer_experiment_root(path)
@@ -91,6 +114,45 @@ def main() -> int:
         help="Open the shell without loading the file (use load() inside the session)",
     )
 
+    build_parser = subparsers.add_parser(
+        "build_dataset",
+        help="Build a materialized dataset from an experiment directory",
+    )
+    build_parser.add_argument(
+        "input_path",
+        type=Path,
+        help="Path to the experiment directory",
+    )
+    build_parser.add_argument(
+        "--output", "-o",
+        type=Path,
+        default=None,
+        dest="output_path",
+        help="Output file path (default: <experiment>/processed/YYMMDD_dataset_mvp.<fmt>)",
+    )
+    build_parser.add_argument(
+        "--tags", "-t",
+        nargs="+",
+        default=None,
+        help="Source tags to include (default: all configured tags)",
+    )
+    build_parser.add_argument(
+        "--format", "-f",
+        choices=["h5", "parquet", "csv", "pickle"],
+        default="h5",
+        help="Output format (default: h5)",
+    )
+    build_parser.add_argument(
+        "--progress",
+        action="store_true",
+        help="Show a progress bar during materialization",
+    )
+    build_parser.add_argument(
+        "--shell",
+        action="store_true",
+        help="Drop into an IPython session after building",
+    )
+
     args = parser.parse_args()
 
     if args.command == "load_source":
@@ -98,6 +160,20 @@ def main() -> int:
         if not path.exists() or not path.is_file():
             parser.error(f"--path must be an existing file: {path}")
         _load_source(path, args.tag, defer_load=args.defer_load)
+        return 0
+
+    if args.command == "build_dataset":
+        input_path = args.input_path.resolve()
+        if not input_path.exists() or not input_path.is_dir():
+            parser.error(f"input_path must be an existing directory: {input_path}")
+        _build_dataset(
+            input_path,
+            output_path=args.output_path,
+            tags=args.tags,
+            format=args.format,
+            progress=args.progress,
+            shell=args.shell,
+        )
         return 0
 
     parser.print_help()
