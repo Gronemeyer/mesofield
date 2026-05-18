@@ -10,7 +10,7 @@ Supported Commands:
   | '?'     | Print version and header info                |
   | 'c'     | Initiate speed output calibration            |
 
-Built on :class:`mesofield.devices.base.BaseSerialDevice`.  Each parsed
+Built on :class:`mesofield.io.devices.base.BaseSerialDevice`.  Each parsed
 line is recorded as a dict ``{"distance": float, "speed": float,
 "device_us": int|None}`` so that the default
 :meth:`BaseDataProducer.save_data` writes a 4-column CSV
@@ -32,7 +32,7 @@ import numpy as np
 import pandas as pd
 
 from mesofield import DeviceRegistry
-from mesofield.devices.base import BaseSerialDevice
+from mesofield.io.devices.base import BaseSerialDevice
 from mesofield.datakit.config import settings
 from mesofield.datakit.sources.register import SourceContext, TimeseriesSource
 

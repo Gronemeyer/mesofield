@@ -512,7 +512,7 @@ def init(directory, name, force):
     box without any real hardware -- replace the mock_wheel stanza in
     hardware.yaml with your real device when ready.
     """
-    from mesofield.scaffold import scaffold_experiment
+    from mesofield.utils.scaffold import scaffold_experiment
 
     try:
         out = scaffold_experiment(Path(directory), name=name, force=force)
@@ -543,7 +543,7 @@ def retrofit_manifest(path, force, dry_run):
     are attached to their tiffs. Multi-task sessions write one manifest
     per task as ``manifest_task-<T>.json``.
     """
-    from mesofield.retrofit import (
+    from mesofield.utils.retrofit import (
         discover_sessions,
         manifest_filename,
         synthesize_manifests,

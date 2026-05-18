@@ -148,6 +148,11 @@ class HardwareManager():
         self._init_psychopy()
         self._init_extras()
         self._configure_engines(cfg)
+        # Inject the ExperimentConfig onto every device so producers can reach
+        # `make_path` and experiment state outside the per-run `arm(config)`
+        # call (e.g. a camera's snap-and-save before a run is armed).
+        for device in self.devices.values():
+            device.config = cfg
         self._validate_primary()
 
     # Top-level YAML keys handled by dedicated initializers above.
