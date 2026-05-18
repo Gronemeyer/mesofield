@@ -23,7 +23,7 @@ logger = get_logger("datakit")
 
 from .experiment import ExperimentData, ExperimentMetadata  # noqa: E402  (import after logger to avoid circular import)
 from .discover import discover_manifest  # noqa: E402  (import after logger to avoid circular import)
-from .loader import ExperimentStore  # noqa: E402  (import after logger to avoid circular import)
+from .loader import ExperimentStore, load_dataset  # noqa: E402  (import after logger to avoid circular import)
 from .config import settings  # noqa: E402  (import after logger to avoid circular import)
 
 
@@ -34,5 +34,6 @@ __all__ = [
     "ExperimentMetadata",
     "discover_manifest",
     "ExperimentStore",
+    "load_dataset",
     "settings",
 ]

@@ -244,7 +244,7 @@ class MainWindow(QMainWindow):
             self._mda_layout.removeWidget(self._acquisition_gui)
             self._acquisition_gui.deleteLater()
 
-        self._acquisition_gui = MDA(self.procedure.config)
+        self._acquisition_gui = MDA(self.procedure)
         self._mda_layout.insertWidget(0, self._acquisition_gui)
 
         # -- Encoder widget ---------------------------------------------------

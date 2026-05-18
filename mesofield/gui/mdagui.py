@@ -1,6 +1,7 @@
 from pymmcore_plus import CMMCorePlus
 
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QGroupBox,
     QHBoxLayout,
     QPushButton,
@@ -45,9 +46,10 @@ class CameraButtons(QWidget):
       ``ImagePreview`` subscribes to via ``image_payload``.
     """
 
-    def __init__(self, cam) -> None:
+    def __init__(self, cam, preview=None) -> None:
         super().__init__()
         self.cam = cam
+        self.preview = preview
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
@@ -64,6 +66,35 @@ class CameraButtons(QWidget):
         )
         self.live_btn.toggled.connect(self._on_live_toggled)
         layout.addWidget(self.live_btn)
+
+        # Runtime auto-contrast toggle for the live viewer. The "off" state
+        # restores a viewer-appropriate manual range (8-bit static preview
+        # vs 16-bit interactive preview).
+        self._manual_clims = (
+            (0, 65535) if isinstance(preview, InteractivePreview) else (0, 255)
+        )
+        self.auto_contrast_cb = QCheckBox("Auto-contrast")
+        self.auto_contrast_cb.setChecked(bool(getattr(cam, "auto_contrast", True)))
+        self.auto_contrast_cb.setToolTip("Toggle live-viewer auto-contrast")
+        self.auto_contrast_cb.toggled.connect(self._on_auto_contrast_toggled)
+        layout.addWidget(self.auto_contrast_cb)
+        # Sync the viewer's contrast mode to the checkbox's initial state.
+        self._on_auto_contrast_toggled(self.auto_contrast_cb.isChecked())
+
+    def set_enabled(self, enabled: bool) -> None:
+        """Enable/disable the snap + live controls (used during acquisition)."""
+        self.snap_btn.setEnabled(enabled)
+        self.live_btn.setEnabled(enabled)
+
+    def _on_auto_contrast_toggled(self, checked: bool) -> None:
+        if self.preview is None:
+            return
+        try:
+            self.preview.clims = "auto" if checked else self._manual_clims
+        except Exception as exc:
+            _logger.warning(
+                "auto-contrast toggle failed on %s: %s", self.cam.device_id, exc
+            )
 
     def _on_snap(self) -> None:
         try:
@@ -122,7 +153,7 @@ class MDA(QWidget):
 
     """
 
-    def __init__(self, config) -> None:
+    def __init__(self, procedure) -> None:
         """
 
         The layout adapts the viewer based on the number of cores:
@@ -158,6 +189,8 @@ class MDA(QWidget):
         """
         super().__init__()
         # get the CMMCore instance and load the default config
+        self.procedure = procedure
+        config = procedure.config
         self.cameras = config.hardware.cameras
         self.mmcores = tuple(cam.core for cam in self.cameras)
         self._viewer_type = config.hardware._viewer
@@ -177,6 +210,9 @@ class MDA(QWidget):
 
         cores_groupbox = QGroupBox(f"{self.__module__}.{self.__class__.__name__}: Live Viewer")
         cores_groupbox.setLayout(QHBoxLayout())
+
+        # Track the per-camera button widgets so acquisition can lock them out.
+        self._camera_buttons: list[CameraButtons] = []
 
         for cam in self.cameras:
             # Per-core container
@@ -202,6 +238,7 @@ class MDA(QWidget):
                     preview = ImagePreview(
                         mmcore=None,
                         image_payload=image_signal,
+                        progress_payload=getattr(cam, "progress", None),
                         _clims='auto' if auto_contrast else (0, 255),
                     )
             else:
@@ -216,13 +253,35 @@ class MDA(QWidget):
             # and MockFrameProducer (synthetic frames). Non-mmcore cameras
             # used to auto-start on widget creation; now the user clicks
             # "Live" to start, matching mmcore camera UX.
-            core_box.layout().addWidget(CameraButtons(cam))
+            cam_buttons = CameraButtons(cam, preview)
+            self._camera_buttons.append(cam_buttons)
+            core_box.layout().addWidget(cam_buttons)
             core_box.layout().addWidget(preview)
             cores_groupbox.layout().addWidget(core_box)
 
         # Add the cores_groupbox once, not once per camera (the old code
         # added it inside the loop, producing duplicate top-level widgets).
         self.layout().addWidget(cores_groupbox)
+
+        # Lock the Snap/Live buttons for the duration of a Procedure run.
+        # Bound-method connections auto-disconnect when this QWidget is
+        # destroyed (the widget is rebuilt on every hardware reload).
+        events = getattr(procedure, "events", None)
+        if events is not None:
+            events.procedure_started.connect(self._on_acquisition_started)
+            events.procedure_finished.connect(self._on_acquisition_finished)
+            events.procedure_error.connect(self._on_acquisition_finished)
+
+    def _on_acquisition_started(self, *_args) -> None:
+        self.set_acquisition_active(True)
+
+    def _on_acquisition_finished(self, *_args) -> None:
+        self.set_acquisition_active(False)
+
+    def set_acquisition_active(self, active: bool) -> None:
+        """Lock out the Snap/Live buttons while a Procedure run is in progress."""
+        for cam_buttons in self._camera_buttons:
+            cam_buttons.set_enabled(not active)
 
 
 
