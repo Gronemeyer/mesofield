@@ -13,7 +13,7 @@ from pymmcore_plus.core._device import CameraDevice
 
 from mesofield.protocols import HardwareDevice, DataProducer
 from mesofield.engines import DevEngine, MesoEngine, PupilEngine
-from tests.arducam import VideoThread
+#from tests.arducam import VideoThread
 from mesofield.io.devices.base_camera import BaseCamera
 from mesofield.io import CustomWriter, CV2Writer
 from mesofield.data.writer import configure_opencv_codec
@@ -48,8 +48,8 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
             raise ValueError(f"Unknown camera backend '{backend}'")
         self._init_camera_surface(cfg, backend=backend)
         # MMCamera-specific state.
-        self.camera_device: Optional[CameraDevice | VideoThread] = None
-        self.core: Optional[CMMCorePlus | VideoThread] = None
+        self.camera_device: Optional[CameraDevice] = None
+        self.core: Optional[CMMCorePlus] = None
         self.properties = self.cfg.get("properties", {})
 
         if self.backend == "micromanager":
@@ -107,10 +107,10 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         core.mda.set_engine(self._engine)
         self.core = core
 
-    def _setup_opencv(self):
-        vid = VideoThread()
-        self.camera_device = vid
-        self.core = vid
+    # def _setup_opencv(self):
+    #     vid = VideoThread()
+    #     self.camera_device = vid
+    #     self.core = vid
 
     # `set_writer` is inherited from BaseCamera: it resolves the output path
     # and picks the writer (CustomWriter for OME-TIFF, CV2Writer for MP4)

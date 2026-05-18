@@ -12,15 +12,19 @@ can run, edit, and extend without writing anything from scratch:
         __init__.py
         thermal_example.py   # annotated custom-device template
 
-The generated experiment uses :class:`MockEncoderDevice` so it runs out
-of the box on any machine -- replace the `wheel:` stanza with your real
-hardware when you have it.
+The `hardware.yaml` is supplied by the caller (``mesofield init``):
+
+  - a ``Path`` to a canonical rig file -> copied in verbatim,
+  - ``"dev"``    -> a mock config (:class:`MockEncoderDevice`) that runs
+    out of the box on any machine,
+  - ``"blank"``  -> a commented real-hardware template to fill out.
 """
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 
 def scaffold_experiment(
@@ -28,8 +32,14 @@ def scaffold_experiment(
     *,
     name: Optional[str] = None,
     force: bool = False,
+    hardware: Union[Path, str] = "blank",
 ) -> Path:
-    """Generate a runnable experiment layout at `target`. Returns the dir."""
+    """Generate a runnable experiment layout at `target`. Returns the dir.
+
+    ``hardware`` selects the ``hardware.yaml`` written into the experiment:
+    a :class:`~pathlib.Path` (copied verbatim from a canonical rig file),
+    ``"dev"`` (mock config), or ``"blank"`` (fill-out template).
+    """
     target = Path(target).resolve()
     if target.exists() and any(target.iterdir()):
         if not force:
@@ -42,7 +52,6 @@ def scaffold_experiment(
     protocol = name or _protocol_from_dir(target)
     files = {
         target / "experiment.json": _experiment_json(protocol),
-        target / "hardware.yaml": _hardware_yaml(),
         target / "procedure.py": _procedure_py(protocol),
         target / "devices" / "__init__.py": "",
         target / "devices" / "thermal_example.py": _thermal_example_py(),
@@ -51,6 +60,19 @@ def scaffold_experiment(
     for path, content in files.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
+
+    # hardware.yaml: copy a canonical rig file, or write a built-in template.
+    hardware_dst = target / "hardware.yaml"
+    if isinstance(hardware, Path):
+        shutil.copyfile(hardware, hardware_dst)
+    elif hardware == "dev":
+        hardware_dst.write_text(_hardware_yaml_mock(), encoding="utf-8")
+    elif hardware == "blank":
+        hardware_dst.write_text(hardware_yaml_template(), encoding="utf-8")
+    else:
+        raise ValueError(
+            f"hardware must be a Path, 'dev', or 'blank'; got {hardware!r}"
+        )
     return target
 
 
@@ -83,9 +105,10 @@ def _experiment_json(protocol: str) -> str:
     )
 
 
-def _hardware_yaml() -> str:
+def _hardware_yaml_mock() -> str:
+    """The ``dev`` hardware config: a mock encoder, runs without hardware."""
     return (
-        "# Hardware configuration for this experiment.\n"
+        "# Hardware configuration for this experiment (DEV / mock).\n"
         "#\n"
         "# Each top-level stanza (other than the reserved keys at the bottom)\n"
         "# is a device. `type:` selects which DataProducer class instantiates\n"
@@ -99,7 +122,7 @@ def _hardware_yaml() -> str:
         "# then reference its registered `type:` here.\n"
         "memory_buffer_size: 1000\n"
         "\n"
-        "# Default to a mock encoder so this runs without real hardware.\n"
+        "# Mock encoder so this runs without real hardware.\n"
         "# Replace with your real device when ready (`type: wheel` etc.).\n"
         "wheel:\n"
         "  type: mock_wheel\n"
@@ -111,6 +134,66 @@ def _hardware_yaml() -> str:
         "    suffix: wheel\n"
         "    file_type: csv\n"
         "    bids_type: beh\n"
+    )
+
+
+def hardware_yaml_template() -> str:
+    """A commented real-hardware skeleton that must be filled out before use.
+
+    Used both for ``mesofield init`` with the ``blank`` choice and for
+    ``mesofield rig new`` (a fresh canonical rig file to edit).
+    """
+    return (
+        "# Canonical hardware configuration for this rig -- FILL THIS OUT.\n"
+        "#\n"
+        "# Each top-level stanza (other than the reserved keys) is a device.\n"
+        "# `type:` selects the DataProducer class (registered via\n"
+        "# @DeviceRegistry.register(\"...\")). Built-in types: camera\n"
+        "# (micromanager), opencv_camera, wheel, encoder, psychopy, nidaq,\n"
+        "# mock_wheel, mock_camera.\n"
+        "#\n"
+        "# Exactly one device must be flagged `primary: true`.\n"
+        "# Replace every <PLACEHOLDER> below with this machine's real values.\n"
+        "memory_buffer_size: 1000\n"
+        "\n"
+        "# --- Running wheel encoder (Arduino/Teensy over USB-serial) --------\n"
+        "wheel:\n"
+        "  type: wheel\n"
+        "  primary: true\n"
+        "  port: \"COM?\"            # <PLACEHOLDER> e.g. COM4 (Win) or /dev/ttyUSB0\n"
+        "  baudrate: 115200\n"
+        "  cpr: 2400\n"
+        "  diameter_mm: 80\n"
+        "  output:\n"
+        "    suffix: wheel\n"
+        "    file_type: csv\n"
+        "    bids_type: beh\n"
+        "\n"
+        "# --- Camera (uncomment and adapt ONE of the following) -------------\n"
+        "# OpenCV / UVC camera:\n"
+        "# mesoscope:\n"
+        "#   type: opencv_camera\n"
+        "#   id: mesoscope\n"
+        "#   name: mesoscope\n"
+        "#   backend: opencv\n"
+        "#   device_index: 0          # <PLACEHOLDER> OpenCV VideoCapture index\n"
+        "#   fps: 30\n"
+        "#   output:\n"
+        "#     suffix: mesoscope\n"
+        "#     file_type: mp4\n"
+        "#     bids_type: func\n"
+        "#\n"
+        "# Micro-Manager camera:\n"
+        "# pupil:\n"
+        "#   type: camera\n"
+        "#   id: pupil\n"
+        "#   name: pupil\n"
+        "#   backend: micromanager\n"
+        "#   configuration_path: \"<PLACEHOLDER>/MMConfig.cfg\"\n"
+        "#   output:\n"
+        "#     suffix: pupil\n"
+        "#     file_type: ome.tiff\n"
+        "#     bids_type: func\n"
     )
 
 
