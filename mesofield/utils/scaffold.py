@@ -235,7 +235,7 @@ def _thermal_example_py() -> str:
         'import pandas as pd\n'
         '\n'
         'from mesofield import DeviceRegistry\n'
-        'from mesofield.devices.base import BaseSerialDevice\n'
+        'from mesofield.io.devices.base import BaseSerialDevice\n'
         'from mesofield.datakit.sources.register import SourceContext, TimeseriesSource\n'
         '\n'
         '\n'

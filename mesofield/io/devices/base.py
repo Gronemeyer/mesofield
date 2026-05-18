@@ -76,6 +76,10 @@ class BaseDevice:
             self.device_id = str(cfg_id)
         self.is_primary: bool = bool(self.cfg.get("primary", False))
 
+        # Injected once by HardwareManager.initialize() so producers can reach
+        # `make_path` and experiment state outside the per-run `arm(config)`.
+        self.config: Any = None
+
         self.signals = DeviceSignals()
 
         self._started: Optional[datetime] = None
