@@ -193,12 +193,20 @@ class ConfigController(QWidget):
         self.record_button.setToolTip("Start Recording (MDA Sequence)")
         self.record_button.setShortcut("Ctrl+R")  # Set shortcut for recording
 
-        # 5. Add Note button to add a note to the configuration
+        # 5. Abort button to safely stop a running Procedure
+        self.abort_button = QPushButton("Abort")
+        stop_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_MediaStop)
+        self.abort_button.setIcon(stop_icon)
+        self.abort_button.setToolTip("Abort the running Procedure (safe stop + save)")
+        self.abort_button.setEnabled(False)
+
+        # 6. Add Note button to add a note to the configuration
         self.add_note_button = QPushButton("Add Note")
 
-        # Group the Record and Add Note buttons horizontally
+        # Group the Record, Abort and Add Note buttons horizontally
         self._action_buttons_layout = QHBoxLayout()
         self._action_buttons_layout.addWidget(self.record_button)
+        self._action_buttons_layout.addWidget(self.abort_button)
         self._action_buttons_layout.addWidget(self.add_note_button)
         layout.addLayout(self._action_buttons_layout)
 
@@ -216,8 +224,18 @@ class ConfigController(QWidget):
 
         self.subject_dropdown.currentIndexChanged.connect(self._change_subject) # When the subject is changed, update the config form
         self.record_button.clicked.connect(self.record)
+        self.abort_button.clicked.connect(self._abort)
         self.add_note_button.clicked.connect(self._add_note)
         self.open_bids_button.clicked.connect(self._open_bids_directory)
+
+        # Toggle Record/Abort availability from the live procedure lifecycle.
+        # Bound-method connections auto-disconnect when this widget (a
+        # QObject) is destroyed on a config reload.
+        events = getattr(self.procedure, "events", None)
+        if events is not None:
+            events.procedure_started.connect(self._on_run_started)
+            events.procedure_finished.connect(self._on_run_finished)
+            events.procedure_error.connect(self._on_run_finished)
 
         # Connect dynamic controls using constants defined in DynamicController
         dynamic_buttons = [
@@ -272,6 +290,24 @@ class ConfigController(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "Procedure Error", f"Failed to run procedure: {str(e)}")
                 return
+
+    def _abort(self):
+        """Safely stop the running Procedure (stops hardware, saves data)."""
+        if self.procedure is None:
+            return
+        self.abort_button.setEnabled(False)
+        try:
+            self.procedure.cleanup()
+        except Exception as e:
+            QMessageBox.critical(self, "Abort Error", f"Failed to abort procedure: {e}")
+
+    def _on_run_started(self, *_args) -> None:
+        self.record_button.setEnabled(False)
+        self.abort_button.setEnabled(True)
+
+    def _on_run_finished(self, *_args) -> None:
+        self.record_button.setEnabled(True)
+        self.abort_button.setEnabled(False)
 
     def _stop_live_streams(self) -> None:
         """Ensure any live/sequence streams are halted before starting acquisition."""
@@ -344,13 +380,19 @@ class ConfigController(QWidget):
     
     def _add_note(self):
         """
-        Open a dialog to get a note from the user and save it to the ExperimentConfig.notes list.
+        Open a dialog to get a note from the user, save it to the
+        ExperimentConfig.notes list, and push it onto the live DataQueue so it
+        is timestamped into dataqueue.csv.
         """
-        time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.now()
+        time = now.strftime("%Y-%m-%d %H:%M:%S")
         text, ok = QInputDialog.getText(self, 'Add Note', 'Enter your note:')
         if ok and text:
             note_with_timestamp = f"{time}: {text}"
             self.config.notes.append(note_with_timestamp)
+            data_manager = getattr(self.procedure, "data", None)
+            if data_manager is not None and getattr(data_manager, "queue", None) is not None:
+                data_manager.queue.push("notes", text, timestamp=now)
 
     def _test_nidaq(self):
         """
