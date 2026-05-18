@@ -496,7 +496,40 @@ class ExperimentStore:
         return pd.DataFrame(summary_rows)
 
 
-__all__ = ["ExperimentStore", "SeriesSpec", "launch_dataset_shell"]
+__all__ = ["ExperimentStore", "SeriesSpec", "launch_dataset_shell", "load_dataset"]
+
+
+def load_dataset(path: "str | Path") -> pd.DataFrame:
+    """Load a materialised dataset back into a DataFrame.
+
+    The consumer-side counterpart to :func:`build_default_dataset` (and the
+    inline manifest-driven ingest used by the pipeline test). Dispatches on
+    the file extension:
+
+      - ``.pkl`` / ``.pickle``  -> :func:`pandas.read_pickle`
+      - ``.h5`` / ``.hdf5``     -> :func:`pandas.read_hdf`
+      - ``.parquet``            -> :func:`pandas.read_parquet`
+      - ``.csv``                -> :func:`pandas.read_csv`
+
+    Raises ``FileNotFoundError`` if the path is missing and ``ValueError``
+    for an unsupported extension.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Dataset not found: {path}")
+    suffix = path.suffix.lower()
+    if suffix in (".pkl", ".pickle"):
+        return pd.read_pickle(path)
+    if suffix in (".h5", ".hdf5"):
+        return pd.read_hdf(path)
+    if suffix == ".parquet":
+        return pd.read_parquet(path)
+    if suffix == ".csv":
+        return pd.read_csv(path)
+    raise ValueError(
+        f"Unsupported dataset format {suffix!r}; expected one of "
+        ".pkl/.pickle/.h5/.hdf5/.parquet/.csv"
+    )
 
 
 # ---------------------------------------------------------------------------
