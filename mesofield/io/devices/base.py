@@ -392,24 +392,27 @@ class BaseSerialDevice(BaseDataProducer):
             raise ImportError(
                 "pyserial is required for BaseSerialDevice; install with `pip install pyserial`"
             ) from exc
+            
+        try:
+            if self.dtr is None:
+                ser = serial.Serial(self.port, baudrate=self.baudrate, timeout=self.timeout)
+            else:
+                # DTR must be set before the port physically opens
+                # (Arduino-no-reset idiom).
+                ser = serial.Serial(baudrate=self.baudrate, timeout=self.timeout)
+                ser.port = self.port
+                ser.dtr = self.dtr
+                ser.open()
+            self._serial = ser
 
-        if self.dtr is None:
-            ser = serial.Serial(self.port, baudrate=self.baudrate, timeout=self.timeout)
-        else:
-            # DTR must be set before the port physically opens
-            # (Arduino-no-reset idiom).
-            ser = serial.Serial(baudrate=self.baudrate, timeout=self.timeout)
-            ser.port = self.port
-            ser.dtr = self.dtr
-            ser.open()
-        self._serial = ser
-
-        if self.connect_delay > 0:
-            time.sleep(self.connect_delay)
-            try:
-                ser.reset_input_buffer()
-            except Exception:
-                pass
+            if self.connect_delay > 0:
+                time.sleep(self.connect_delay)
+                try:
+                    ser.reset_input_buffer()
+                except Exception:
+                    pass
+        except Exception as exc:
+            raise RuntimeError(f"Failed to open serial port {self.port}: {exc}") from exc
 
         self.logger.info("Opened serial %s @ %d baud", self.port, self.baudrate)
         try:

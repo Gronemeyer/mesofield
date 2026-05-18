@@ -374,10 +374,15 @@ class HardwareManager():
                     development_mode=params.get('development_mode'),
                 )
             elif enc_type == 'treadmill':
-                self.encoder = EncoderSerialInterface(
-                    port=params.get('port'),
-                    baudrate=params.get('baudrate'),
-                )
+                try:
+                    self.encoder = EncoderSerialInterface(
+                        port=params.get('port'),
+                        baudrate=params.get('baudrate'),
+                    )
+                    self.encoder.initialize()
+                except Exception as e:
+                    raise RuntimeError(f"Failed to initialize EncoderSerialInterface: {e}") from e
+
             else:
                 self.logger.warning(f"Unknown encoder type: {enc_type}")
                 return
