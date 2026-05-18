@@ -497,34 +497,181 @@ def refresh_db(experiment_dir, db_path):
     click.echo(f"Database refreshed from {experiment_dir}")
 
 
+def _resolve_init_hardware(rig, hardware):
+    """Resolve the ``hardware`` argument for :func:`scaffold_experiment`.
+
+    Returns a ``Path`` (copy a canonical rig file) or ``"dev"`` / ``"blank"``.
+    ``--hardware`` wins over ``--rig``; with neither, an interactive picker
+    over the rig store plus the ``dev`` / ``blank`` built-ins is shown.
+    """
+    from mesofield.scaffold import rigs
+
+    if hardware:
+        return Path(hardware)
+    if rig:
+        if rig in ("dev", "blank"):
+            return rig
+        try:
+            return rigs._resolve_existing(rig)
+        except FileNotFoundError as exc:
+            click.secho(str(exc), fg="red")
+            raise SystemExit(1)
+
+    choices = rigs.list_rigs() + ["dev", "blank"]
+    click.echo("Select a hardware configuration for this experiment:")
+    for name in rigs.list_rigs():
+        click.echo(f"  {name}    (canonical rig)")
+    click.echo("  dev      (mock devices -- runs without hardware)")
+    click.echo("  blank    (fill-out template)")
+    picked = click.prompt(
+        "Rig", type=click.Choice(choices), default="blank", show_choices=False
+    )
+    if picked in ("dev", "blank"):
+        return picked
+    return rigs.rig_path(picked)
+
+
 @cli.command('init')
 @click.argument('directory', type=click.Path())
 @click.option('--name', default=None,
               help='Experiment protocol name (default: directory basename uppercased).')
 @click.option('--force', is_flag=True,
               help='Overwrite an existing non-empty directory.')
-def init(directory, name, force):
+@click.option('--rig', default=None,
+              help="Canonical rig to copy hardware.yaml from "
+                   "(or 'dev'/'blank'). Skips the interactive picker.")
+@click.option('--hardware', default=None, type=click.Path(exists=True, dir_okay=False),
+              help='Explicit hardware.yaml file to copy in (overrides --rig).')
+def init(directory, name, force, rig, hardware):
     """Scaffold a new mesofield experiment in DIRECTORY.
 
     Generates `experiment.json`, `hardware.yaml`, `procedure.py`, and a
     `devices/` subdirectory with an annotated thermal-sensor example.
-    The scaffolded experiment uses a mock encoder so it runs out of the
-    box without any real hardware -- replace the mock_wheel stanza in
-    hardware.yaml with your real device when ready.
-    """
-    from mesofield.utils.scaffold import scaffold_experiment
 
+    The `hardware.yaml` is chosen interactively: a canonical rig from this
+    machine's rig store (see `mesofield rig`), `dev` (mock devices, runs
+    without hardware), or `blank` (a fill-out template). Use --rig/--hardware
+    to skip the prompt.
+    """
+    from mesofield.scaffold import scaffold_experiment
+
+    hardware_choice = _resolve_init_hardware(rig, hardware)
     try:
-        out = scaffold_experiment(Path(directory), name=name, force=force)
+        out = scaffold_experiment(
+            Path(directory), name=name, force=force, hardware=hardware_choice,
+        )
     except FileExistsError as exc:
         click.secho(str(exc), fg="red")
         raise SystemExit(1)
     click.secho(f"Scaffolded experiment at {out}", fg="green")
     click.echo("Next steps:")
     click.echo(f"  1. cd {out}")
-    click.echo("  2. python procedure.py    # runs the mock acquisition")
-    click.echo(f"  3. open data/sub-SUBJ01/ses-01/manifest.json")
+    if hardware_choice == "dev":
+        click.echo("  2. python procedure.py    # runs the mock acquisition")
+        click.echo(f"  3. open data/sub-SUBJ01/ses-01/manifest.json")
+    else:
+        click.echo("  2. review hardware.yaml   # confirm it matches this rig")
+        click.echo("  3. python procedure.py    # runs the acquisition")
     click.echo("Read the generated README.md for customization tips.")
+
+
+@cli.group('rig')
+def rig():
+    """Manage this machine's canonical hardware.yaml configurations.
+
+    A rig is a named hardware.yaml stored in this computer's OS config
+    directory. `mesofield init` copies a rig into each new experiment so
+    experiment folders stay self-contained.
+    """
+
+
+@rig.command('list')
+def rig_list():
+    """List the canonical rigs registered on this machine."""
+    from mesofield.scaffold import rigs
+
+    names = rigs.list_rigs()
+    if not names:
+        click.echo(f"No rigs registered. Store: {rigs.rigs_dir()}")
+        click.echo("Add one with 'mesofield rig add' or 'mesofield rig new'.")
+        return
+    click.echo(f"Rigs in {rigs.rigs_dir()}:")
+    for name in names:
+        click.secho(f"  {name}", fg="cyan")
+        try:
+            devices = rigs.rig_devices(name)
+        except Exception as exc:
+            click.secho(f"      (could not read devices: {exc})", fg="red")
+            continue
+        if not devices:
+            click.echo("      (no devices declared)")
+        for dev_name, dev_type in devices:
+            click.echo(f"      - {dev_name}  (type: {dev_type})")
+
+
+@rig.command('add')
+@click.argument('name')
+@click.argument('path', type=click.Path(exists=True, dir_okay=False))
+@click.option('--force', is_flag=True, help='Overwrite an existing rig.')
+def rig_add(name, path, force):
+    """Copy an existing hardware.yaml at PATH into the store as NAME."""
+    from mesofield.scaffold import rigs
+
+    try:
+        dst = rigs.add_rig(name, Path(path), force=force)
+    except FileExistsError as exc:
+        click.secho(str(exc), fg="red")
+        raise SystemExit(1)
+    except Exception as exc:
+        click.secho(f"Failed to add rig: {exc}", fg="red")
+        raise SystemExit(1)
+    click.secho(f"Registered rig {name!r} at {dst}", fg="green")
+
+
+@rig.command('new')
+@click.argument('name')
+@click.option('--force', is_flag=True, help='Overwrite an existing rig.')
+def rig_new(name, force):
+    """Scaffold a blank fill-out hardware template in the store as NAME."""
+    from mesofield.scaffold import rigs
+
+    try:
+        dst = rigs.new_rig(name, force=force)
+    except FileExistsError as exc:
+        click.secho(str(exc), fg="red")
+        raise SystemExit(1)
+    click.secho(f"Created rig template at {dst}", fg="green")
+    click.echo("Edit it to declare this machine's real devices, then use it")
+    click.echo(f"with 'mesofield init <dir> --rig {name}'.")
+
+
+@rig.command('show')
+@click.argument('name')
+def rig_show(name):
+    """Print the path and contents of rig NAME."""
+    from mesofield.scaffold import rigs
+
+    try:
+        path = rigs._resolve_existing(name)
+    except FileNotFoundError as exc:
+        click.secho(str(exc), fg="red")
+        raise SystemExit(1)
+    click.echo(f"# {path}")
+    click.echo(path.read_text(encoding="utf-8"))
+
+
+@rig.command('remove')
+@click.argument('name')
+def rig_remove(name):
+    """Delete rig NAME from the store."""
+    from mesofield.scaffold import rigs
+
+    try:
+        rigs.remove_rig(name)
+    except FileNotFoundError as exc:
+        click.secho(str(exc), fg="red")
+        raise SystemExit(1)
+    click.secho(f"Removed rig {name!r}", fg="green")
 
 
 @cli.command('retrofit-manifest')

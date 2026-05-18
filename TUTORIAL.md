@@ -28,12 +28,36 @@ works. The hardware-side deps (`PyQt6`, `pymmcore-plus`, `nidaqmx`,
 pip install -e /path/to/mesofield[rig]
 ```
 
-## 2. Scaffold an experiment
+## 2. Register this machine's rig (one-time setup)
+
+A `hardware.yaml` is **rig-specific** — COM ports, camera ids, device
+indices, Micro-Manager `.cfg` paths all pin it to one computer. Each machine
+keeps a small store of named canonical configs (in the OS config directory):
+
+```sh
+mesofield rig new my-rig      # writes a fill-out template; edit it
+mesofield rig list            # show registered rigs
+# or, if you already have a working hardware.yaml:
+mesofield rig add my-rig /path/to/hardware.yaml
+```
+
+Edit the template to declare this machine's real devices. You only do
+this once per computer (or whenever the hardware changes).
+
+## 3. Scaffold an experiment
 
 ```sh
 mesofield init my-experiment
 cd my-experiment
 ```
+
+`init` asks which hardware config to use:
+
+- a **registered rig** — its `hardware.yaml` is copied into the experiment,
+- **`dev`** — mock devices, runs on any machine with no real hardware,
+- **`blank`** — a fill-out template (the default).
+
+Skip the prompt with `mesofield init my-experiment --rig my-rig`.
 
 You get:
 
@@ -41,17 +65,18 @@ You get:
 my-experiment/
   README.md          # this file's smaller sibling, customised to your experiment
   experiment.json    # subject + protocol + duration
-  hardware.yaml      # device stanzas
+  hardware.yaml      # copied from the chosen rig (or a template)
   procedure.py       # your Procedure subclass
   devices/
     __init__.py
     thermal_example.py  # annotated custom-device template
 ```
 
-The default scaffold uses `MockEncoderDevice` so the next step works
-on any machine — no real hardware needed.
+The copied `hardware.yaml` belongs to the experiment — edit it freely for
+experiment-specific tweaks without touching the canonical rig file.
+Pick `dev` if you just want the next step to work with no hardware.
 
-## 3. Run the acquisition
+## 4. Run the acquisition
 
 ```sh
 python procedure.py
@@ -71,7 +96,7 @@ the duration cap fires (5s by default), mesofield:
 Open the manifest and you can see the contract the rest of the
 pipeline reads. No globbing.
 
-## 4. Add your real hardware
+## 5. Add your real hardware
 
 Edit `hardware.yaml`:
 
@@ -102,7 +127,7 @@ Built-in device types: `camera`, `opencv_camera`, `wheel`, `encoder`
 (treadmill), `psychopy`, `nidaq`, plus the `mock_wheel` and
 `mock_camera` examples.
 
-## 5. Add a lab-specific device
+## 6. Add a lab-specific device
 
 The scaffold ships `devices/thermal_example.py` as a working template.
 The pattern: one Python file with both halves of the contract — the
@@ -111,7 +136,7 @@ producer (what writes data) and the parser (what reads it back).
 ```python
 # devices/thermal_example.py
 from mesofield import DeviceRegistry
-from mesofield.devices.base import BaseSerialDevice
+from mesofield.io.devices.base import BaseSerialDevice
 from mesofield.datakit.sources.register import TimeseriesSource
 
 
@@ -161,7 +186,7 @@ Re-run `python procedure.py`. The manifest now includes a third
 producer for the thermal sensor; the parser is automatically reached
 via `ThermalSensor.Parser` when ingest runs.
 
-## 6. Ingest into a dataset
+## 7. Ingest into a dataset
 
 ```python
 from mesofield.datakit.loader import build_default_dataset
@@ -172,7 +197,7 @@ This walks `data/`, reads the manifests, and writes
 `processed/<date>_dataset_mvp.h5` — a pandas DataFrame with a
 `(Subject, Session, Task)` MultiIndex and `(Source, Signal)` columns.
 
-## 7. Analyze with databench (optional)
+## 8. Analyze with databench (optional)
 
 ```sh
 pip install databench
@@ -184,7 +209,7 @@ proj = Project(dataset="processed/260515_dataset_mvp.h5")
 session = proj.session(subject="SUBJ01", session="01", task="demo")
 ```
 
-## 8. Intermediate processing (DLC, mesomap, custom)
+## 9. Intermediate processing (DLC, mesomap, custom)
 
 For any file-to-file transformation between acquisition and ingest:
 
@@ -211,7 +236,7 @@ provenance chain extends past acquisition.
 ## Where things live
 
 - `mesofield.base.Procedure` — orchestrates a run (lifecycle, manifest)
-- `mesofield.devices.base.BaseDataProducer` / `BaseSerialDevice` — start here for new devices
+- `mesofield.io.devices.base.BaseDataProducer` / `BaseSerialDevice` — start here for new devices
 - `mesofield.datakit.sources.register.TimeseriesSource` — start here for new parsers
 - `mesofield.processing.ProcessorRunner` — start here for intermediate processing
 - `mesokit_schema` — the manifests themselves; you rarely import these directly
