@@ -531,52 +531,12 @@ def _resolve_init_hardware(rig, hardware):
     return rigs.rig_path(picked)
 
 
-def _resolve_init_hardware(rig, hardware):
-    """Resolve the ``hardware`` argument for :func:`scaffold_experiment`.
-
-    Returns a ``Path`` (copy a canonical rig file) or ``"dev"`` / ``"blank"``.
-    ``--hardware`` wins over ``--rig``; with neither, an interactive picker
-    over the rig store plus the ``dev`` / ``blank`` built-ins is shown.
-    """
-    from mesofield.scaffold import rigs
-
-    if hardware:
-        return Path(hardware)
-    if rig:
-        if rig in ("dev", "blank"):
-            return rig
-        try:
-            return rigs._resolve_existing(rig)
-        except FileNotFoundError as exc:
-            click.secho(str(exc), fg="red")
-            raise SystemExit(1)
-
-    choices = rigs.list_rigs() + ["dev", "blank"]
-    click.echo("Select a hardware configuration for this experiment:")
-    for name in rigs.list_rigs():
-        click.echo(f"  {name}    (canonical rig)")
-    click.echo("  dev      (mock devices -- runs without hardware)")
-    click.echo("  blank    (fill-out template)")
-    picked = click.prompt(
-        "Rig", type=click.Choice(choices), default="blank", show_choices=False
-    )
-    if picked in ("dev", "blank"):
-        return picked
-    return rigs.rig_path(picked)
-
-
 @cli.command('init')
 @click.argument('directory', type=click.Path())
 @click.option('--name', default=None,
               help='Experiment protocol name (default: directory basename uppercased).')
 @click.option('--force', is_flag=True,
               help='Overwrite an existing non-empty directory.')
-@click.option('--rig', default=None,
-              help="Canonical rig to copy hardware.yaml from "
-                   "(or 'dev'/'blank'). Skips the interactive picker.")
-@click.option('--hardware', default=None, type=click.Path(exists=True, dir_okay=False),
-              help='Explicit hardware.yaml file to copy in (overrides --rig).')
-def init(directory, name, force, rig, hardware):
 @click.option('--rig', default=None,
               help="Canonical rig to copy hardware.yaml from "
                    "(or 'dev'/'blank'). Skips the interactive picker.")
@@ -592,21 +552,11 @@ def init(directory, name, force, rig, hardware):
     machine's rig store (see `mesofield rig`), `dev` (mock devices, runs
     without hardware), or `blank` (a fill-out template). Use --rig/--hardware
     to skip the prompt.
-
-    The `hardware.yaml` is chosen interactively: a canonical rig from this
-    machine's rig store (see `mesofield rig`), `dev` (mock devices, runs
-    without hardware), or `blank` (a fill-out template). Use --rig/--hardware
-    to skip the prompt.
     """
     from mesofield.scaffold import scaffold_experiment
-    from mesofield.scaffold import scaffold_experiment
 
     hardware_choice = _resolve_init_hardware(rig, hardware)
-    hardware_choice = _resolve_init_hardware(rig, hardware)
     try:
-        out = scaffold_experiment(
-            Path(directory), name=name, force=force, hardware=hardware_choice,
-        )
         out = scaffold_experiment(
             Path(directory), name=name, force=force, hardware=hardware_choice,
         )
@@ -616,12 +566,6 @@ def init(directory, name, force, rig, hardware):
     click.secho(f"Scaffolded experiment at {out}", fg="green")
     click.echo("Next steps:")
     click.echo(f"  1. cd {out}")
-    if hardware_choice == "dev":
-        click.echo("  2. python procedure.py    # runs the mock acquisition")
-        click.echo(f"  3. open data/sub-SUBJ01/ses-01/manifest.json")
-    else:
-        click.echo("  2. review hardware.yaml   # confirm it matches this rig")
-        click.echo("  3. python procedure.py    # runs the acquisition")
     if hardware_choice == "dev":
         click.echo("  2. python procedure.py    # runs the mock acquisition")
         click.echo(f"  3. open data/sub-SUBJ01/ses-01/manifest.json")
@@ -971,6 +915,36 @@ def _download_with_progress(url: str, dest: Path, chunk_size: int = 1024 * 64):
                     click.echo(f"\r  {pct:3d}% ({downloaded // 1024:,} KB)", nl=False)
         if total:
             click.echo()  # newline after progress
+
+
+@cli.command('build-dataset')
+@click.argument('input_path', type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option('--output', '-o', 'output_path', type=click.Path(), default=None,
+              help='Output file path (default: <experiment>/processed/YYMMDD_dataset_mvp.<fmt>)')
+@click.option('--tags', '-t', multiple=True, default=None,
+              help='Source tags to include (repeatable; default: all configured tags)')
+@click.option('--format', '-f', 'fmt', type=click.Choice(['h5', 'parquet', 'csv', 'pickle']),
+              default='h5', show_default=True, help='Output format')
+@click.option('--progress', is_flag=True, help='Show a progress bar during materialization')
+@click.option('--shell', is_flag=True, help='Drop into an IPython session after building')
+def build_dataset(input_path, output_path, tags, fmt, progress, shell):
+    """Build a materialized dataset from an experiment directory.
+
+    Discovers the BIDS hierarchy under INPUT_PATH, loads all registered
+    data sources, and writes a single dataset file.
+    """
+    from mesofield.datakit.loader import build_default_dataset, launch_dataset_shell
+
+    result_path = build_default_dataset(
+        Path(input_path),
+        output_path=Path(output_path) if output_path else None,
+        tags=list(tags) if tags else None,
+        format=fmt,
+        progress=progress,
+    )
+    click.secho(f"Dataset saved to {result_path}", fg="green")
+    if shell:
+        launch_dataset_shell(result_path)
 
 
 @cli.command()

@@ -35,6 +35,25 @@ logger = get_logger(__name__)
 
 LoaderFn = Callable[[str, SourceContext], object]
 
+_FORMAT_EXTENSIONS: Dict[str, str] = {
+    "h5": ".h5",
+    "hdf5": ".h5",
+    "parquet": ".parquet",
+    "csv": ".csv",
+    "pickle": ".pkl",
+    "pkl": ".pkl",
+}
+
+
+def _suffix_to_format(suffix: str) -> str:
+    normalized = suffix.lower().lstrip(".")
+    if normalized in _FORMAT_EXTENSIONS:
+        return normalized
+    raise ValueError(
+        f"Cannot infer format from extension {suffix!r}; "
+        f"expected one of {', '.join(sorted(set(_FORMAT_EXTENSIONS.values())))}"
+    )
+
 
 def _ensure_datasource_registry() -> None:
     """Import datakit sources so the registry module is initialized."""
@@ -482,6 +501,42 @@ class ExperimentStore:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._materialized.to_hdf(path, key=key, mode=mode, format="fixed")
 
+    def to_parquet(self, path: str | Path) -> None:
+        if self._materialized is None:
+            raise RuntimeError("Call materialize() before saving")
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        df = self._materialized.copy()
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = [f"{src}/{feat}" for src, feat in df.columns]
+        df.to_parquet(path)
+
+    def to_csv(self, path: str | Path) -> None:
+        if self._materialized is None:
+            raise RuntimeError("Call materialize() before saving")
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        self._materialized.to_csv(path)
+
+    def to_pickle(self, path: str | Path) -> None:
+        if self._materialized is None:
+            raise RuntimeError("Call materialize() before saving")
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        self._materialized.to_pickle(path)
+
+    def save(self, path: str | Path, *, format: str | None = None) -> None:
+        path = Path(path)
+        fmt = format or _suffix_to_format(path.suffix)
+        method = {
+            "h5": self.to_hdf,
+            "hdf5": self.to_hdf,
+            "parquet": self.to_parquet,
+            "csv": self.to_csv,
+            "pickle": self.to_pickle,
+            "pkl": self.to_pickle,
+        }.get(fmt)
+        if method is None:
+            raise ValueError(f"Unsupported format: {fmt!r}")
+        method(path)
+
     # Convenience ------------------------------------------------------
     def describe(self) -> pd.DataFrame:
         """Return a tidy summary of the registered sources and their coverage."""
@@ -594,6 +649,8 @@ def build_default_dataset(
     output_path: Optional[Path] = None,
     sources: Iterable[DefaultSource] | None = None,
     tags: Iterable[str] | None = None,
+    format: str = "h5",
+    progress: bool = False,
 ) -> Path:
     """Replicate the classic experiment build using the minimalist loader."""
 
@@ -628,11 +685,12 @@ def build_default_dataset(
             },
         )
 
-    store.materialize()
+    store.materialize(progress=progress)
+    ext = _FORMAT_EXTENSIONS.get(format, ".h5")
     timestamp = datetime.datetime.now().strftime("%y%m%d")
-    default_output = (input_path / "processed" / f"{timestamp}_dataset_mvp.h5").resolve()
+    default_output = (input_path / "processed" / f"{timestamp}_dataset_mvp{ext}").resolve()
     resolved_output = Path(output_path).resolve() if output_path is not None else default_output
-    store.to_hdf(resolved_output)
+    store.save(resolved_output, format=format)
     return resolved_output
 
 
