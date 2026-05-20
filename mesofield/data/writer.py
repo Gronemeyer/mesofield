@@ -36,10 +36,10 @@ import json
 FRAME_MD_FILENAME = "_frame_metadata.json"
 
 # ─── H264 Video Codec ─────────────────────────────────────────────────────
-# base project dir (mesofield/)
-BASE_DIR = Path(__file__).resolve().parent.parent
-# codec folder is under mesofield/external/video-codecs
-CODEC_DIRECTORY = str(BASE_DIR / "external" / "video-codecs")
+# OpenH264 codec DLL for OpenCV video encoding (Windows only).
+# The DLL lives at <repo-root>/external/video-codecs/.
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+CODEC_DIRECTORY = str(_REPO_ROOT / "external" / "video-codecs")
 OPENH264_DLL_PATH = str(Path(CODEC_DIRECTORY) / "openh264-1.8.0-win64.dll")
 # ─────────────────────────────────────────────────────────────────
 

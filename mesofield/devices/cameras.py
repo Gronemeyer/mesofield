@@ -14,8 +14,8 @@ from pymmcore_plus.core._device import CameraDevice
 from mesofield.protocols import HardwareDevice, DataProducer
 from mesofield.engines import DevEngine, MesoEngine, PupilEngine
 #from tests.arducam import VideoThread
-from mesofield.io.devices.base_camera import BaseCamera
-from mesofield.io import CustomWriter, CV2Writer
+from mesofield.devices.base_camera import BaseCamera
+from mesofield.data import CustomWriter, CV2Writer
 from mesofield.data.writer import configure_opencv_codec
 from mesofield import DeviceRegistry
 

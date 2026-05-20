@@ -32,7 +32,7 @@ from PyQt6.QtWidgets import (
 if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
     from mesofield.base import Procedure
-    from mesofield.io.devices.cameras import MMCamera
+    from mesofield.devices.cameras import MMCamera
 
 
 # ---------------------------------------------------------------------------

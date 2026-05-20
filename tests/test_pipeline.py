@@ -661,8 +661,8 @@ def run_checks(
     # MockFrameProducer) once the gui's mmcore-only branch is replaced.
     tracker.section("BaseCamera live-view contract (snap / start_live / stop_live)")
 
-    from mesofield.examples.mock_camera import MockFrameProducer
-    from mesofield.io.devices.base_camera import BaseCamera
+    from mesofield.devices.mocks import MockFrameProducer
+    from mesofield.devices.base_camera import BaseCamera
 
     with tracker.step("MockFrameProducer subclasses BaseCamera"):
         assert issubclass(MockFrameProducer, BaseCamera)

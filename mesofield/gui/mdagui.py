@@ -29,7 +29,7 @@ class CameraButtons(QWidget):
     Replaces pymmcore-widgets' ``SnapButton`` / ``LiveButton`` (which only
     worked for mmcore-backed cameras) with two buttons that call
     ``cam.snap()`` / ``cam.start_live()`` / ``cam.stop_live()``.  Those
-    methods are defined on :class:`mesofield.io.devices.base_camera.BaseCamera`
+    methods are defined on :class:`mesofield.devices.base_camera.BaseCamera`
     and implemented by every camera subclass, so the GUI no longer cares
     whether the underlying backend is Micro-Manager, OpenCV, or the
     synthetic :class:`MockFrameProducer`.

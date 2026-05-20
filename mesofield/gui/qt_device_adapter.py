@@ -3,7 +3,7 @@
 GUI code (e.g. live plotting, image previews) needs Qt signals so that
 emissions are delivered on the main thread with QueuedConnection
 semantics.  Devices built on
-:class:`mesofield.io.devices.base.BaseDataProducer` use ``psygnal`` and
+:class:`mesofield.devices.base.BaseDataProducer` use ``psygnal`` and
 remain Qt-free.  This module is the seam: attach an adapter to a
 device, expose the adapter's ``pyqtSignal`` as an attribute on the
 device, and the GUI reads that attribute.

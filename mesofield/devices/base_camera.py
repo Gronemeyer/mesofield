@@ -2,9 +2,9 @@
 
 Three concrete cameras converge on this base:
 
-  - :class:`mesofield.io.devices.cameras.MMCamera`  (Micro-Manager backend)
-  - :class:`mesofield.io.devices.cameras.OpenCVCamera`  (OpenCV/UVC)
-  - :class:`mesofield.examples.mock_camera.MockFrameProducer`  (synthetic)
+  - :class:`mesofield.devices.cameras.MMCamera`  (Micro-Manager backend)
+  - :class:`mesofield.devices.cameras.OpenCVCamera`  (OpenCV/UVC)
+  - :class:`mesofield.devices.mocks.MockFrameProducer`  (synthetic)
 
 They have wildly different acquisition loops (mmcore-driven MDA vs Qt thread
 vs synthetic frame generator) so we don't try to unify the run-loop here.
@@ -144,7 +144,7 @@ class BaseCamera:
         writers, or override this method entirely to control construction
         per-format (e.g. passing ``fps`` to a video writer).
         """
-        from mesofield.io import CustomWriter, CV2Writer
+        from mesofield.data import CustomWriter, CV2Writer
 
         name = self._WRITER_FOR_FILE_TYPE.get(self.file_type)
         if name is None:

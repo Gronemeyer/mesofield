@@ -62,7 +62,7 @@ import time
 from typing import Iterable, List, Optional, Sequence, Tuple
 
 from mesofield import DeviceRegistry
-from mesofield.io.devices.base import BaseSerialDevice
+from mesofield.devices.base import BaseSerialDevice
 
 
 # Pulse line:    LED,<device_us>,<event_id>

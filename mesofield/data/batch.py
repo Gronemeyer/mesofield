@@ -29,13 +29,10 @@ except Exception:
     pass
 
 # ─── H264 Video Codec ─────────────────────────────────────────────────────
-# OpenH264 codec paths for video conversion compatibility
-# These paths point to external H.264 codec DLLs needed for OpenCV video encoding
-# when the built-in codecs are not available or compatible with target software
-# base project dir (mesofield/)
-BASE_DIR = Path(__file__).resolve().parent.parent
-# codec folder is under mesofield/external/video-codecs
-CODEC_DIRECTORY = str(BASE_DIR / "external" / "video-codecs")
+# OpenH264 codec DLL for OpenCV video encoding (Windows only).
+# The DLL lives at <repo-root>/external/video-codecs/.
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+CODEC_DIRECTORY = str(_REPO_ROOT / "external" / "video-codecs")
 OPENH264_DLL_PATH = str(Path(CODEC_DIRECTORY) / "openh264-1.8.0-win64.dll")
 # ─────────────────────────────────────────────────────────────────
 
@@ -308,14 +305,141 @@ def batch_convert_to_h264(parent_directory: str, pattern: str = "*.mp4"):
     print("\nH264 conversion complete.")
 
 
+# ---------------------------------------------------------------------------
+# Codec utility
+# ---------------------------------------------------------------------------
+
+def get_video_codec(video_path: str) -> str:
+    """Return the FOURCC codec string for the given video file.
+
+    Raises IOError if the file cannot be opened.
+    """
+    cap = cv2.VideoCapture(video_path)
+    try:
+        if not cap.isOpened():
+            raise IOError(f"Cannot open video: {video_path!r}")
+        codec_int = int(cap.get(cv2.CAP_PROP_FOURCC))
+        codec = "".join(chr((codec_int >> 8 * i) & 0xFF) for i in range(4))
+        return codec
+    finally:
+        cap.release()
+
+
+# ---------------------------------------------------------------------------
+# Crop + enhance (batch MP4 processing)
+# ---------------------------------------------------------------------------
+
+# Defaults for crop_enhance_mp4 — callers may override per-invocation.
+_CROP_DEFAULTS = dict(
+    frame_roi=0,
+    frame_adjust=0,
+    num_samples=3,
+    roi_size=512,
+    crop_size=256,
+)
+
+
+def make_square_roi(x, y, w, h, frame_shape, crop_size=256):
+    """Convert a rectangular ROI to a square ROI by expanding to a bounding square."""
+    frame_h, frame_w = frame_shape[:2]
+    size = max(w, h, crop_size)
+    center_x, center_y = x + w // 2, y + h // 2
+    new_x = max(0, center_x - size // 2)
+    new_y = max(0, center_y - size // 2)
+    if new_x + size > frame_w:
+        new_x = frame_w - size
+    if new_y + size > frame_h:
+        new_y = frame_h - size
+    new_x = max(0, new_x)
+    new_y = max(0, new_y)
+    size = min(size, frame_w - new_x, frame_h - new_y)
+    return int(new_x), int(new_y), int(size), int(size)
+
+
+def select_rois(video_paths, cached_rois=None, frame_roi=0, crop_size=256):
+    """Interactively select square ROIs for a list of videos (skipping cached)."""
+    rois = dict(cached_rois or {})
+    for path in video_paths:
+        key = os.path.basename(path)
+        if key in rois:
+            continue
+        cap = cv2.VideoCapture(path)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_roi)
+        _, frame = cap.read()
+        cap.release()
+        x, y, w, h = cv2.selectROI(f"Select ROI – {key} (will be made square)", frame, False, False)
+        cv2.destroyAllWindows()
+        x, y, w, h = make_square_roi(x, y, w, h, frame.shape, crop_size)
+        rois[key] = [int(x), int(y), int(w), int(h)]
+    return rois
+
+
+def calibrate_adjust(samples, cached_adjust=None):
+    """Interactive contrast / brightness / gamma calibration via OpenCV trackbars."""
+    if cached_adjust:
+        return cached_adjust["alpha"], cached_adjust["beta"], cached_adjust["gamma"]
+
+    import numpy as _np
+
+    def nothing(_):
+        pass
+
+    win = "Adjust – press s to save"
+    cv2.namedWindow(win, cv2.WINDOW_NORMAL)
+    cv2.createTrackbar("Contrast×100", win, 100, 300, nothing)
+    cv2.createTrackbar("Brightness", win, 100, 200, nothing)
+    cv2.createTrackbar("Gamma×100", win, 100, 300, nothing)
+
+    while True:
+        c = cv2.getTrackbarPos("Contrast×100", win) / 100.0
+        b = cv2.getTrackbarPos("Brightness", win) - 100
+        g = cv2.getTrackbarPos("Gamma×100", win) / 100.0
+        invG = 1.0 / g if g > 0 else 1.0
+        table = _np.array([((i / 255.0) ** invG) * 255 for i in range(256)], dtype=_np.uint8)
+        adjusted = [cv2.LUT(cv2.convertScaleAbs(f, alpha=c, beta=b), table) for f in samples]
+        combo = _np.hstack(adjusted)
+        cv2.imshow(win, combo)
+        if cv2.waitKey(1) & 0xFF == ord("s"):
+            break
+
+    cv2.destroyAllWindows()
+    return c, b, g
+
+
+def process_video_crop_enhance(path, roi, alpha, beta, gamma, output_dir, roi_size=512):
+    """Crop, adjust, and upsample a single video file."""
+    x, y, w, h = roi
+    cap = cv2.VideoCapture(path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    fourcc = cv2.VideoWriter.fourcc(*"mp4v")
+    out = cv2.VideoWriter(
+        os.path.join(output_dir, os.path.basename(path)), fourcc, fps, (roi_size, roi_size)
+    )
+    invG = 1.0 / gamma if gamma > 0 else 1.0
+    table = np.array([((i / 255.0) ** invG) * 255 for i in range(256)], dtype=np.uint8)
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        crop = frame[y : y + h, x : x + w]
+        adj = cv2.convertScaleAbs(crop, alpha=alpha, beta=beta)
+        adj = cv2.LUT(adj, table)
+        upsampled = cv2.resize(adj, (roi_size, roi_size), interpolation=cv2.INTER_CUBIC)
+        out.write(upsampled)
+
+    cap.release()
+    out.release()
+
+
 if __name__ == "__main__":
     # Example usage
     parent_dir = r""  # Replace with your actual parent directory
     frames_per_second = 30
-    
+
     tiff_to_mp4(
         parent_directory=parent_dir,
         fps=frames_per_second,
         output_format="mp4",
-        use_color=False
+        use_color=False,
     )

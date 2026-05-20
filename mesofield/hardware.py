@@ -5,7 +5,7 @@ from typing import Dict, Any, List, Optional, ClassVar
 import yaml
 
 from mesofield.protocols import HardwareDevice, DataProducer
-from mesofield.io.devices import Nidaq, MMCamera, SerialWorker, EncoderSerialInterface
+from mesofield.devices import Nidaq, MMCamera, SerialWorker, EncoderSerialInterface
 from mesofield.utils._logger import get_logger, log_this_fr
 from mesofield import DeviceRegistry
 

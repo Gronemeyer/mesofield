@@ -63,7 +63,7 @@ class PsychoPyDevice:
         self._config = config
 
     def start(self) -> bool:
-        from mesofield.io.subprocesses.psychopy import PsychoPyProcess
+        from mesofield.devices.subprocesses.psychopy import PsychoPyProcess
 
         if self._config is None:
             self.logger.error("PsychoPyDevice.start called before arm()")
