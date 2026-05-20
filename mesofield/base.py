@@ -88,7 +88,6 @@ class Procedure:
         self.experimenter = self.config.get("experimenter", "researcher")
 
         self.data_dir = self.config.data_dir
-        self.h5_path = os.path.join(self.data_dir, f"{self.protocol}.h5")
 
         self.start_time: Optional[datetime] = None
         self.stopped_time: Optional[datetime] = None
@@ -123,7 +122,7 @@ class Procedure:
         """Boot up hardware and a :class:`DataManager`."""
         try:
             self.config.hardware.initialize(self.config)
-            self.data = DataManager(self.h5_path)
+            self.data = DataManager()
             # Register devices eagerly so iPython terminals and GUI inspectors
             # see them on `procedure.data.devices` before run() is called.
             # `Procedure.run()` short-circuits the re-registration via its
@@ -159,7 +158,6 @@ class Procedure:
         self.protocol = self.config.get("protocol", "default_experiment")
         self.experimenter = self.config.get("experimenter", "researcher")
         self.data_dir = self.config.data_dir
-        self.h5_path = os.path.join(self.data_dir, f"{self.protocol}.h5")
 
         if self.config.hardware.is_configured:
             self.initialize_hardware()
@@ -228,7 +226,6 @@ class Procedure:
         mgr.save.all_notes()
         mgr.save.all_hardware()
         mgr.save.save_timestamps(self.protocol, self.start_time, self.stopped_time)
-        mgr.update_database()
         self.config.save_json()
         self.events.data_saved.emit()
         self.logger.info("Data saved successfully")
@@ -408,11 +405,6 @@ class Procedure:
         self.config.notes.append(f"{timestamp}: {note}")
         self.logger.info(f"Added note: {note}")
 
-    def load_database(self, key: str = "datapaths"):
-        """Return a DataFrame with all sessions stored for this Procedure."""
-        if hasattr(self, "data_manager"):
-            return self.data.read_database(key)
-        return None
 
 
 # ----------------------------------------------------------------------
