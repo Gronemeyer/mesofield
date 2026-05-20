@@ -143,64 +143,89 @@ def playback(experiment_dir: str, speed: float, loop: bool):
     launch_playback_app(context)
 
 
+# ---------------------------------------------------------------------------
+# Datakit-based meso tiff discovery helpers
+# ---------------------------------------------------------------------------
+
+def _discover_meso_entries(experiment_dir, subject_filter=None):
+    """Return ManifestEntry objects for mesoscope tiff files.
+
+    Uses datakit's ``discover_manifest`` to scan the BIDS hierarchy,
+    filters for ``meso_metadata`` entries (the JSON sidecars), then
+    rewrites each entry's path to point at the tiff itself.
+    """
+    from mesofield.datakit.discover import discover_manifest
+    from mesofield.datakit.datamodel import ManifestEntry
+
+    manifest = discover_manifest(Path(experiment_dir))
+    tiff_entries = []
+    for entry in manifest.entries:
+        if entry.tag != "meso_metadata":
+            continue
+        if subject_filter and entry.subject != subject_filter:
+            continue
+        # Derive the tiff path from the metadata sidecar path:
+        #   ...mesoscope.ome.tiff_frame_metadata.json  →  ...mesoscope.ome.tiff
+        tiff_path = entry.path.replace("_frame_metadata.json", "")
+        tiff_entries.append(ManifestEntry(
+            tag="meso_tiff",
+            path=tiff_path,
+            origin=entry.origin,
+            subject=entry.subject,
+            session=entry.session,
+            task=entry.task,
+        ))
+    return tiff_entries
+
+
+def _discover_meso_tiffs(experiment_dir, subject_filter=None):
+    """Return a list of absolute tiff paths and the experiment root."""
+    root = Path(experiment_dir).resolve()
+    entries = _discover_meso_entries(experiment_dir, subject_filter)
+    paths = [str(root / e.path) for e in entries]
+    return paths, root
+
+
 @cli.command()
-@click.option('--path', help='Path to a tiff file')
-@click.option('--dir',  help='Save the plot to the processing directory in the Experiment folder')
-@click.option('--sub', help='Subject ID (the name of the subject folder)')
+@click.option('--path', help='Path to a single tiff file (bypass discovery)')
+@click.option('--dir',  help='Experiment directory to discover mesoscope tiffs')
+@click.option('--sub', default=None, help='Subject ID to filter (default: all)')
 def trace_meso(path, dir, sub):
+    """Compute mean fluorescence traces from mesoscope OME-TIFF stacks.
+
+    Uses datakit discovery to find mesoscope tiffs in a BIDS hierarchy,
+    or accepts a single --path for quick one-off analysis.
+    """
     import pandas as pd
-    import mesofield.data.proc.load as load
     import mesofield.data.batch as batch
-    
+
     if path:
-        session_paths = [path]
-        # find the parent experiment file assumn=ing path is under experimentdir/data/sub/ses/func/tiffile
+        tiff_paths = [path]
         experiment_dir = Path(path).parents[4]
-        print(f"DEBUG: Inferred experiment directory: {experiment_dir}")
-        result = batch.mean_trace_from_tiff(session_paths)
-        for path, trace in result.items():
-            print(f"{path}: {trace[:10]}")
-        # save to the processed dir of the experiment dir supporting Windows path
         outdir = Path(experiment_dir) / "processed"
-        df = pd.DataFrame({"Slice": range(len(trace)), "Mean": trace})
-        
-        base_name = os.path.splitext(os.path.basename(path))[0]
-        filename = f"{base_name}_meso-mean-trace.csv"
-        df.to_csv(os.path.join(outdir, filename), index=False)
+    elif dir:
+        tiff_paths, experiment_dir = _discover_meso_tiffs(dir, sub)
+        outdir = Path(dir) / "processed" / sub if sub else Path(dir) / "processed"
     else:
-        datadict =  load.file_hierarchy(dir)
+        raise click.UsageError("Provide --path or --dir")
 
-        # print(f"DEBUG: Available subject keys: {list(datadict.keys())}")
-        # print(f"DEBUG: Available session keys for subject '{sub}': {list(datadict[sub].keys())}")
+    if not tiff_paths:
+        click.secho("No mesoscope tiffs found.", fg="yellow")
+        return
 
-        session_paths = []
-        for key in sorted(datadict[sub].keys()):
-            if key.isdigit():
-                session = datadict[sub][key]
-                if 'widefield' in session:
-                    print(f"DEBUG: Session {key} widefield keys: {list(session['widefield'].keys())}")
-                    if 'meso_tiff' in session['widefield']:
-                        path = session['widefield']['meso_tiff']
-                        print(f"DEBUG: Found session {key}, meso_tiff path: {path}")
-                        session_paths.append(path)
-                    else:
-                        print(f"WARNING: Session {key} 'widefield' keys: {list(session['widefield'].keys())} (missing 'meso_tiff')")
-                else:
-                    print(f"WARNING: Session {key} missing 'widefield' key. Available keys: {list(session.keys())}")
-        print(f"DEBUG: Collected session_paths: {session_paths}")
-        
-        results = batch.mean_trace_from_tiff(session_paths)
-        for path, trace in results.items():
-            print(f"{path}: {trace[:10]}") 
-            
-        outdir = os.path.join(dir, "processed", sub)
-        os.makedirs(outdir, exist_ok=True)
+    os.makedirs(outdir, exist_ok=True)
+    click.echo(f"Computing mean traces for {len(tiff_paths)} tiff(s)...")
+    results = batch.mean_trace_from_tiff(tiff_paths)
 
-        for path, trace in results.items():
-            df = pd.DataFrame({"Slice": range(len(trace)), "Mean": trace})
-            base_name = os.path.splitext(os.path.basename(path))[0]
-            filename = f"{base_name}_meso-mean-trace.csv"
-            df.to_csv(os.path.join(outdir, filename), index=False)
+    for tiff_path, trace in results.items():
+        df = pd.DataFrame({"Slice": range(len(trace)), "Mean": trace})
+        base_name = os.path.splitext(os.path.basename(tiff_path))[0]
+        filename = f"{base_name}_meso-mean-trace.csv"
+        save_path = os.path.join(outdir, filename)
+        df.to_csv(save_path, index=False)
+        click.echo(f"  {filename}  ({len(trace)} frames)")
+
+    click.secho(f"Saved {len(results)} trace(s) to {outdir}", fg="green")
 
 
 @cli.command()
@@ -212,16 +237,28 @@ def trace_meso(path, dir, sub):
 def montage_meso(dir, sub, frame, rotate, ses_filter):
     """Extract a single frame from each session's widefield tiff and save a per-subject montage.
 
+    Uses datakit to discover mesoscope tiffs in the BIDS hierarchy.
     Each task within a session becomes its own row.  Columns are sessions,
     so the output image is a grid of (tasks x sessions) panels.
     """
     import numpy as np
     import tifffile
-    import mesofield.data.proc.load as load
     from PIL import Image, ImageDraw, ImageFont
 
-    datadict = load.file_hierarchy(dir)
-    subjects = [sub] if sub else sorted(datadict.keys())
+    # --- Discover tiffs via datakit ---
+    entries = _discover_meso_entries(dir, sub)
+    if not entries:
+        click.secho("No mesoscope tiffs found.", fg="yellow")
+        return
+
+    # Build a nested dict: subject -> session -> task -> tiff_path
+    tree: dict[str, dict[str, dict[str, str]]] = {}
+    root = Path(dir).resolve()
+    for entry in entries:
+        s, ses, task = entry.subject, entry.session, entry.task or "default"
+        tree.setdefault(s, {}).setdefault(ses, {})[task] = str(root / entry.path)
+
+    subjects = [sub] if sub else sorted(tree.keys())
 
     outdir = os.path.join(dir, "processed")
     os.makedirs(outdir, exist_ok=True)
@@ -234,8 +271,11 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
     label_height = 30
 
     for subject in subjects:
-        sessions = datadict[subject]
-        ses_keys = sorted(k for k in sessions.keys() if k.isdigit())
+        if subject not in tree:
+            click.echo(f"WARNING: sub-{subject} not found, skipping")
+            continue
+        sessions = tree[subject]
+        ses_keys = sorted(sessions.keys())
 
         # Apply session range filter
         if ses_filter:
@@ -245,7 +285,7 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
             ses_keys = [k for k in ses_keys if int(k) >= start and (end is None or int(k) < end)]
 
         # Collect the superset of task names across all sessions (preserving order)
-        all_tasks = []
+        all_tasks: list[str] = []
         for sk in ses_keys:
             for tk in sessions[sk]:
                 if tk not in all_tasks:
@@ -257,19 +297,19 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
         for ses_key in ses_keys:
             session = sessions[ses_key]
             for task in all_tasks:
-                if task not in session or 'meso_tiff' not in session[task]:
-                    print(f"WARNING: sub-{subject} ses-{ses_key} task-{task} missing meso_tiff, skipping")
+                if task not in session:
+                    click.echo(f"WARNING: sub-{subject} ses-{ses_key} task-{task} missing, skipping")
                     continue
 
-                tiff_path = session[task]['meso_tiff']
+                tiff_path = session[task]
                 try:
                     tiff_array = tifffile.memmap(tiff_path)
                     if tiff_array.shape[0] <= frame:
-                        print(f"WARNING: {tiff_path} has only {tiff_array.shape[0]} frames, skipping")
+                        click.echo(f"WARNING: {tiff_path} has only {tiff_array.shape[0]} frames, skipping")
                         continue
                     img = np.array(tiff_array[frame])
                 except Exception as e:
-                    print(f"ERROR reading {tiff_path}: {e}")
+                    click.echo(f"ERROR reading {tiff_path}: {e}")
                     continue
 
                 img_min, img_max = img.min(), img.max()
@@ -279,17 +319,14 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
                     img_norm = np.zeros_like(img, dtype=np.uint8)
 
                 if rotate:
-                    # PIL rotates counter-clockwise, so negate for clockwise convention
                     img_norm = np.array(Image.fromarray(img_norm).rotate(-rotate, expand=True))
 
                 grid[task][ses_key] = img_norm
 
-        # Skip subject if nothing was loaded
         if not any(grid[t] for t in all_tasks):
-            print(f"WARNING: No frames found for sub-{subject}, skipping")
+            click.echo(f"WARNING: No frames found for sub-{subject}, skipping")
             continue
 
-        # Determine a uniform cell size across the whole grid
         all_imgs = [img for task_imgs in grid.values() for img in task_imgs.values()]
         cell_h = max(img.shape[0] for img in all_imgs)
         cell_w = max(img.shape[1] for img in all_imgs)
@@ -310,38 +347,28 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
             draw.text(((width - text_w) // 2, 4), text, fill=255, font=font)
             return np.array(header)
 
-        # Helper: render vertical text as a strip image
         def _vertical_text(text, height, strip_w=40):
-            """Render *text* rotated 90° so it reads bottom-to-top (left side)
-            or top-to-bottom (right side).  Returns an (height, strip_w) uint8 array."""
-            # draw text horizontally first, then rotate
             tmp = Image.new('L', (height, strip_w), color=0)
             draw = ImageDraw.Draw(tmp)
             bbox = draw.textbbox((0, 0), text, font=font)
             tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
             draw.text(((height - tw) // 2, (strip_w - th) // 2), text, fill=255, font=font)
-            return tmp  # will be rotated by caller
+            return tmp
 
         side_strip_w = 40
         grid_height = label_height + cell_h * len(all_tasks)
-        grid_width = cell_w * len(ses_keys)
 
-        # --- Left column: vertical subject name (reads bottom-to-top) ---
         subject_label = f"sub-{subject}"
         left_pil = _vertical_text(subject_label, grid_height, side_strip_w)
-        left_strip = np.array(left_pil.rotate(90, expand=True))  # CCW 90°
+        left_strip = np.array(left_pil.rotate(90, expand=True))
 
-        # --- Right column: vertical task names (one per row, reads top-to-bottom) ---
-        right_pieces = []
-        # blank for column-header row
-        right_pieces.append(np.zeros((label_height, side_strip_w), dtype=np.uint8))
+        right_pieces = [np.zeros((label_height, side_strip_w), dtype=np.uint8)]
         for task in all_tasks:
             task_label = task if task else "default"
             tmp = _vertical_text(task_label, cell_h, side_strip_w)
-            right_pieces.append(np.array(tmp.rotate(-90, expand=True)))  # CW 90°
+            right_pieces.append(np.array(tmp.rotate(-90, expand=True)))
         right_strip = np.vstack(right_pieces)
 
-        # --- Build the data columns (one per session) ---
         columns = []
         for ses_key in ses_keys:
             col_header = _label_header(f"ses-{ses_key}", cell_w)
@@ -358,9 +385,9 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
         save_path = os.path.join(outdir, filename)
         montage_img.save(save_path)
         n_cells = sum(len(v) for v in grid.values())
-        print(f"Saved: {save_path}  ({len(all_tasks)} tasks x {len(ses_keys)} sessions, {n_cells} images)")
+        click.echo(f"Saved: {save_path}  ({len(all_tasks)} tasks x {len(ses_keys)} sessions, {n_cells} images)")
 
-    print("Done.")
+    click.secho("Done.", fg="green")
 
 
 @cli.command()
@@ -483,18 +510,6 @@ def ipython(yaml_path, json_path):
     config = ExperimentConfig(yaml_path)
     config.load_parameters(json_path)
     embed(header='Mesofield ExperimentConfig Terminal. Type `config.` + TAB ', local={'config': config})
-
-
-@cli.command()
-@click.option('--dir', 'experiment_dir', required=True, help='Directory containing BIDS data')
-@click.option('--db', 'db_path', required=True, help='Path to the HDF5 database')
-def refresh_db(experiment_dir, db_path):
-    """Rebuild the database from files on disk."""
-    from mesofield.io.h5db import H5Database
-
-    db = H5Database(db_path)
-    db.refresh(experiment_dir)
-    click.echo(f"Database refreshed from {experiment_dir}")
 
 
 def _resolve_init_hardware(rig, hardware):
@@ -992,19 +1007,11 @@ def plot_session(dir, sub, ses):
     """Plot the pupil data from this session."""
     import pandas as pd
     import matplotlib.pyplot as plt
-    import mesofield.data.proc.load as load
-    import mesofield.data.batch as batch
-    import mesofield.data.proc as proc
-    
-    datadict =  load.file_hierarchy(dir)
-
-    print(f"DEBUG: Available subject keys: {list(datadict.keys())}")
-    print(f"DEBUG: Available session keys for subject '{sub}': {list(datadict[sub].keys())}")
-    print(f"DEBUG: Keys within session '{ses}': {list(datadict[sub][ses].keys())}")
-    
-    data = pd.DataFrame(pd.read_pickle(r"D:\jgronemeyer\240324_HFSA\processed\dlc_output\20250408_174515_sub-STREHAB05_ses-10_task-widefield_pupil.omeDLC_Resnet50_DLC-HFSAApr20shuffle2_snapshot_010_full.pickle")).head()
-    proc_data = proc.process_deeplabcut_pupil_data(data)
-    print(proc_data.head())
+    click.secho(
+        "plot_session is deprecated. Use `mesofield build-dataset` + datakit instead.",
+        fg="yellow",
+    )
+    raise SystemExit(1)
 
 if __name__ == "__main__":
     cli()
