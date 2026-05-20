@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from mesofield.datakit.sources.register import IntervalSeriesSource, SourceContext
+from mesofield.datakit.sources.register import IntervalSeriesSource, LoadContext
 
 
 class SessionTimestampsSource(IntervalSeriesSource):
@@ -26,7 +26,7 @@ class SessionTimestampsSource(IntervalSeriesSource):
         self,
         path: Path,
         *,
-        context: SourceContext | None = None,
+        context: LoadContext | None = None,
     ) -> tuple[pd.DataFrame, dict]:
         frame = pd.read_csv(path)
 

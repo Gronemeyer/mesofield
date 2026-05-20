@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-from mesofield.datakit.sources.register import SourceContext, TimeseriesSource
+from mesofield.datakit.sources.register import LoadContext, TimeseriesSource
 
 
 class DataqueueSource(TimeseriesSource):
@@ -34,7 +34,7 @@ class DataqueueSource(TimeseriesSource):
         self,
         path: Path,
         *,
-        context: SourceContext | None = None,
+        context: LoadContext | None = None,
     ) -> tuple[np.ndarray, pd.DataFrame, dict]:
         """Read ``*_dataqueue.csv`` and return a time-indexed table."""
         raw = pd.read_csv(path, low_memory=False)
@@ -63,22 +63,57 @@ class DataqueueSource(TimeseriesSource):
 
         frame = raw.copy()
         frame["time_elapsed_s"] = t.astype(np.float64)
+        per_device_start_map: dict[str, float] = {}
         if self.device_id_column in frame.columns:
             per_device_start = (
                 frame.groupby(self.device_id_column)[self.time_column]
                 .transform("min")
                 .astype(np.float64)
             )
-            frame["device_elapsed_s"] = pd.to_numeric(frame[self.time_column], errors="coerce") - per_device_start
+            per_device_start_map = {
+                str(device_id): float(value)
+                for device_id, value in (
+                    frame.groupby(self.device_id_column)[self.time_column]
+                    .min()
+                    .items()
+                )
+            }
+            # `device_elapsed_s` is `queue_elapsed - per_device_start`; keep the
+            # offsets in meta and drop the redundant full-length column.
+
+        # Memory optimizations: parse timestamp strings to datetime64, low-cardinality
+        # string columns to categoricals. These columns are stored as full-length
+        # ndarrays per row in the materialized output, so per-value bytes matter.
+        #
+        # ``payload`` is mostly numeric (TTL levels, counts) with a sparse mix of
+        # semantic strings (e.g. ``EncoderData(...)``). The dataqueue itself
+        # treats payloads as opaque — sources that need the semantic content
+        # (such as ``TreadmillSource``) re-read the raw CSV via
+        # ``context.path_for("dataqueue")`` and parse it themselves. Here we
+        # just downcast the whole column to ``float32`` (non-numeric entries
+        # become NaN) to keep the materialized output small.
+        if self.device_timestamp_column in frame.columns:
+            parsed = pd.to_datetime(frame[self.device_timestamp_column], errors="coerce", utc=True)
+            if not parsed.isna().all():
+                frame[self.device_timestamp_column] = parsed
+        if "packet_ts" in frame.columns:
+            parsed = pd.to_datetime(frame["packet_ts"], errors="coerce", utc=True)
+            if not parsed.isna().all():
+                frame["packet_ts"] = parsed
+        if self.device_id_column in frame.columns:
+            frame[self.device_id_column] = frame[self.device_id_column].astype("category")
+        if self.payload_column in frame.columns:
+            frame[self.payload_column] = (
+                pd.to_numeric(frame[self.payload_column], errors="coerce")
+                .astype(np.float32)
+            )
 
         meta = {
             "source_file": str(path),
-            "n_entries": len(raw),
+            "n_entries": int(len(raw)),
             "master_device_id": master_id,
-            "master_elapsed": master_elapsed.astype(np.float64),
-            "device_ts": device_ts,
-            "device_elapsed": device_elapsed,
-            "device_aligned_abs": device_aligned,
+            "master_queue_start": float(queue_start),
+            "per_device_queue_start": per_device_start_map,
             "device_sample_rate_hz": self._estimate_device_rates(device_elapsed),
             "device_aliases": device_aliases,
             "affine": affine,

@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 
 from mesofield.datakit.config import settings
-from mesofield.datakit.sources.register import SourceContext, TimeseriesSource
+from mesofield.datakit.sources.register import LoadContext, TimeseriesSource
 
 
 class MesoMapSource(TimeseriesSource):
@@ -25,6 +25,7 @@ class MesoMapSource(TimeseriesSource):
 	patterns = ("**/*_mesoscope.ome_traces.csv",)
 	camera_tag = "meso_metadata"
 	flatten_payload = True
+	requires = ("dataqueue",)
  
 	mask_suffix = ".mask.npy"
 	regions_suffix = ".regions.csv"
@@ -36,7 +37,7 @@ class MesoMapSource(TimeseriesSource):
 		self,
 		path: Path,
 		*,
-		context: SourceContext | None = None,
+		context: LoadContext | None = None,
 	) -> tuple[np.ndarray, pd.DataFrame, dict]:
 		trace_df = pd.read_csv(path)
 
@@ -86,7 +87,7 @@ class MesoMapSource(TimeseriesSource):
 
 	def _aligned_timeline(
 		self,
-		context: SourceContext | None,
+		context: LoadContext | None,
 		n_frames: int,
 	) -> tuple[np.ndarray, dict] | None:
 		if context is None:

@@ -258,17 +258,25 @@ class DataqueueIndex:
 
 	@staticmethod
 	def fix_32bit_wraparound(values: Iterable[int]) -> np.ndarray:
-		"""Correct unsigned 32-bit wraparound for monotonically increasing counters."""
+		"""Correct unsigned 32-bit wraparound for monotonically increasing counters.
+
+		A wrap is only registered when the backward step exceeds half the
+		counter range (2**31). Small backward steps caused by clock jitter,
+		duplicate or slightly out-of-order samples are left alone — otherwise
+		every µs of jitter would falsely add 2**32 (~4295 s) to the tail of
+		the series.
+		"""
 
 		arr = np.asarray(list(values), dtype=np.int64)
 		if arr.size == 0:
 			return arr
 
 		wrap_value = 2 ** 32
+		wrap_threshold = 2 ** 31
 		corrected = arr.copy()
 		offset = 0
 		for idx in range(1, len(arr)):
-			if arr[idx] < arr[idx - 1]:
+			if arr[idx - 1] - arr[idx] > wrap_threshold:
 				offset += wrap_value
 			corrected[idx] = arr[idx] + offset
 		return corrected
