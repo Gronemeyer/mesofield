@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import QProcess
 
 from mesofield.config import ExperimentConfig
-from mesofield.subprocesses import psychopy 
+from mesofield.io.subprocesses import psychopy 
 import sys
 import pickle
 import base64
