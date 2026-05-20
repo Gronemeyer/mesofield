@@ -189,8 +189,9 @@ via `ThermalSensor.Parser` when ingest runs.
 ## 7. Ingest into a dataset
 
 ```python
-from mesofield.datakit.loader import build_default_dataset
-ds_path = build_default_dataset("./")
+from mesofield.datakit import Dataset
+ds = Dataset.from_directory("./")
+ds.save("processed/dataset.h5", format="hdf5")
 ```
 
 This walks `data/`, reads the manifests, and writes

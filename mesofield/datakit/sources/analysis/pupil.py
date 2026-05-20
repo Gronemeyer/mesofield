@@ -9,7 +9,7 @@ import pandas as pd
 
 from ..._utils._logger import get_logger
 from mesofield.datakit.sources.camera.pupil import PupilMetadataSource
-from mesofield.datakit.sources.register import SourceContext, TimeseriesSource
+from mesofield.datakit.sources.register import LoadContext, TimeseriesSource
 from mesofield.datakit.timeline import DataqueueIndex
 
 logger = get_logger(__name__)
@@ -22,9 +22,11 @@ class PupilDLCSource(TimeseriesSource):
     patterns = (
         "**/*_pupilDLC_*.h5",
         "**/*_pupilDLC_*.hdf5",
+        "**/*_pupil.omeDLC_*.h5"
     )
     camera_tag = "pupil_metadata"
     flatten_payload = True
+    requires = ("dataqueue", "pupil_metadata")
     default_frame_rate_hz = 20.0
     confidence_threshold = 0.7
     pixel_to_mm = 53.6
@@ -37,7 +39,7 @@ class PupilDLCSource(TimeseriesSource):
         self,
         path: Path,
         *,
-        context: SourceContext | None = None,
+        context: LoadContext | None = None,
     ) -> tuple[np.ndarray, pd.DataFrame, dict]:
         """Load DeepLabCut output and return a time-indexed table."""
         context = self._require_context(context)
@@ -48,33 +50,42 @@ class PupilDLCSource(TimeseriesSource):
         if timing is None:
             metadata_path = context.path_for("pupil_metadata")
             if metadata_path is None:
-                raise FileNotFoundError(
-                    "PupilDLCSource: ThorCam alignment missing and pupil metadata not found"
+                logger.warning(
+                    "PupilDLCSource: ThorCam alignment and pupil metadata missing; falling back to assumed frame-rate timeline."
                 )
-            logger.warning(
-                "PupilDLCSource: ThorCam alignment missing; falling back to metadata timeline."
-            )
-            metadata_stream = PupilMetadataSource().load(metadata_path, context=context)
-            metadata_t = metadata_stream.t
-            if metadata_t.size == 0:
-                raise ValueError("PupilDLCSource: pupil metadata contains no timeline samples")
-            metadata_t = metadata_t - metadata_t[0]
-            n_meta = int(metadata_t.size)
-            if n_meta == n_frames:
-                t = metadata_t
-                method = "metadata_direct"
+                t = np.arange(n_frames, dtype=np.float64) / float(self.default_frame_rate_hz)
+                timing_meta = {
+                    "time_basis": "assumed_frame_rate",
+                    "assumed_frame_rate_hz": float(self.default_frame_rate_hz),
+                    "pupil_metadata_file": None,
+                    "pupil_metadata_alignment": None,
+                    "pupil_metadata_frames": None,
+                }
             else:
-                anchor_index = np.arange(n_meta, dtype=np.float64)
-                frame_index = np.linspace(0.0, float(n_meta - 1), num=n_frames, dtype=np.float64)
-                t = np.interp(frame_index, anchor_index, metadata_t)
-                method = "metadata_resampled"
+                logger.warning(
+                    "PupilDLCSource: ThorCam alignment missing; falling back to metadata timeline."
+                )
+                metadata_stream = PupilMetadataSource().load(metadata_path, context=context)
+                metadata_t = metadata_stream.t
+                if metadata_t.size == 0:
+                    raise ValueError("PupilDLCSource: pupil metadata contains no timeline samples")
+                metadata_t = metadata_t - metadata_t[0]
+                n_meta = int(metadata_t.size)
+                if n_meta == n_frames:
+                    t = metadata_t
+                    method = "metadata_direct"
+                else:
+                    anchor_index = np.arange(n_meta, dtype=np.float64)
+                    frame_index = np.linspace(0.0, float(n_meta - 1), num=n_frames, dtype=np.float64)
+                    t = np.interp(frame_index, anchor_index, metadata_t)
+                    method = "metadata_resampled"
 
-            timing_meta = {
-                "time_basis": "pupil_metadata",
-                "pupil_metadata_file": str(metadata_path),
-                "pupil_metadata_alignment": method,
-                "pupil_metadata_frames": n_meta,
-            }
+                timing_meta = {
+                    "time_basis": "pupil_metadata",
+                    "pupil_metadata_file": str(metadata_path),
+                    "pupil_metadata_alignment": method,
+                    "pupil_metadata_frames": n_meta,
+                }
         else:
             t, timing_meta = timing
 
@@ -93,12 +104,17 @@ class PupilDLCSource(TimeseriesSource):
 
         return t, analyzed_df, meta
 
-    def _aligned_timeline(self, context: SourceContext, n_frames: int) -> tuple[np.ndarray, dict] | None:
+    def _aligned_timeline(self, context: LoadContext, n_frames: int) -> tuple[np.ndarray, dict] | None:
         if context.dataqueue_frame is not None:
             times = self._aligned_from_frame(context.dataqueue_frame)
             dq_path = context.path_for("dataqueue")
         else:
-            dq_path = context.require_path("dataqueue")
+            dq_path = context.path_for("dataqueue")
+            if dq_path is None:
+                # No dataqueue available for this session (e.g. older
+                # STREHAB02/03/05). Signal the caller to fall back to the
+                # pupil-metadata timeline instead of raising.
+                return None
             timeline = DataqueueIndex.from_path(dq_path)
             device_slice = timeline.slice(
                 lambda ids: ids.str.contains(self.alignment_device_id, case=False, na=False, regex=False)

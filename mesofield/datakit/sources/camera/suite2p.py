@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from mesofield.datakit.sources.register import SourceContext, TimeseriesSource
+from mesofield.datakit.sources.register import LoadContext, TimeseriesSource
 from mesofield.datakit.datamodel import StreamPayload
 
 
@@ -20,6 +20,7 @@ class Suite2pV2(TimeseriesSource):
 
     tag = "suite2p"
     patterns = ("**/*_suite2p/**/F.npy",)
+    requires = ("dataqueue",)
 
     required_files: Tuple[str, ...] = ("Fneu.npy", "iscell.npy")
     optional_files: Tuple[str, ...] = ("ops.npy", "stat.npy")
@@ -45,7 +46,7 @@ class Suite2pV2(TimeseriesSource):
         self,
         path: Path,
         *,
-        context: SourceContext | None = None,
+        context: LoadContext | None = None,
     ) -> tuple[np.ndarray, StreamPayload, dict]:
         """Load Suite2p outputs and return timeline, payload, and metadata."""
         plane_dir = path.parent

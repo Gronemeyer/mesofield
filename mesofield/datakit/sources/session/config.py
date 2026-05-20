@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Dict, Iterable, Mapping
 import numpy as np
 import pandas as pd
 
-from mesofield.datakit.sources.register import SourceContext, TableSource
+from mesofield.datakit.sources.register import LoadContext, TableSource
 from mesofield.datakit.config import settings
 
 
@@ -61,7 +61,7 @@ class SessionConfigSource(TableSource):
         self,
         path: Path,
         *,
-        context: SourceContext | None = None,
+        context: LoadContext | None = None,
     ) -> tuple[np.ndarray, pd.DataFrame, dict]:
         raw_df = pd.read_csv(path)
 

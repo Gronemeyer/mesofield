@@ -933,18 +933,55 @@ def build_dataset(input_path, output_path, tags, fmt, progress, shell):
     Discovers the BIDS hierarchy under INPUT_PATH, loads all registered
     data sources, and writes a single dataset file.
     """
-    from mesofield.datakit.loader import build_default_dataset, launch_dataset_shell
+    from mesofield.datakit.core import Dataset
 
-    result_path = build_default_dataset(
+    ds = Dataset.from_directory(
         Path(input_path),
-        output_path=Path(output_path) if output_path else None,
-        tags=list(tags) if tags else None,
-        format=fmt,
+        sources=list(tags) if tags else None,
+    )
+    if output_path is None:
+        from datetime import datetime
+        stem = datetime.now().strftime("%y%m%d") + "_dataset_mvp"
+        ext = {"h5": ".h5", "parquet": ".parquet", "csv": ".csv", "pickle": ".pkl"}[fmt]
+        output_path = Path(input_path) / "processed" / (stem + ext)
+    result_path = ds.save(
+        Path(output_path),
+        format={"h5": "hdf5", "parquet": "parquet", "csv": "csv", "pickle": "pickle"}[fmt],
+        strict=True,
         progress=progress,
     )
     click.secho(f"Dataset saved to {result_path}", fg="green")
     if shell:
-        launch_dataset_shell(result_path)
+        try:
+            from IPython import embed
+            import pandas as pd
+            df = pd.read_pickle(result_path) if str(result_path).endswith('.pkl') else pd.read_hdf(result_path)
+            click.echo(f"Loaded dataset as 'df' ({df.shape[0]} rows × {df.shape[1]} cols)")
+            embed(colors="neutral")
+        except ImportError:
+            click.secho("IPython not installed; skipping shell.", fg="yellow")
+
+
+@cli.command('export-hardware')
+@click.argument('procedure_path', type=click.Path(exists=True, dir_okay=False))
+@click.option('--output', '-o', default=None, type=click.Path(),
+              help='Output path for the hardware.yaml '
+                   '(default: hardware.yaml beside the procedure file).')
+def export_hardware(procedure_path, output):
+    """Export a scripted procedure's hardware to a reusable hardware.yaml rig file.
+
+    PROCEDURE_PATH is a procedure.py whose `define_hardware` builds devices in
+    Python. The devices are instantiated and serialized into a `type:`-tagged
+    hardware.yaml that can later be loaded the normal file-based way.
+    """
+    from mesofield.base import load_procedure_from_config
+
+    out = output or os.path.join(
+        os.path.dirname(os.path.abspath(procedure_path)), "hardware.yaml"
+    )
+    procedure = load_procedure_from_config(procedure_path)
+    procedure.hardware.to_yaml(out)
+    click.secho(f"Exported hardware configuration to {out}", fg="green")
 
 
 @cli.command()

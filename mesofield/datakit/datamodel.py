@@ -192,92 +192,9 @@ class LoadedStream:
 
 
 @dataclass(frozen=True)
-class AlignedStream:
-    """Stream aligned to the master clock with a normalized payload."""
-
-    t: np.ndarray
-    payload: StreamPayload
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "t", np.asarray(self.t, dtype=np.float64))
-
-    @property
-    def data(self) -> Any:
-        return self.payload.data_view
-
-    @property
-    def kind(self) -> StreamKind:
-        return self.payload.kind
-
-
-@dataclass(frozen=True)
-class CameraTimeline:
-    """Timeline for a specific camera including frame indexes."""
-    t_cam: np.ndarray
-    frame_index: np.ndarray
-
-
-@dataclass(frozen=True)
-class AlignmentReport:
-    """Small summary of how well a stream aligned to the master clock."""
-    a: float           # slope of linear fit
-    b: float           # intercept of linear fit
-    r2: float          # coefficient of determination
-    max_resid_s: float # maximum residual in seconds
-    anchors: int       # number of anchor points used
-
-
-# ---------------------------------------------------------------------------
-# Procedural workflow helpers for the simplified API
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
 class Manifest:
-    """Serializable manifest of discovered files and where they live."""
+    """Manifest of files discovered for an experiment root."""
 
     root: Path
     entries: list[ManifestEntry]
-    manifest_path: Path | None = None
-
-    def grouped(
-        self,
-        *,
-        include_task: bool = False,
-    ) -> Dict[tuple[str, str] | tuple[str, str, str | None], list[ManifestEntry]]:
-        """Group manifest entries by (subject, session[, task])."""
-        grouped: Dict[tuple[str, str] | tuple[str, str, str | None], list[ManifestEntry]] = {}
-        for entry in self.entries:
-            key: tuple[str, str] | tuple[str, str, str | None]
-            if include_task:
-                key = (entry.subject, entry.session, entry.task)
-            else:
-                key = (entry.subject, entry.session)
-            grouped.setdefault(key, []).append(entry)
-        return grouped
-
-    def select(
-        self,
-        subjects: Iterable[str] | None = None,
-        sessions: Iterable[str] | None = None,
-        tasks: Iterable[str] | None = None,
-    ) -> "Manifest":
-        """Return a filtered manifest copy limited to the requested subjects/sessions/tasks."""
-        if not subjects and not sessions and not tasks:
-            return self
-
-        subject_set = {s for s in subjects or []}
-        session_set = {s for s in sessions or []}
-        task_set = {t for t in tasks or []}
-
-        filtered: list[ManifestEntry] = []
-        for entry in self.entries:
-            subject_match = not subject_set or entry.subject in subject_set
-            session_match = not session_set or entry.session in session_set
-            task_match = not task_set or entry.task in task_set
-            if subject_match and session_match and task_match:
-                filtered.append(entry)
-
-        return Manifest(root=self.root, entries=filtered, manifest_path=self.manifest_path)
-
 

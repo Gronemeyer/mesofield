@@ -12,7 +12,7 @@ from pathlib import Path
 import re
 from datetime import datetime
 
-from mesofield.datakit.sources.register import SourceContext, TimeseriesSource
+from mesofield.datakit.sources.register import LoadContext, TimeseriesSource
 
 
 class SessionNotesSource(TimeseriesSource):
@@ -29,7 +29,7 @@ class SessionNotesSource(TimeseriesSource):
         self,
         path: Path,
         *,
-        context: SourceContext | None = None,
+        context: LoadContext | None = None,
     ) -> tuple[np.ndarray, pd.DataFrame, dict]:
         """Parse ``*_notes.txt`` into a timeline-aware dataframe."""
         with open(path, 'r') as f:
