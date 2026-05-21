@@ -10,7 +10,6 @@ package_logger.setLevel(logging.CRITICAL)
 
 # Disable debugger warning about the use of frozen modules
 os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
-
 # Disable ipykernel logger
 logging.getLogger("ipykernel.inprocess.ipkernel").setLevel(logging.WARNING)
 
@@ -128,6 +127,35 @@ def launch(config):
     mesofield.show()
     splash.finish(mesofield)
     app.exec()
+
+
+# ---------------------------------------------------------------------------
+# Explore pickle file and launch IPython
+# ---------------------------------------------------------------------------
+
+@cli.command('explore-pickle')
+@click.argument('pickle_path', type=click.Path(exists=True, dir_okay=False))
+def explore_pickle(pickle_path):
+    """Explore a pickle file using datakit.explore and launch an IPython terminal with the report."""
+    import sys
+    import pickle
+    from mesofield.datakit import explore
+    try:
+        with open(pickle_path, 'rb') as f:
+            dataset = pickle.load(f)
+    except Exception as exc:
+        click.secho(f"Failed to load pickle file: {exc}", fg="red")
+        sys.exit(1)
+    report = explore(dataset, print_output=True)
+    try:
+        from IPython import embed
+        click.secho("Launching IPython shell. The 'report' variable contains the exploration result.", fg="green")
+        embed(header=f"Exploration report for {pickle_path}\nType 'report' to see the summary.")
+        embed(dataset=dataset, report=report)
+    except ImportError:
+        click.secho("IPython is not installed. Please install it to use this feature.", fg="red")
+        sys.exit(1)
+
 
 
 @cli.command()
