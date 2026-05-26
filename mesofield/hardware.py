@@ -5,7 +5,7 @@ from typing import Dict, Any, List, Optional, ClassVar
 import yaml
 
 from mesofield.protocols import HardwareDevice, DataProducer
-from mesofield.io.devices import Nidaq, MMCamera, SerialWorker, EncoderSerialInterface
+from mesofield.devices import Nidaq, MMCamera, SerialWorker, EncoderSerialInterface
 from mesofield.utils._logger import get_logger, log_this_fr
 from mesofield import DeviceRegistry
 
@@ -20,15 +20,26 @@ class HardwareManager():
     :meth:`initialize` to bring hardware up.
     """
 
-    def __init__(self, config_file: Optional[str] = None):
+    def __init__(self, config_file: Optional[str] = None, devices=None):
         self.logger = get_logger(f'{__name__}.{self.__class__.__name__}')
         self.logger.info(f"Initializing HardwareManager with config: {config_file}")
 
         self.config_file = config_file
         self.devices: Dict[str, DataProducer] = {}
         self._configured: bool = False
+        # Devices constructed programmatically (scripted procedures). When set,
+        # ``initialize`` registers these directly instead of parsing YAML.
+        self._prebuilt_devices: Optional[List[Any]] = (
+            list(devices) if devices else None
+        )
 
-        if config_file and os.path.isfile(config_file):
+        if self._prebuilt_devices:
+            self.yaml = {}
+            self._configured = True
+            self.logger.info(
+                f"Initialized with {len(self._prebuilt_devices)} pre-built device(s)."
+            )
+        elif config_file and os.path.isfile(config_file):
             try:
                 self.yaml = self._load_yaml(config_file)
                 self._configured = True
@@ -141,13 +152,22 @@ class HardwareManager():
         if not self._configured:
             self.logger.warning("Cannot initialize hardware: no YAML config loaded.")
             return
-        self.logger.info("Initializing hardware devices from YAML configuration...")
-        self._init_cameras()
-        self._init_encoder()
-        self._init_daq()
-        self._init_psychopy()
-        self._init_extras()
+        if self._prebuilt_devices is not None:
+            self.logger.info("Initializing hardware devices from pre-built objects...")
+            self._register_prebuilt_devices()
+        else:
+            self.logger.info("Initializing hardware devices from YAML configuration...")
+            self._init_cameras()
+            self._init_encoder()
+            self._init_daq()
+            self._init_psychopy()
+            self._init_extras()
         self._configure_engines(cfg)
+        # Inject the ExperimentConfig onto every device so producers can reach
+        # `make_path` and experiment state outside the per-run `arm(config)`
+        # call (e.g. a camera's snap-and-save before a run is armed).
+        for device in self.devices.values():
+            device.config = cfg
         self._validate_primary()
 
     # Top-level YAML keys handled by dedicated initializers above.
@@ -200,7 +220,98 @@ class HardwareManager():
             dev_id = getattr(device, "device_id", key)
             self.devices[dev_id] = device
             setattr(self, dev_id, device)
+            # Camera-class extras land in self.cameras too so the MDA gui
+            # builds a live-view widget for them. This is the path
+            # MockFrameProducer takes; real MMCameras come through
+            # _init_cameras (which keys off the dedicated `cameras:` YAML
+            # stanza) and never touch this branch.
+            if getattr(device, "device_type", None) == "camera" and device not in self.cameras:
+                self.cameras = self.cameras + (device,)
             self.logger.info(f"Registered extra device '{dev_id}' (type={type_key}).")
+
+    # ---- Pre-built device path (scripted procedures) ----------------------
+
+    def _register_prebuilt_devices(self) -> None:
+        """Register devices constructed programmatically by a Procedure.
+
+        Mirrors :meth:`_init_extras` but skips construction -- the objects are
+        already instantiated. Camera-type devices are folded into
+        ``self.cameras``; everything else lives in ``self.devices`` and as an
+        attribute keyed by ``device_id``. Dedicated slots (``self.encoder`` /
+        ``self.nidaq`` / ``self.psychopy``) are intentionally not populated, so
+        a scripted setup exported via :meth:`to_yaml` and re-loaded as YAML
+        extras behaves the same way.
+        """
+        cams = list(self.cameras)
+        for device in self._prebuilt_devices or []:
+            dev_id = getattr(device, "device_id", None) or getattr(device, "id", None)
+            if not dev_id:
+                self.logger.error(
+                    f"Pre-built device {device!r} has no device_id/id; skipping."
+                )
+                continue
+            cfg = getattr(device, "cfg", {}) or {}
+            self._apply_output_args(device, cfg.get("output", {}), dev_id)
+            if not getattr(device, "is_primary", False):
+                device.is_primary = bool(cfg.get("primary", False))
+            try:
+                if hasattr(device, "initialize"):
+                    device.initialize()
+            except Exception as exc:
+                self.logger.error(f"initialize() failed for '{dev_id}': {exc}")
+                continue
+            self.devices[dev_id] = device
+            setattr(self, dev_id, device)
+            if getattr(device, "device_type", None) == "camera" and device not in cams:
+                cams.append(device)
+            self.logger.info(
+                f"Registered pre-built device '{dev_id}' "
+                f"(device_type={getattr(device, 'device_type', None)})."
+            )
+        self.cameras = tuple(cams)
+
+    def to_yaml(self, path: Optional[str] = None) -> dict:
+        """Serialize the current devices into a ``hardware.yaml`` mapping.
+
+        Each device becomes a top-level ``type:``-tagged stanza keyed by its
+        device id, re-importable through :meth:`_init_extras`. This is the
+        migration path from a scripted procedure to a reusable rig file.
+
+        When *path* is given the mapping is also written to disk. Raises
+        :class:`RuntimeError` if any device's class was never registered via
+        ``@DeviceRegistry.register`` (no ``registry_key`` -> not migratable).
+        """
+        out: dict = {}
+        for dev_id, device in self.devices.items():
+            registry_key = getattr(type(device), "registry_key", None)
+            if not registry_key:
+                raise RuntimeError(
+                    f"Device '{dev_id}' ({type(device).__name__}) has no "
+                    f"registry_key; decorate its class with "
+                    f"@DeviceRegistry.register(...) to make it exportable."
+                )
+            cfg = dict(getattr(device, "cfg", {}) or {})
+            cfg.pop("id", None)
+            cfg.pop("type", None)
+            cfg.pop("output", None)
+            stanza: dict = {"type": registry_key}
+            stanza.update(cfg)
+            if getattr(device, "is_primary", False):
+                stanza["primary"] = True
+            path_args = getattr(device, "path_args", None)
+            if path_args:
+                output = {
+                    "suffix": path_args.get("suffix"),
+                    "file_type": path_args.get("extension"),
+                    "bids_type": path_args.get("bids_type"),
+                }
+                stanza["output"] = {k: v for k, v in output.items() if v is not None}
+            out[dev_id] = stanza
+        if path:
+            with open(path, "w", encoding="utf-8") as fh:
+                yaml.safe_dump(out, fh, sort_keys=False)
+            self.logger.info(f"Exported hardware configuration to: {path}")
+        return out
 
     def _validate_primary(self) -> None:
         """Require exactly one device flagged ``primary: true`` in YAML."""
@@ -367,10 +478,15 @@ class HardwareManager():
                     development_mode=params.get('development_mode'),
                 )
             elif enc_type == 'treadmill':
-                self.encoder = EncoderSerialInterface(
-                    port=params.get('port'),
-                    baudrate=params.get('baudrate'),
-                )
+                try:
+                    self.encoder = EncoderSerialInterface(
+                        port=params.get('port'),
+                        baudrate=params.get('baudrate'),
+                    )
+                    self.encoder.initialize()
+                except Exception as e:
+                    raise RuntimeError(f"Failed to initialize EncoderSerialInterface: {e}") from e
+
             else:
                 self.logger.warning(f"Unknown encoder type: {enc_type}")
                 return

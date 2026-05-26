@@ -25,13 +25,28 @@ import os
 import sys
 import threading
 import uuid
-from datetime import datetime
-from typing import Any, Optional, Type
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, Optional, Type
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
+from mesokit_schema import (
+    AcquisitionManifest,
+    DataqueuePayloadSchema,
+    ProducerEntry,
+    SessionIdentity,
+    SidecarEntry,
+    TimeBasis,
+)
+
 from mesofield.config import ExperimentConfig
 from mesofield.data.manager import DataManager
+
+try:
+    from mesofield._version import __version__ as _MESOFIELD_VERSION
+except Exception:  # pragma: no cover
+    _MESOFIELD_VERSION = "0.0.0+unknown"
 from mesofield.hardware import HardwareManager
 from mesofield.protocols import Configurator
 from mesofield.utils._logger import get_logger
@@ -64,16 +79,28 @@ class Procedure:
         self.events.procedure_error.connect(lambda _msg: self._finished_event.set())
 
         self.config: Configurator
+        self._config_path = config_path
         experiment_dir = os.path.dirname(os.path.abspath(config_path)) if config_path else None
         self.config = ExperimentConfig(experiment_dir)
-        if config_path:
+
+        # Scripted config: a subclass may declare parameters in Python
+        # (a dataclass or mapping) instead of an experiment.json file.
+        config_data = self.define_config()
+        if config_data is not None:
+            self.config.load_dict(config_data)
+        elif config_path and config_path.endswith(".json"):
             self.config.load_json(config_path)
+
+        # Scripted hardware: a subclass may construct device objects directly
+        # instead of relying on a hardware.yaml file.
+        devices = self.define_hardware()
+        if devices is not None:
+            self.config.hardware = HardwareManager(devices=devices)
 
         self.protocol = self.config.get("protocol", "default_experiment")
         self.experimenter = self.config.get("experimenter", "researcher")
 
         self.data_dir = self.config.data_dir
-        self.h5_path = os.path.join(self.data_dir, f"{self.protocol}.h5")
 
         self.start_time: Optional[datetime] = None
         self.stopped_time: Optional[datetime] = None
@@ -108,7 +135,12 @@ class Procedure:
         """Boot up hardware and a :class:`DataManager`."""
         try:
             self.config.hardware.initialize(self.config)
-            self.data = DataManager(self.h5_path)
+            self.data = DataManager()
+            # Register devices eagerly so iPython terminals and GUI inspectors
+            # see them on `procedure.data.devices` before run() is called.
+            # `Procedure.run()` short-circuits the re-registration via its
+            # `if not self.data.devices:` guard.
+            self.data.register_devices(self.config.hardware.devices.values())
             self.logger.info("Hardware initialized successfully")
         except RuntimeError as e:
             self.logger.error(f"Failed to initialize hardware: {e}")
@@ -139,7 +171,6 @@ class Procedure:
         self.protocol = self.config.get("protocol", "default_experiment")
         self.experimenter = self.config.get("experimenter", "researcher")
         self.data_dir = self.config.data_dir
-        self.h5_path = os.path.join(self.data_dir, f"{self.protocol}.h5")
 
         if self.config.hardware.is_configured:
             self.initialize_hardware()
@@ -150,6 +181,27 @@ class Procedure:
 
     # ------------------------------------------------------------------
     # Subclass extension hooks (no-op defaults)
+
+    def define_config(self) -> Any:
+        """Subclass hook to declare experiment parameters in Python.
+
+        Override to return a ``@dataclass`` instance or a plain mapping; it is
+        applied to :attr:`config` via :meth:`ExperimentConfig.load_dict`,
+        superseding any ``experiment.json``. Default ``None`` -> load JSON.
+        """
+        return None
+
+    def define_hardware(self) -> Any:
+        """Subclass hook to construct hardware devices in Python.
+
+        Override to return a list of pre-built device objects (imported and
+        instantiated in the procedure file). They are handed to a fresh
+        :class:`HardwareManager`, superseding any ``hardware.yaml``. Default
+        ``None`` -> load YAML. Device classes should be decorated with
+        ``@DeviceRegistry.register(...)`` so the setup can later be exported
+        to a ``hardware.yaml`` rig file via ``HardwareManager.to_yaml``.
+        """
+        return None
 
     def prerun(self) -> None:
         """Subclass hook called before arming devices.  Override as needed."""
@@ -191,7 +243,7 @@ class Procedure:
             self.hardware.primary.signals.finished.connect(self._cleanup_procedure)
 
             # 5. Start everything
-            self.start_time = datetime.now()
+            self.start_time = datetime.now(timezone.utc)
             self.events.procedure_started.emit()
             self.hardware.start_all()
 
@@ -208,7 +260,6 @@ class Procedure:
         mgr.save.all_notes()
         mgr.save.all_hardware()
         mgr.save.save_timestamps(self.protocol, self.start_time, self.stopped_time)
-        mgr.update_database()
         self.config.save_json()
         self.events.data_saved.emit()
         self.logger.info("Data saved successfully")
@@ -269,13 +320,117 @@ class Procedure:
                 pass
             self.hardware.stop_all()
             self.data.stop_queue_logger()
-            self.stopped_time = datetime.now()
+            self.stopped_time = datetime.now(timezone.utc)
             self.save_data()
+            self._write_acquisition_manifest()
             self.on_finished()
             self.events.procedure_finished.emit()
         except Exception as e:
             self.logger.error(f"Error during cleanup: {e}")
             self.events.procedure_error.emit(str(e))
+        finally:
+            # `events.procedure_finished` is a pyqtSignal; its Python-side
+            # `.connect`s only run with a live QApplication. Setting the
+            # event directly here keeps `run_until_finished` working in
+            # headless contexts (tests, CLI smoke runs, batch scripts).
+            self._finished_event.set()
+
+    # ------------------------------------------------------------------
+    # Acquisition manifest (mesokit-schema contract)
+
+    def manifest_extra(self) -> Dict[str, Any]:
+        """Override to inject extra session-level metadata into the
+        AcquisitionManifest's ``extra`` block. Default: empty."""
+        return {}
+
+    def _write_acquisition_manifest(self) -> None:
+        """Emit a `mesokit_schema.AcquisitionManifest` next to the data.
+
+        Called automatically during cleanup. Override to disable or change
+        where the manifest lands; use :meth:`manifest_extra` if you only
+        want to attach extra session metadata.
+        """
+        session_root = (
+            Path(self.data_dir)
+            / f"sub-{self.config.subject}"
+            / f"ses-{self.config.session}"
+        )
+        session_root.mkdir(parents=True, exist_ok=True)
+
+        def _relativise(p: Any) -> Optional[str]:
+            if not p:
+                return None
+            try:
+                return str(Path(p).resolve().relative_to(session_root.resolve()))
+            except ValueError:
+                return str(p)
+
+        def _coerce_sidecars(raw) -> list[SidecarEntry]:
+            out: list[SidecarEntry] = []
+            for item in raw or []:
+                if isinstance(item, SidecarEntry):
+                    rel = _relativise(item.path) or item.path
+                    out.append(item.model_copy(update={"path": rel}))
+                else:
+                    data = dict(item)
+                    rel = _relativise(data.get("path"))
+                    if rel is not None:
+                        data["path"] = rel
+                    out.append(SidecarEntry.model_validate(data))
+            return out
+
+        def _coerce_dataqueue_schema(raw) -> Optional[DataqueuePayloadSchema]:
+            if raw is None:
+                return None
+            if isinstance(raw, DataqueuePayloadSchema):
+                return raw
+            return DataqueuePayloadSchema.model_validate(raw)
+
+        producers: list[ProducerEntry] = []
+        for device_id, device in self.config.hardware.devices.items():
+            output_path = getattr(device, "output_path", None)
+            if not output_path:
+                continue
+            sidecars_method = getattr(device, "sidecars", None)
+            sidecar_list = sidecars_method() if callable(sidecars_method) else []
+            dq_schema_raw = getattr(device, "dataqueue_payload_schema", None)
+            producers.append(
+                ProducerEntry(
+                    device_id=device_id,
+                    device_type=getattr(device, "device_type", "device"),
+                    data_type=getattr(device, "data_type", device_id),
+                    bids_type=getattr(device, "bids_type", None),
+                    file_type=getattr(device, "file_type", "csv"),
+                    output_path=_relativise(output_path) or str(output_path),
+                    metadata_path=_relativise(getattr(device, "metadata_path", None)),
+                    sampling_rate_hz=getattr(device, "sampling_rate", None) or None,
+                    time_basis=TimeBasis(
+                        clock_source=getattr(device, "clock_source", "wall_unix_s"),
+                    ),
+                    calibration=dict(getattr(device, "calibration", {}) or {}),
+                    sidecars=_coerce_sidecars(sidecar_list),
+                    dataqueue_schema=_coerce_dataqueue_schema(dq_schema_raw),
+                )
+            )
+
+        manifest = AcquisitionManifest(
+            mesofield_version=str(_MESOFIELD_VERSION),
+            acquisition_complete=True,
+            started_at=self.start_time,
+            ended_at=self.stopped_time,
+            session=SessionIdentity(
+                subject=str(self.config.subject),
+                session=str(self.config.session),
+                task=str(self.config.task) if self.config.task else None,
+                experimenter=self.experimenter,
+                protocol=self.protocol,
+            ),
+            producers=producers,
+            extra=self.manifest_extra(),
+        )
+        out = session_root / "manifest.json"
+        manifest.write(out)
+        self.logger.info(f"Wrote AcquisitionManifest -> {out}")
 
     # ------------------------------------------------------------------
 
@@ -284,11 +439,6 @@ class Procedure:
         self.config.notes.append(f"{timestamp}: {note}")
         self.logger.info(f"Added note: {note}")
 
-    def load_database(self, key: str = "datapaths"):
-        """Return a DataFrame with all sessions stored for this Procedure."""
-        if hasattr(self, "data_manager"):
-            return self.data.read_database(key)
-        return None
 
 
 # ----------------------------------------------------------------------
@@ -311,6 +461,11 @@ def load_procedure_from_config(config_path: str) -> "Procedure":
     """
     if not config_path or not os.path.isfile(config_path):
         return Procedure(config_path)
+
+    # A scripted procedure: config_path points straight at a Python file that
+    # defines a Procedure subclass (with define_config / define_hardware).
+    if config_path.endswith(".py"):
+        return _load_procedure_from_py(config_path)
 
     try:
         with open(config_path, "r", encoding="utf-8") as fh:
@@ -352,6 +507,53 @@ def load_procedure_from_config(config_path: str) -> "Procedure":
         )
 
     return cls(config_path)
+
+
+def _load_procedure_from_py(py_path: str) -> "Procedure":
+    """Instantiate the Procedure subclass defined in a scripted ``procedure.py``.
+
+    The class is selected from a module-level ``PROCEDURE`` attribute when
+    present, otherwise the single :class:`Procedure` subclass *defined in*
+    that file. The ``.py`` path is passed as ``config_path`` so the
+    procedure's ``experiment_dir`` resolves to the file's directory; the
+    ``define_config`` hook supplies the actual parameters.
+    """
+    abs_path = os.path.abspath(py_path)
+    mod_name = f"mesofield_user_procedure_{uuid.uuid4().hex}"
+    spec = importlib.util.spec_from_file_location(mod_name, abs_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load procedure file: {abs_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[mod_name] = module
+    spec.loader.exec_module(module)
+
+    cls = getattr(module, "PROCEDURE", None)
+    if cls is None:
+        candidates = [
+            obj for obj in vars(module).values()
+            if isinstance(obj, type)
+            and issubclass(obj, Procedure)
+            and obj is not Procedure
+            and obj.__module__ == mod_name
+        ]
+        if not candidates:
+            raise AttributeError(
+                f"No Procedure subclass found in {abs_path}. Define one, or "
+                f"set a module-level 'PROCEDURE = <class>'."
+            )
+        if len(candidates) > 1:
+            names = ", ".join(c.__name__ for c in candidates)
+            raise AttributeError(
+                f"Multiple Procedure subclasses in {abs_path} ({names}); "
+                f"set a module-level 'PROCEDURE = <class>' to disambiguate."
+            )
+        cls = candidates[0]
+
+    if not (isinstance(cls, type) and issubclass(cls, Procedure)):
+        raise TypeError(
+            f"{cls!r} in {abs_path} must be a subclass of mesofield.base.Procedure"
+        )
+    return cls(abs_path)
 
 
 # Factory function for creating procedures

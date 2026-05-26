@@ -76,6 +76,10 @@ class BaseDevice:
             self.device_id = str(cfg_id)
         self.is_primary: bool = bool(self.cfg.get("primary", False))
 
+        # Injected once by HardwareManager.initialize() so producers can reach
+        # `make_path` and experiment state outside the per-run `arm(config)`.
+        self.config: Any = None
+
         self.signals = DeviceSignals()
 
         self._started: Optional[datetime] = None
@@ -128,6 +132,39 @@ class BaseDevice:
             "is_primary": self.is_primary,
         }
 
+    # Keys that describe orchestration / GUI / routing rather than calibration.
+    # Stripped from `cfg` when building the `calibration` payload that ends up
+    # in the AcquisitionManifest. Subclasses can extend this tuple.
+    _MANIFEST_RESERVED_KEYS: ClassVar[tuple[str, ...]] = (
+        "id", "device_id", "type", "primary", "widgets", "output",
+    )
+
+    @property
+    def calibration(self) -> Dict[str, Any]:
+        """Device-specific constants worth recording with the data.
+
+        Default: everything in `cfg` that isn't an orchestration key. Override
+        on a subclass to curate the list explicitly.
+        """
+        reserved = set(self._MANIFEST_RESERVED_KEYS)
+        return {k: v for k, v in self.cfg.items() if k not in reserved}
+
+    def sidecars(self) -> list:
+        """Auxiliary files this device writes alongside its primary output.
+
+        Default: none. Override to declare extra sidecars (masks, regions,
+        derived parameter files) so they ride in the manifest with a `role`
+        and `schema_version` instead of being discovered by glob.
+
+        The camera classes' per-frame metadata JSON is the primary sidecar
+        and lives on `self.metadata_path` -- not here. Use this method for
+        the *extra* files only.
+
+        Returns a list of `mesokit_schema.SidecarEntry`-shaped mappings or
+        instances. The Procedure relativises any absolute paths.
+        """
+        return []
+
 
 # ---------------------------------------------------------------------------
 # BaseDataProducer
@@ -150,6 +187,16 @@ class BaseDataProducer(BaseDevice):
     bids_type: ClassVar[Optional[str]] = "beh"
     sampling_rate: float = 0.0
     data_type: ClassVar[str] = "samples"
+    # Declared clock source for the AcquisitionManifest's TimeBasis. Matches
+    # what `record()` stamps (`time.time()`). Camera subclasses override.
+    clock_source: ClassVar[str] = "wall_unix_s"
+    # Typed contract for what this producer pushes onto the session-wide
+    # dataqueue (see mesokit_schema.DataqueuePayloadSchema). Set on a
+    # subclass when the parser needs to locate this producer's rows in
+    # dataqueue.csv. Leave `None` for producers that don't write to the
+    # queue (e.g. cameras whose alignment is per-frame metadata, not queue
+    # rows). The Procedure copies the value into ProducerEntry.dataqueue_schema.
+    dataqueue_payload_schema: ClassVar[Optional[dict]] = None
 
     def __init__(self, cfg: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
         super().__init__(cfg, **kwargs)
@@ -345,24 +392,27 @@ class BaseSerialDevice(BaseDataProducer):
             raise ImportError(
                 "pyserial is required for BaseSerialDevice; install with `pip install pyserial`"
             ) from exc
+            
+        try:
+            if self.dtr is None:
+                ser = serial.Serial(self.port, baudrate=self.baudrate, timeout=self.timeout)
+            else:
+                # DTR must be set before the port physically opens
+                # (Arduino-no-reset idiom).
+                ser = serial.Serial(baudrate=self.baudrate, timeout=self.timeout)
+                ser.port = self.port
+                ser.dtr = self.dtr
+                ser.open()
+            self._serial = ser
 
-        if self.dtr is None:
-            ser = serial.Serial(self.port, baudrate=self.baudrate, timeout=self.timeout)
-        else:
-            # DTR must be set before the port physically opens
-            # (Arduino-no-reset idiom).
-            ser = serial.Serial(baudrate=self.baudrate, timeout=self.timeout)
-            ser.port = self.port
-            ser.dtr = self.dtr
-            ser.open()
-        self._serial = ser
-
-        if self.connect_delay > 0:
-            time.sleep(self.connect_delay)
-            try:
-                ser.reset_input_buffer()
-            except Exception:
-                pass
+            if self.connect_delay > 0:
+                time.sleep(self.connect_delay)
+                try:
+                    ser.reset_input_buffer()
+                except Exception:
+                    pass
+        except Exception as exc:
+            raise RuntimeError(f"Failed to open serial port {self.port}: {exc}") from exc
 
         self.logger.info("Opened serial %s @ %d baud", self.port, self.baudrate)
         try:

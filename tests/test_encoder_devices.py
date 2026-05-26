@@ -6,8 +6,8 @@ import csv
 import time
 from pathlib import Path
 
-from mesofield.io.devices.encoder import SerialWorker
-from mesofield.io.devices.treadmill import EncoderSerialInterface
+from mesofield.devices.encoder import SerialWorker
+from mesofield.devices.treadmill import EncoderSerialInterface
 
 
 class _MockSerial:

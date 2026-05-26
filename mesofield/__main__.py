@@ -10,7 +10,6 @@ package_logger.setLevel(logging.CRITICAL)
 
 # Disable debugger warning about the use of frozen modules
 os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
-
 # Disable ipykernel logger
 logging.getLogger("ipykernel.inprocess.ipkernel").setLevel(logging.WARNING)
 
@@ -130,6 +129,35 @@ def launch(config):
     app.exec()
 
 
+# ---------------------------------------------------------------------------
+# Explore pickle file and launch IPython
+# ---------------------------------------------------------------------------
+
+@cli.command('explore-pickle')
+@click.argument('pickle_path', type=click.Path(exists=True, dir_okay=False))
+def explore_pickle(pickle_path):
+    """Explore a pickle file using datakit.explore and launch an IPython terminal with the report."""
+    import sys
+    import pickle
+    from mesofield.datakit import explore
+    try:
+        with open(pickle_path, 'rb') as f:
+            dataset = pickle.load(f)
+    except Exception as exc:
+        click.secho(f"Failed to load pickle file: {exc}", fg="red")
+        sys.exit(1)
+    report = explore(dataset, print_output=True)
+    try:
+        from IPython import embed
+        click.secho("Launching IPython shell. The 'report' variable contains the exploration result.", fg="green")
+        embed(header=f"Exploration report for {pickle_path}\nType 'report' to see the summary.")
+        embed(dataset=dataset, report=report)
+    except ImportError:
+        click.secho("IPython is not installed. Please install it to use this feature.", fg="red")
+        sys.exit(1)
+
+
+
 @cli.command()
 @click.argument('config', type=click.Path(exists=True, dir_okay=False), required=False, default=None)
 def viewer(config):
@@ -191,97 +219,89 @@ def playback(experiment_dir: str, speed: float, loop: bool):
     launch_playback_app(context)
 
 
-@cli.command()
-@click.option('--path', help='Path to a tiff file')
-@click.option('--dir',  help='Save the plot to the processing directory in the Experiment folder')
-@click.option('--sub', help='Subject ID (the name of the subject folder)')
-@click.option('--method', default='collapse_first', show_default=True, help='ΔF/F computation method: collapse_first or pixelwise')
-def trace_meso(path, dir, sub, method):
-    """Compute and save mesoscopic ΔF/F traces.
+# ---------------------------------------------------------------------------
+# Datakit-based meso tiff discovery helpers
+# ---------------------------------------------------------------------------
 
-    When --path is provided, process only that TIFF.
-    Otherwise, scan --dir (optionally filtered by --sub), batch all discovered
-    meso_tiff files in one call, and write per-subject CSV outputs.
+def _discover_meso_entries(experiment_dir, subject_filter=None):
+    """Return ManifestEntry objects for mesoscope tiff files.
+
+    Uses datakit's ``discover_manifest`` to scan the BIDS hierarchy,
+    filters for ``meso_metadata`` entries (the JSON sidecars), then
+    rewrites each entry's path to point at the tiff itself.
+    """
+    from mesofield.datakit.discover import discover_manifest
+    from mesofield.datakit.datamodel import ManifestEntry
+
+    manifest = discover_manifest(Path(experiment_dir))
+    tiff_entries = []
+    for entry in manifest.entries:
+        if entry.tag != "meso_metadata":
+            continue
+        if subject_filter and entry.subject != subject_filter:
+            continue
+        # Derive the tiff path from the metadata sidecar path:
+        #   ...mesoscope.ome.tiff_frame_metadata.json  →  ...mesoscope.ome.tiff
+        tiff_path = entry.path.replace("_frame_metadata.json", "")
+        tiff_entries.append(ManifestEntry(
+            tag="meso_tiff",
+            path=tiff_path,
+            origin=entry.origin,
+            subject=entry.subject,
+            session=entry.session,
+            task=entry.task,
+        ))
+    return tiff_entries
+
+
+def _discover_meso_tiffs(experiment_dir, subject_filter=None):
+    """Return a list of absolute tiff paths and the experiment root."""
+    root = Path(experiment_dir).resolve()
+    entries = _discover_meso_entries(experiment_dir, subject_filter)
+    paths = [str(root / e.path) for e in entries]
+    return paths, root
+
+
+@cli.command()
+@click.option('--path', help='Path to a single tiff file (bypass discovery)')
+@click.option('--dir',  help='Experiment directory to discover mesoscope tiffs')
+@click.option('--sub', default=None, help='Subject ID to filter (default: all)')
+def trace_meso(path, dir, sub):
+    """Compute mean fluorescence traces from mesoscope OME-TIFF stacks.
+
+    Uses datakit discovery to find mesoscope tiffs in a BIDS hierarchy,
+    or accepts a single --path for quick one-off analysis.
     """
     import pandas as pd
-    import mesofield.data.proc.load as load
     import mesofield.data.batch as batch
-    
+
     if path:
-        tiff_path = Path(path)
-        # Assume input path is experiment_dir/data/sub/ses/func/<tiff_file>
-        experiment_dir = tiff_path.parents[4]
-        print(f"DEBUG: Inferred experiment directory: {experiment_dir}")
-
-        results = batch.dff_trace_from_tiff([str(tiff_path)], method=method)
+        tiff_paths = [path]
+        experiment_dir = Path(path).parents[4]
         outdir = Path(experiment_dir) / "processed"
-        outdir.mkdir(parents=True, exist_ok=True)
+    elif dir:
+        tiff_paths, experiment_dir = _discover_meso_tiffs(dir, sub)
+        outdir = Path(dir) / "processed" / sub if sub else Path(dir) / "processed"
+    else:
+        raise click.UsageError("Provide --path or --dir")
 
-        for source_path, trace in results.items():
-            print(f"{source_path}: {trace[:10]}")
-            df = pd.DataFrame({"Slice": range(len(trace)), "Mean": trace})
-            filename = f"{Path(source_path).stem}_meso-{method}-trace.csv"
-            df.to_csv(outdir / filename, index=False)
+    if not tiff_paths:
+        click.secho("No mesoscope tiffs found.", fg="yellow")
         return
 
-    datadict = load.file_hierarchy(dir)
-    subjects = [sub] if sub else sorted(datadict.keys())
-    print(f"DEBUG: Processing subjects: {subjects}")
-
-    # Collect every meso_tiff across requested subjects into a single list so
-    # batch processing runs once (shared progress bar and shared thread pool).
-    all_paths: list[str] = []
-    path_to_subject: dict[str, str] = {}
-
-    for subject in subjects:
-        if subject not in datadict:
-            print(f"WARNING: Subject '{subject}' not found in {dir}; skipping.")
-            continue
-
-        subject_sessions = datadict[subject]
-        for session_key in sorted(subject_sessions.keys()):
-            if not session_key.isdigit():
-                continue
-
-            session = subject_sessions[session_key]
-            if 'widefield' not in session:
-                print(
-                    f"WARNING: [{subject}] Session {session_key} missing 'widefield' key. "
-                    f"Available keys: {list(session.keys())}"
-                )
-                continue
-
-            widefield = session['widefield']
-            if 'meso_tiff' not in widefield:
-                print(
-                    f"WARNING: [{subject}] Session {session_key} 'widefield' keys: "
-                    f"{list(widefield.keys())} (missing 'meso_tiff')"
-                )
-                continue
-
-            discovered_path = widefield['meso_tiff']
-            print(f"DEBUG: [{subject}] Found session {session_key}, meso_tiff path: {discovered_path}")
-            all_paths.append(discovered_path)
-            path_to_subject[discovered_path] = subject
-
-    print(f"DEBUG: Total meso_tiff files collected across all subjects: {len(all_paths)}")
-    if not all_paths:
-        print("WARNING: No meso_tiff files found for any subject.")
-        return
-
-    results = batch.dff_trace_from_tiff(all_paths, method=method)
-    processed_root = Path(dir) / "processed"
+    os.makedirs(outdir, exist_ok=True)
+    click.echo(f"Computing mean traces for {len(tiff_paths)} tiff(s)...")
+    results = batch.mean_trace_from_tiff(tiff_paths)
 
     for tiff_path, trace in results.items():
-        subject = path_to_subject[tiff_path]
-        print(f"[{subject}] {tiff_path}: {trace[:10]}")
-
-        outdir = processed_root / subject
-        outdir.mkdir(parents=True, exist_ok=True)
-
         df = pd.DataFrame({"Slice": range(len(trace)), "Mean": trace})
-        filename = f"{Path(tiff_path).stem}_meso-{method}-trace.csv"
-        df.to_csv(outdir / filename, index=False)
+        base_name = os.path.splitext(os.path.basename(tiff_path))[0]
+        filename = f"{base_name}_meso-mean-trace.csv"
+        save_path = os.path.join(outdir, filename)
+        df.to_csv(save_path, index=False)
+        click.echo(f"  {filename}  ({len(trace)} frames)")
+
+    click.secho(f"Saved {len(results)} trace(s) to {outdir}", fg="green")
 
 
 @cli.command()
@@ -293,16 +313,28 @@ def trace_meso(path, dir, sub, method):
 def montage_meso(dir, sub, frame, rotate, ses_filter):
     """Extract a single frame from each session's widefield tiff and save a per-subject montage.
 
+    Uses datakit to discover mesoscope tiffs in the BIDS hierarchy.
     Each task within a session becomes its own row.  Columns are sessions,
     so the output image is a grid of (tasks x sessions) panels.
     """
     import numpy as np
     import tifffile
-    import mesofield.data.proc.load as load
     from PIL import Image, ImageDraw, ImageFont
 
-    datadict = load.file_hierarchy(dir)
-    subjects = [sub] if sub else sorted(datadict.keys())
+    # --- Discover tiffs via datakit ---
+    entries = _discover_meso_entries(dir, sub)
+    if not entries:
+        click.secho("No mesoscope tiffs found.", fg="yellow")
+        return
+
+    # Build a nested dict: subject -> session -> task -> tiff_path
+    tree: dict[str, dict[str, dict[str, str]]] = {}
+    root = Path(dir).resolve()
+    for entry in entries:
+        s, ses, task = entry.subject, entry.session, entry.task or "default"
+        tree.setdefault(s, {}).setdefault(ses, {})[task] = str(root / entry.path)
+
+    subjects = [sub] if sub else sorted(tree.keys())
 
     outdir = os.path.join(dir, "processed")
     os.makedirs(outdir, exist_ok=True)
@@ -315,8 +347,11 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
     label_height = 30
 
     for subject in subjects:
-        sessions = datadict[subject]
-        ses_keys = sorted(k for k in sessions.keys() if k.isdigit())
+        if subject not in tree:
+            click.echo(f"WARNING: sub-{subject} not found, skipping")
+            continue
+        sessions = tree[subject]
+        ses_keys = sorted(sessions.keys())
 
         # Apply session range filter
         if ses_filter:
@@ -326,7 +361,7 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
             ses_keys = [k for k in ses_keys if int(k) >= start and (end is None or int(k) < end)]
 
         # Collect the superset of task names across all sessions (preserving order)
-        all_tasks = []
+        all_tasks: list[str] = []
         for sk in ses_keys:
             for tk in sessions[sk]:
                 if tk not in all_tasks:
@@ -338,19 +373,19 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
         for ses_key in ses_keys:
             session = sessions[ses_key]
             for task in all_tasks:
-                if task not in session or 'meso_tiff' not in session[task]:
-                    print(f"WARNING: sub-{subject} ses-{ses_key} task-{task} missing meso_tiff, skipping")
+                if task not in session:
+                    click.echo(f"WARNING: sub-{subject} ses-{ses_key} task-{task} missing, skipping")
                     continue
 
-                tiff_path = session[task]['meso_tiff']
+                tiff_path = session[task]
                 try:
                     tiff_array = tifffile.memmap(tiff_path)
                     if tiff_array.shape[0] <= frame:
-                        print(f"WARNING: {tiff_path} has only {tiff_array.shape[0]} frames, skipping")
+                        click.echo(f"WARNING: {tiff_path} has only {tiff_array.shape[0]} frames, skipping")
                         continue
                     img = np.array(tiff_array[frame])
                 except Exception as e:
-                    print(f"ERROR reading {tiff_path}: {e}")
+                    click.echo(f"ERROR reading {tiff_path}: {e}")
                     continue
 
                 img_min, img_max = img.min(), img.max()
@@ -360,17 +395,14 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
                     img_norm = np.zeros_like(img, dtype=np.uint8)
 
                 if rotate:
-                    # PIL rotates counter-clockwise, so negate for clockwise convention
                     img_norm = np.array(Image.fromarray(img_norm).rotate(-rotate, expand=True))
 
                 grid[task][ses_key] = img_norm
 
-        # Skip subject if nothing was loaded
         if not any(grid[t] for t in all_tasks):
-            print(f"WARNING: No frames found for sub-{subject}, skipping")
+            click.echo(f"WARNING: No frames found for sub-{subject}, skipping")
             continue
 
-        # Determine a uniform cell size across the whole grid
         all_imgs = [img for task_imgs in grid.values() for img in task_imgs.values()]
         cell_h = max(img.shape[0] for img in all_imgs)
         cell_w = max(img.shape[1] for img in all_imgs)
@@ -391,38 +423,28 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
             draw.text(((width - text_w) // 2, 4), text, fill=255, font=font)
             return np.array(header)
 
-        # Helper: render vertical text as a strip image
         def _vertical_text(text, height, strip_w=40):
-            """Render *text* rotated 90° so it reads bottom-to-top (left side)
-            or top-to-bottom (right side).  Returns an (height, strip_w) uint8 array."""
-            # draw text horizontally first, then rotate
             tmp = Image.new('L', (height, strip_w), color=0)
             draw = ImageDraw.Draw(tmp)
             bbox = draw.textbbox((0, 0), text, font=font)
             tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
             draw.text(((height - tw) // 2, (strip_w - th) // 2), text, fill=255, font=font)
-            return tmp  # will be rotated by caller
+            return tmp
 
         side_strip_w = 40
         grid_height = label_height + cell_h * len(all_tasks)
-        grid_width = cell_w * len(ses_keys)
 
-        # --- Left column: vertical subject name (reads bottom-to-top) ---
         subject_label = f"sub-{subject}"
         left_pil = _vertical_text(subject_label, grid_height, side_strip_w)
-        left_strip = np.array(left_pil.rotate(90, expand=True))  # CCW 90°
+        left_strip = np.array(left_pil.rotate(90, expand=True))
 
-        # --- Right column: vertical task names (one per row, reads top-to-bottom) ---
-        right_pieces = []
-        # blank for column-header row
-        right_pieces.append(np.zeros((label_height, side_strip_w), dtype=np.uint8))
+        right_pieces = [np.zeros((label_height, side_strip_w), dtype=np.uint8)]
         for task in all_tasks:
             task_label = task if task else "default"
             tmp = _vertical_text(task_label, cell_h, side_strip_w)
-            right_pieces.append(np.array(tmp.rotate(-90, expand=True)))  # CW 90°
+            right_pieces.append(np.array(tmp.rotate(-90, expand=True)))
         right_strip = np.vstack(right_pieces)
 
-        # --- Build the data columns (one per session) ---
         columns = []
         for ses_key in ses_keys:
             col_header = _label_header(f"ses-{ses_key}", cell_w)
@@ -439,9 +461,9 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
         save_path = os.path.join(outdir, filename)
         montage_img.save(save_path)
         n_cells = sum(len(v) for v in grid.values())
-        print(f"Saved: {save_path}  ({len(all_tasks)} tasks x {len(ses_keys)} sessions, {n_cells} images)")
+        click.echo(f"Saved: {save_path}  ({len(all_tasks)} tasks x {len(ses_keys)} sessions, {n_cells} images)")
 
-    print("Done.")
+    click.secho("Done.", fg="green")
 
 
 @cli.command()
@@ -566,16 +588,237 @@ def ipython(yaml_path, json_path):
     embed(header='Mesofield ExperimentConfig Terminal. Type `config.` + TAB ', local={'config': config})
 
 
-@cli.command()
-@click.option('--dir', 'experiment_dir', required=True, help='Directory containing BIDS data')
-@click.option('--db', 'db_path', required=True, help='Path to the HDF5 database')
-def refresh_db(experiment_dir, db_path):
-    """Rebuild the database from files on disk."""
-    from mesofield.io.h5db import H5Database
+def _resolve_init_hardware(rig, hardware):
+    """Resolve the ``hardware`` argument for :func:`scaffold_experiment`.
 
-    db = H5Database(db_path)
-    db.refresh(experiment_dir)
-    click.echo(f"Database refreshed from {experiment_dir}")
+    Returns a ``Path`` (copy a canonical rig file) or ``"dev"`` / ``"blank"``.
+    ``--hardware`` wins over ``--rig``; with neither, an interactive picker
+    over the rig store plus the ``dev`` / ``blank`` built-ins is shown.
+    """
+    from mesofield.scaffold import rigs
+
+    if hardware:
+        return Path(hardware)
+    if rig:
+        if rig in ("dev", "blank"):
+            return rig
+        try:
+            return rigs._resolve_existing(rig)
+        except FileNotFoundError as exc:
+            click.secho(str(exc), fg="red")
+            raise SystemExit(1)
+
+    choices = rigs.list_rigs() + ["dev", "blank"]
+    click.echo("Select a hardware configuration for this experiment:")
+    for name in rigs.list_rigs():
+        click.echo(f"  {name}    (canonical rig)")
+    click.echo("  dev      (mock devices -- runs without hardware)")
+    click.echo("  blank    (fill-out template)")
+    picked = click.prompt(
+        "Rig", type=click.Choice(choices), default="blank", show_choices=False
+    )
+    if picked in ("dev", "blank"):
+        return picked
+    return rigs.rig_path(picked)
+
+
+@cli.command('init')
+@click.argument('directory', type=click.Path())
+@click.option('--name', default=None,
+              help='Experiment protocol name (default: directory basename uppercased).')
+@click.option('--force', is_flag=True,
+              help='Overwrite an existing non-empty directory.')
+@click.option('--rig', default=None,
+              help="Canonical rig to copy hardware.yaml from "
+                   "(or 'dev'/'blank'). Skips the interactive picker.")
+@click.option('--hardware', default=None, type=click.Path(exists=True, dir_okay=False),
+              help='Explicit hardware.yaml file to copy in (overrides --rig).')
+def init(directory, name, force, rig, hardware):
+    """Scaffold a new mesofield experiment in DIRECTORY.
+
+    Generates `experiment.json`, `hardware.yaml`, `procedure.py`, and a
+    `devices/` subdirectory with an annotated thermal-sensor example.
+
+    The `hardware.yaml` is chosen interactively: a canonical rig from this
+    machine's rig store (see `mesofield rig`), `dev` (mock devices, runs
+    without hardware), or `blank` (a fill-out template). Use --rig/--hardware
+    to skip the prompt.
+    """
+    from mesofield.scaffold import scaffold_experiment
+
+    hardware_choice = _resolve_init_hardware(rig, hardware)
+    try:
+        out = scaffold_experiment(
+            Path(directory), name=name, force=force, hardware=hardware_choice,
+        )
+    except FileExistsError as exc:
+        click.secho(str(exc), fg="red")
+        raise SystemExit(1)
+    click.secho(f"Scaffolded experiment at {out}", fg="green")
+    click.echo("Next steps:")
+    click.echo(f"  1. cd {out}")
+    if hardware_choice == "dev":
+        click.echo("  2. python procedure.py    # runs the mock acquisition")
+        click.echo(f"  3. open data/sub-SUBJ01/ses-01/manifest.json")
+    else:
+        click.echo("  2. review hardware.yaml   # confirm it matches this rig")
+        click.echo("  3. python procedure.py    # runs the acquisition")
+    click.echo("Read the generated README.md for customization tips.")
+
+
+@cli.group('rig')
+def rig():
+    """Manage this machine's canonical hardware.yaml configurations.
+
+    A rig is a named hardware.yaml stored in this computer's OS config
+    directory. `mesofield init` copies a rig into each new experiment so
+    experiment folders stay self-contained.
+    """
+
+
+@rig.command('list')
+def rig_list():
+    """List the canonical rigs registered on this machine."""
+    from mesofield.scaffold import rigs
+
+    names = rigs.list_rigs()
+    if not names:
+        click.echo(f"No rigs registered. Store: {rigs.rigs_dir()}")
+        click.echo("Add one with 'mesofield rig add' or 'mesofield rig new'.")
+        return
+    click.echo(f"Rigs in {rigs.rigs_dir()}:")
+    for name in names:
+        click.secho(f"  {name}", fg="cyan")
+        try:
+            devices = rigs.rig_devices(name)
+        except Exception as exc:
+            click.secho(f"      (could not read devices: {exc})", fg="red")
+            continue
+        if not devices:
+            click.echo("      (no devices declared)")
+        for dev_name, dev_type in devices:
+            click.echo(f"      - {dev_name}  (type: {dev_type})")
+
+
+@rig.command('add')
+@click.argument('name')
+@click.argument('path', type=click.Path(exists=True, dir_okay=False))
+@click.option('--force', is_flag=True, help='Overwrite an existing rig.')
+def rig_add(name, path, force):
+    """Copy an existing hardware.yaml at PATH into the store as NAME."""
+    from mesofield.scaffold import rigs
+
+    try:
+        dst = rigs.add_rig(name, Path(path), force=force)
+    except FileExistsError as exc:
+        click.secho(str(exc), fg="red")
+        raise SystemExit(1)
+    except Exception as exc:
+        click.secho(f"Failed to add rig: {exc}", fg="red")
+        raise SystemExit(1)
+    click.secho(f"Registered rig {name!r} at {dst}", fg="green")
+
+
+@rig.command('new')
+@click.argument('name')
+@click.option('--force', is_flag=True, help='Overwrite an existing rig.')
+def rig_new(name, force):
+    """Scaffold a blank fill-out hardware template in the store as NAME."""
+    from mesofield.scaffold import rigs
+
+    try:
+        dst = rigs.new_rig(name, force=force)
+    except FileExistsError as exc:
+        click.secho(str(exc), fg="red")
+        raise SystemExit(1)
+    click.secho(f"Created rig template at {dst}", fg="green")
+    click.echo("Edit it to declare this machine's real devices, then use it")
+    click.echo(f"with 'mesofield init <dir> --rig {name}'.")
+
+
+@rig.command('show')
+@click.argument('name')
+def rig_show(name):
+    """Print the path and contents of rig NAME."""
+    from mesofield.scaffold import rigs
+
+    try:
+        path = rigs._resolve_existing(name)
+    except FileNotFoundError as exc:
+        click.secho(str(exc), fg="red")
+        raise SystemExit(1)
+    click.echo(f"# {path}")
+    click.echo(path.read_text(encoding="utf-8"))
+
+
+@rig.command('remove')
+@click.argument('name')
+def rig_remove(name):
+    """Delete rig NAME from the store."""
+    from mesofield.scaffold import rigs
+
+    try:
+        rigs.remove_rig(name)
+    except FileNotFoundError as exc:
+        click.secho(str(exc), fg="red")
+        raise SystemExit(1)
+    click.secho(f"Removed rig {name!r}", fg="green")
+
+
+@cli.command('retrofit-manifest')
+@click.argument('path', type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option('--force', is_flag=True,
+              help='Overwrite existing manifest.json files (default: skip).')
+@click.option('--dry-run', is_flag=True,
+              help='Print what would be written without touching disk.')
+def retrofit_manifest(path, force, dry_run):
+    """Reconstruct mesokit-schema AcquisitionManifests for legacy sessions.
+
+    PATH is either a single session directory (``data/sub-X/ses-Y/``) or an
+    experiment root that contains many sessions under ``data/``. Hardware
+    calibration is not present in legacy acquisitions; producers get an
+    empty ``calibration`` dict. Frame-metadata sidecars (``*_frame_metadata.json``)
+    are attached to their tiffs. Multi-task sessions write one manifest
+    per task as ``manifest_task-<T>.json``.
+    """
+    from mesofield.utils.retrofit import (
+        discover_sessions,
+        manifest_filename,
+        synthesize_manifests,
+    )
+
+    sessions = list(discover_sessions(Path(path)))
+    if not sessions:
+        click.secho(f"No BIDS sessions found under {path}", fg="yellow")
+        raise SystemExit(1)
+
+    written = skipped = empty = 0
+    for session in sessions:
+        by_task = synthesize_manifests(session)
+        if not by_task:
+            click.echo(f"empty {session}  (no producer files)")
+            empty += 1
+            continue
+        multi_task = len(by_task) > 1
+        for task, manifest in by_task.items():
+            out_path = session / manifest_filename(task, multi_task)
+            if out_path.exists() and not force:
+                click.echo(f"skip  {out_path}  (exists; use --force to overwrite)")
+                skipped += 1
+                continue
+            verb = "would write" if dry_run else "wrote"
+            click.echo(
+                f"{verb}  {out_path}  ({len(manifest.producers)} producers, task={task})"
+            )
+            if not dry_run:
+                manifest.write(out_path)
+                written += 1
+
+    summary = (
+        f"\n{'(dry-run) ' if dry_run else ''}"
+        f"sessions={len(sessions)} written={written} skipped={skipped} empty={empty}"
+    )
+    click.echo(summary)
 
 @cli.command()
 @click.option('--dir', required=True, help='Directory containing video files to convert')
@@ -765,6 +1008,73 @@ def _download_with_progress(url: str, dest: Path, chunk_size: int = 1024 * 64):
             click.echo()  # newline after progress
 
 
+@cli.command('build-dataset')
+@click.argument('input_path', type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option('--output', '-o', 'output_path', type=click.Path(), default=None,
+              help='Output file path (default: <experiment>/processed/YYMMDD_dataset_mvp.<fmt>)')
+@click.option('--tags', '-t', multiple=True, default=None,
+              help='Source tags to include (repeatable; default: all configured tags)')
+@click.option('--format', '-f', 'fmt', type=click.Choice(['h5', 'parquet', 'csv', 'pickle']),
+              default='h5', show_default=True, help='Output format')
+@click.option('--progress', is_flag=True, help='Show a progress bar during materialization')
+@click.option('--shell', is_flag=True, help='Drop into an IPython session after building')
+def build_dataset(input_path, output_path, tags, fmt, progress, shell):
+    """Build a materialized dataset from an experiment directory.
+
+    Discovers the BIDS hierarchy under INPUT_PATH, loads all registered
+    data sources, and writes a single dataset file.
+    """
+    from mesofield.datakit.core import Dataset
+
+    ds = Dataset.from_directory(
+        Path(input_path),
+        sources=list(tags) if tags else None,
+    )
+    if output_path is None:
+        from datetime import datetime
+        stem = datetime.now().strftime("%y%m%d") + "_dataset_mvp"
+        ext = {"h5": ".h5", "parquet": ".parquet", "csv": ".csv", "pickle": ".pkl"}[fmt]
+        output_path = Path(input_path) / "processed" / (stem + ext)
+    result_path = ds.save(
+        Path(output_path),
+        format={"h5": "hdf5", "parquet": "parquet", "csv": "csv", "pickle": "pickle"}[fmt],
+        strict=True,
+        progress=progress,
+    )
+    click.secho(f"Dataset saved to {result_path}", fg="green")
+    if shell:
+        try:
+            from IPython import embed
+            import pandas as pd
+            df = pd.read_pickle(result_path) if str(result_path).endswith('.pkl') else pd.read_hdf(result_path)
+            click.echo(f"Loaded dataset as 'df' ({df.shape[0]} rows × {df.shape[1]} cols)")
+            embed(colors="neutral")
+        except ImportError:
+            click.secho("IPython not installed; skipping shell.", fg="yellow")
+
+
+@cli.command('export-hardware')
+@click.argument('procedure_path', type=click.Path(exists=True, dir_okay=False))
+@click.option('--output', '-o', default=None, type=click.Path(),
+              help='Output path for the hardware.yaml '
+                   '(default: hardware.yaml beside the procedure file).')
+def export_hardware(procedure_path, output):
+    """Export a scripted procedure's hardware to a reusable hardware.yaml rig file.
+
+    PROCEDURE_PATH is a procedure.py whose `define_hardware` builds devices in
+    Python. The devices are instantiated and serialized into a `type:`-tagged
+    hardware.yaml that can later be loaded the normal file-based way.
+    """
+    from mesofield.base import load_procedure_from_config
+
+    out = output or os.path.join(
+        os.path.dirname(os.path.abspath(procedure_path)), "hardware.yaml"
+    )
+    procedure = load_procedure_from_config(procedure_path)
+    procedure.hardware.to_yaml(out)
+    click.secho(f"Exported hardware configuration to {out}", fg="green")
+
+
 @cli.command()
 @click.option('--dir', required=True, help='Experiment directiory with pupil files')
 @click.option('--sub', required=True, help='Subject ID (the name of the subject folder)')
@@ -773,19 +1083,11 @@ def plot_session(dir, sub, ses):
     """Plot the pupil data from this session."""
     import pandas as pd
     import matplotlib.pyplot as plt
-    import mesofield.data.proc.load as load
-    import mesofield.data.batch as batch
-    import mesofield.data.proc as proc
-    
-    datadict =  load.file_hierarchy(dir)
-
-    print(f"DEBUG: Available subject keys: {list(datadict.keys())}")
-    print(f"DEBUG: Available session keys for subject '{sub}': {list(datadict[sub].keys())}")
-    print(f"DEBUG: Keys within session '{ses}': {list(datadict[sub][ses].keys())}")
-    
-    data = pd.DataFrame(pd.read_pickle(r"D:\jgronemeyer\240324_HFSA\processed\dlc_output\20250408_174515_sub-STREHAB05_ses-10_task-widefield_pupil.omeDLC_Resnet50_DLC-HFSAApr20shuffle2_snapshot_010_full.pickle")).head()
-    proc_data = proc.process_deeplabcut_pupil_data(data)
-    print(proc_data.head())
+    click.secho(
+        "plot_session is deprecated. Use `mesofield build-dataset` + datakit instead.",
+        fg="yellow",
+    )
+    raise SystemExit(1)
 
 if __name__ == "__main__":
     cli()

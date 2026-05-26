@@ -17,7 +17,7 @@ from typing import Optional, Tuple
 
 import pytest
 
-from mesofield.devices import (
+from mesofield.devices.base import (
     BaseDataProducer,
     BaseDevice,
     BaseSerialDevice,

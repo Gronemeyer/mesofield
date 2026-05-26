@@ -1,0 +1,58 @@
+# Two mock cameras + one mock wheel encoder.
+#
+# Three producers all writing real files (real OME-TIFFs, real CSV) into a
+# BIDS layout under data/sub-DEMO/ses-01/. No GUI required; no real hardware
+# required; the procedure runs to its `duration` cap and writes the
+# AcquisitionManifest at the session root.
+#
+# Layout that gets produced:
+#   data/sub-DEMO/ses-01/
+#     manifest.json                                          ← contract
+#     <ts>_sub-DEMO_ses-01_task-freeview_configuration.csv
+#     <ts>_sub-DEMO_ses-01_task-freeview_timestamps.csv
+#     <ts>_sub-DEMO_ses-01_task-freeview_notes.txt
+#     func/
+#       <ts>_sub-DEMO_ses-01_task-freeview_meso.ome.tiff
+#       <ts>_sub-DEMO_ses-01_task-freeview_meso.ome.tiff_frame_metadata.json
+#     behav/
+#       <ts>_sub-DEMO_ses-01_task-freeview_pupil.ome.tiff
+#       <ts>_sub-DEMO_ses-01_task-freeview_pupil.ome.tiff_frame_metadata.json
+#     beh/
+#       <ts>_sub-DEMO_ses-01_task-freeview_wheel.csv
+#       <ts>_sub-DEMO_ses-01_task-freeview_dataqueue.csv
+memory_buffer_size: 4000
+
+# Primary mesoscope: 128x128 @ 10 fps. Drives session-level timing.
+mesoscope:
+  type: opencv_camera
+  device_index: 0
+  primary: true
+  frame_interval_ms: 100
+  cv_backend: "mpv4"
+  backend: "opencv"
+  output:
+    suffix: meso
+    file_type: mp4
+    bids_type: func
+
+# Pupil camera: 64x64 @ 20 fps.
+pupil:
+  type: mock_camera
+  width: 64
+  height: 64
+  frame_interval_ms: 50
+  output:
+    suffix: pupil
+    file_type: ome.tiff
+    bids_type: behav
+
+# Wheel encoder: 50 Hz.
+wheel:
+  type: mock_wheel
+  sample_interval_ms: 20
+  cpr: 2400
+  diameter_mm: 80
+  output:
+    suffix: wheel
+    file_type: csv
+    bids_type: beh

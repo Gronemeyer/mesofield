@@ -44,17 +44,17 @@ class MainWindow(QMainWindow):
         self._toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBar(self._toolbar)
         self._prop_browsers: list = []  # open PropertyBrowser dialogs
+        self._prop_actions: list = []  # QAction objects for property browsers
         #--------------------------------------------------------------------#
 
-        #============================== Menu bar ===============================#
-        menu_bar = self.menuBar()
-        tools_menu = menu_bar.addMenu("&Tools")
+        #=========================== Toolbar action ==========================#
+        # Place frequently used tools on the main hardware toolbar.
         self._act_tiff_viewer = QAction("TIFF Viewer\u2026", self)
         self._act_tiff_viewer.setToolTip(
             "Open the TIFF ROI viewer (read-only; refuses files in the active recording)."
         )
         self._act_tiff_viewer.triggered.connect(self._open_tiff_viewer)
-        tools_menu.addAction(self._act_tiff_viewer)
+        self._toolbar.addAction(self._act_tiff_viewer)
         self._tiff_viewer = None  # keep a reference so the window isn't GC'd
         #--------------------------------------------------------------------#
 
@@ -113,7 +113,7 @@ class MainWindow(QMainWindow):
         refuse to open any file inside the active recording's output directory
         while a camera is acquiring.
         """
-        from mesofield.data.proc.analysis import TiffViewer
+        from mesofield.gui.tiff_viewer import TiffViewer
 
         cfg = self.procedure.config
         initial_dir = (
@@ -284,7 +284,7 @@ class MainWindow(QMainWindow):
             self._mda_layout.removeWidget(self._acquisition_gui)
             self._acquisition_gui.deleteLater()
 
-        self._acquisition_gui = MDA(self.procedure.config)
+        self._acquisition_gui = MDA(self.procedure)
         self._mda_layout.insertWidget(0, self._acquisition_gui)
 
         # -- Encoder widget ---------------------------------------------------
@@ -311,12 +311,18 @@ class MainWindow(QMainWindow):
 
     def _build_property_browsers(self) -> None:
         """Add a toolbar button per MicroManager camera that opens a PropertyBrowser."""
-        # Close any existing browsers and clear toolbar actions
+        # Close any existing browsers and remove only property-browser actions
         for dlg in self._prop_browsers:
             dlg.close()
             dlg.deleteLater()
         self._prop_browsers.clear()
-        self._toolbar.clear()
+        # Remove previously-added property-browser actions but keep other toolbar actions
+        for act in getattr(self, "_prop_actions", []):
+            try:
+                self._toolbar.removeAction(act)
+            except Exception:
+                pass
+        self._prop_actions.clear()
 
         cameras = self.procedure.config.hardware.cameras
         mm_cams = [
@@ -347,6 +353,7 @@ class MainWindow(QMainWindow):
                 lambda checked, b=browser: self._show_property_browser(b)
             )
             self._toolbar.addAction(action)
+            self._prop_actions.append(action)
 
     @staticmethod
     def _show_property_browser(browser) -> None:

@@ -1,11 +1,42 @@
-from mesofield.devices.base import (
-    BaseDataProducer,
-    BaseDevice,
-    BaseSerialDevice,
-)
+from .base import BaseDevice, BaseDataProducer, BaseSerialDevice
+
+# Hardware-specific devices require rig-only dependencies (nidaqmx,
+# pymmcore-plus, pyserial, etc.).  Import them lazily so analysis-only
+# environments can still reach the base classes.
+try:
+    from .daq import Nidaq
+except ImportError:
+    Nidaq = None  # type: ignore[assignment,misc]
+
+try:
+    from .cameras import MMCamera, OpenCVCamera
+except ImportError:
+    MMCamera = None  # type: ignore[assignment,misc]
+    OpenCVCamera = None  # type: ignore[assignment,misc]
+
+try:
+    from .encoder import SerialWorker
+except ImportError:
+    SerialWorker = None  # type: ignore[assignment,misc]
+
+try:
+    from .treadmill import EncoderSerialInterface
+except ImportError:
+    EncoderSerialInterface = None  # type: ignore[assignment,misc]
+
+try:
+    from .psychopy_device import PsychoPyDevice
+except ImportError:
+    PsychoPyDevice = None  # type: ignore[assignment,misc]
 
 __all__ = [
     "BaseDevice",
     "BaseDataProducer",
     "BaseSerialDevice",
+    "Nidaq",
+    "MMCamera",
+    "OpenCVCamera",
+    "SerialWorker",
+    "EncoderSerialInterface",
+    "PsychoPyDevice",
 ]

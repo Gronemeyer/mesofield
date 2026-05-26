@@ -1,39 +1,22 @@
-"""Custom OME.TIFF writer for MDASequences.
+"""Custom OME.TIFF + MP4 writers for MDASequences.
 
-Borrowed from the pattern shared by Christoph:
-https://forum.image.sc/t/how-to-create-an-image-series-ome-tiff-from-python/42730/7
+`CustomWriter` extends pymmcore-plus's public :class:`OMETiffWriter` with two
+additions:
 
-Sublcassed from pymmcore_plus.mda.handlers._5d_writer_base._5DWriterBase
+1. ``bigtiff=True`` on the underlying tifffile call -- mesoscope acquisitions
+   routinely exceed the classic-TIFF 4 GiB ceiling.
+2. A per-frame ``<filename>_frame_metadata.json`` sidecar emitted from
+   :meth:`finalize_metadata`, containing the same metadata pymmcore-plus
+   accumulates internally. This is the legacy ``mesofield`` contract every
+   downstream parser already reads.
 
-These are the valid axis keys tifffile:
-Supported by OME-XML
-    X : width** (image width)
-    Y : height** (image length)
-    Z : depth** (image depth)
-    T : time** (time series)
-    C : channel** (acquisition path or emission wavelength)
-    Modulo axes:
-    S : sample** (color space and extra samples)
-    A : angle** (OME)
-    P : phase** (OME. In LSM, **P** maps to **position**)
-    R : tile** (OME. Region, position, or mosaic)
-    H : lifetime** (OME. Histogram)
-    E : lambda** (OME. Excitation wavelength)
-    Q : other** (OME)
-Not Supported by OME-XML
-    I : sequence** (generic sequence of images, frames, planes, pages)
-    L : exposure** (FluoView)
-    V : event** (FluoView)
-    M : mosaic** (LSM 6)
+The sidecar JSON is the current source of truth for per-frame metadata. The
+broader goal (tracked separately) is to push the same fields into the OME-XML
+embedded in the TIFF itself so the JSON becomes supplementary and redundant;
+see the TODO in :meth:`OMETiffWriter._sequence_metadata` upstream.
 
-Rules:
-- all axes must be one of TZCYXSAPRHEQ
-- len(axes) must equal len(shape)
-- dimensions (order) must end with YX or YXS
-- no axis can be repeated
-- no more than 8 dimensions (or 9 if 'S' is included)
-
-Non-OME (ImageJ) hyperstack axes MUST be in TZCYXS order
+`CV2Writer` still subclasses :class:`_5DWriterBase` directly because there is
+no public MP4 handler in pymmcore-plus to inherit from.
 """
 
 from datetime import timedelta
@@ -42,69 +25,50 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from pymmcore_plus.mda.metadata import SummaryMetaV1  # type: ignore
 
+from pymmcore_plus.mda.handlers import OMETiffWriter
 from pymmcore_plus.mda.handlers._5d_writer_base import _5DWriterBase
-from pymmcore_plus.mda.handlers import OMETiffWriter, ImageSequenceWriter
 from useq import MDAEvent
 
 import numpy as np
 from pathlib import Path
 import json
 
-IMAGEJ_AXIS_ORDER = "tzcyxs"
 FRAME_MD_FILENAME = "_frame_metadata.json"
 
 # ─── H264 Video Codec ─────────────────────────────────────────────────────
-# base project dir (mesofield/)
-BASE_DIR = Path(__file__).resolve().parent.parent
-# codec folder is under mesofield/external/video-codecs
-CODEC_DIRECTORY = str(BASE_DIR / "external" / "video-codecs")
+# OpenH264 codec DLL for OpenCV video encoding (Windows only).
+# The DLL lives at <repo-root>/external/video-codecs/.
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+CODEC_DIRECTORY = str(_REPO_ROOT / "external" / "video-codecs")
 OPENH264_DLL_PATH = str(Path(CODEC_DIRECTORY) / "openh264-1.8.0-win64.dll")
 # ─────────────────────────────────────────────────────────────────
 
-class CustomWriter(_5DWriterBase[np.memmap]):
-    """Custom Override of Pymmcore-Plus MDA handler that writes to a 5D OME-TIFF file.
+class CustomWriter(OMETiffWriter):
+    """OME-TIFF writer extending pymmcore-plus's :class:`OMETiffWriter`.
 
-    Data is memory-mapped to disk using numpy.memmap via tifffile.  Tifffile handles
-    the OME-TIFF format. Tifffile handler customize to use BigTIFF format
-    
-    Frame metadata is saved to a JSON file.
+    Two divergences from the public base:
 
-    Parameters
-    ----------
-    filename : Path | str
-        The filename to write to.  Must end with '.ome.tiff' or '.ome.tif'.
+    - Uses ``bigtiff=True`` so multi-GiB mesoscope acquisitions write cleanly.
+    - Emits the per-frame metadata JSON sidecar mesofield's downstream parsers
+      (and the AcquisitionManifest's ``metadata_path``) depend on.
+
+    Everything else -- filename validation, frame writing, OME-XML sequence
+    metadata, memmap handling -- is inherited from :class:`OMETiffWriter`.
     """
 
     def __init__(self, filename: Path | str) -> None:
-        try:
-            import tifffile  # noqa: F401
-        except ImportError as e:  # pragma: no cover
-            raise ImportError(
-                "tifffile is required to use this handler. "
-                "Please `pip install tifffile`."
-            ) from e
-
-        self._filename = str(filename)
-        if not self._filename.endswith((".tiff", ".tif")):  # pragma: no cover
-            raise ValueError("filename must end with '.tiff' or '.tif'")
-        self._is_ome = ".ome.tif" in self._filename
-        
-        # Custom attribute: Create a filename for the frame metadata jgronemeyer24
+        super().__init__(filename)
         self._frame_metadata_filename = self._filename + FRAME_MD_FILENAME
-
-        super().__init__()
-
-    def write_frame(
-        self, ary: np.memmap, index: tuple[int, ...], frame: np.ndarray
-    ) -> None:
-        """Write a frame to the file."""
-        ary[index] = frame
-        # print(f"Writing frame {index}")
 
     def new_array(
         self, position_key: str, dtype: np.dtype, sizes: dict[str, int]
     ) -> np.memmap:
-        """Create a new tifffile file and memmap for this position."""
+        """Mirror :meth:`OMETiffWriter.new_array` but with ``bigtiff=True``.
+
+        Upstream's implementation hardcodes the ``imwrite`` call; we duplicate
+        it here to flip the ``bigtiff`` flag. Keep the bodies in sync if a
+        pymmcore-plus bump changes the upstream version.
+        """
         from tifffile import imwrite, memmap
 
         dims, shape = zip(*sizes.items())
@@ -112,101 +76,39 @@ class CustomWriter(_5DWriterBase[np.memmap]):
         metadata: dict[str, Any] = self._sequence_metadata()
         metadata["axes"] = "".join(dims).upper()
 
-        # append the position key to the filename if there are multiple positions
         if (seq := self.current_sequence) and seq.sizes.get("p", 1) > 1:
             ext = ".ome.tif" if self._is_ome else ".tif"
             fname = self._filename.replace(ext, f"_{position_key}{ext}")
         else:
             fname = self._filename
 
-        # create parent directories if they don't exist
-        # Path(fname).parent.mkdir(parents=True, exist_ok=True)
-        # write empty file to disk
         imwrite(
             fname,
             shape=shape,
-            bigtiff=True, #jgronemeyer24
+            bigtiff=True,
             dtype=dtype,
             metadata=metadata,
             imagej=not self._is_ome,
             ome=self._is_ome,
         )
 
-        # memory-mapped NumPy array of image data stored in TIFF file.
         mmap = memmap(fname, dtype=dtype)
-        # This line is important, as tifffile.memmap appears to lose singleton dims
         mmap.shape = shape
-
         return mmap  # type: ignore
 
     def finalize_metadata(self) -> None:
-        """Called during sequenceFinished before clearing sequence metadata.
+        """Write the per-frame metadata sidecar.
 
-        Custom Override to save the frame metadata to a JSON file.
-        jgronemeyer24
+        Called by ``_5DWriterBase.sequenceFinished`` after the last frame.
+        Serialises ``self.frame_metadatas`` (the dict pymmcore-plus accumulates
+        for us in ``frameReady``) to JSON at ``<filename>_frame_metadata.json``.
         """
-        
-        # Convert defaultdict to a regular dictionary
         regular_dict = dict(self.frame_metadatas)
-
-        # Serialize to JSON using CustomJSONEncoder
         json_str = json.dumps(regular_dict, indent=4, cls=CustomJSONEncoder)
-        # Save to a file
-        with open(self._frame_metadata_filename, "w") as file:
-            file.write(json_str)
-        
-        
-        #self.plot() #TODO plot metadata in dev mode
-        
-    def plot(self):
-        import json
-        import pandas as pd
-        import matplotlib.pyplot as plt
+        with open(self._frame_metadata_filename, "w") as fh:
+            fh.write(json_str)
 
-        with open('c:/dev/frame_metadatas.json', 'r') as file:
-            data = json.load(file)
 
-        # Normalize the nested JSON data into a flat table
-        normalized_data = pd.json_normalize(data, record_path=None)
-
-        # Convert the normalized data into a pandas DataFrame
-        df = pd.DataFrame(normalized_data)
-
-        # Extract the 'TimeReceivedByCore' field and convert it to datetime format
-        df['TimeReceivedByCore'] = pd.to_datetime(df['camera_metadata.TimeReceivedByCore'])
-
-        # Plot the 'TimeReceivedByCore' field
-        plt.figure(figsize=(10, 6))
-        plt.plot(df['TimeReceivedByCore'], marker='o')
-        plt.xlabel('Index')
-        plt.ylabel('TimeReceivedByCore')
-        plt.title('TimeReceivedByCore Plot')
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.show()
-        
-    def _sequence_metadata(self) -> dict:
-        """Create metadata for the sequence, when creating a new file."""
-        if not self._is_ome:
-            return {}
-
-        metadata: dict = {}
-        # see tifffile.tifffile for more metadata options
-        if seq := self.current_sequence:
-            if seq.time_plan and hasattr(seq.time_plan, "interval"):
-                interval = seq.time_plan.interval
-                if isinstance(interval, timedelta):
-                    interval = interval.total_seconds()
-                metadata["TimeIncrement"] = interval
-                metadata["TimeIncrementUnit"] = "s"
-            if seq.z_plan and hasattr(seq.z_plan, "step"):
-                metadata["PhysicalSizeZ"] = seq.z_plan.step
-                metadata["PhysicalSizeZUnit"] = "µm"
-            if seq.channels:
-                metadata["Channel"] = {"Name": [c.config for c in seq.channels]}
-
-        return metadata
-                
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, object: Any) -> Any:
         if isinstance(object, MDAEvent):
@@ -258,7 +160,15 @@ def configure_opencv_codec() -> None:
 
 
 class CV2Writer(_5DWriterBase[Any]):
-    """Write incoming MDA frames directly to an mp4/avi video using OpenCV."""
+    """Write frames to an mp4/avi video using OpenCV.
+
+    Two usage modes share the same codec/fourcc/metadata logic:
+
+    - **MDA-driven** (``new_array`` / ``write_frame`` / ``finalize_metadata``)
+      when handed to ``CMMCorePlus.run_mda`` as an output handler.
+    - **Direct** (``begin`` / ``add_frame`` / ``finish``) for cameras that run
+      their own capture loop (e.g. :class:`OpenCVCamera`).
+    """
 
     def __init__(self, filename: Path | str, fps: int = 30, fourcc: str = "H264") -> None:
         configure_opencv_codec()
@@ -269,6 +179,8 @@ class CV2Writer(_5DWriterBase[Any]):
         self._fps = fps
         self._fourcc = fourcc
         self._frame_metadata_filename = self._filename + FRAME_MD_FILENAME
+        # Direct-use (non-MDA) capture-loop writer; opened by `begin`.
+        self._direct_writer: Any = None
 
         super().__init__()
 
@@ -304,6 +216,49 @@ class CV2Writer(_5DWriterBase[Any]):
 
         regular_dict = dict(self.frame_metadatas)
         json_str = json.dumps(regular_dict, indent=4, cls=CustomJSONEncoder)
+        with open(self._frame_metadata_filename, "w") as file:
+            file.write(json_str)
+
+    # ----- direct (non-MDA) capture-loop interface ----------------------
+    def begin(self, width: int, height: int, is_color: bool = True) -> None:
+        """Open the underlying ``cv2.VideoWriter`` for a self-driven loop."""
+        import cv2
+
+        Path(self._filename).parent.mkdir(parents=True, exist_ok=True)
+        fourcc = cv2.VideoWriter.fourcc(*self._fourcc)
+        writer = cv2.VideoWriter(
+            self._filename, fourcc, float(self._fps), (width, height), isColor=is_color
+        )
+        if not writer.isOpened():
+            raise RuntimeError(
+                f"cv2.VideoWriter failed to open '{self._filename}' "
+                f"(fourcc={self._fourcc}, fps={self._fps})"
+            )
+        self._direct_writer = writer
+
+    def add_frame(self, frame: np.ndarray) -> None:
+        """Write one frame to the direct-mode video (uint8 frames pass through)."""
+        if self._direct_writer is None:
+            raise RuntimeError("CV2Writer.add_frame called before begin()")
+        if frame.dtype != np.uint8:
+            import cv2
+
+            frame = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        self._direct_writer.write(frame)
+
+    def finish(self, extra_metadata: dict | None = None) -> None:
+        """Release the direct-mode writer and write the metadata sidecar."""
+        if self._direct_writer is not None:
+            try:
+                self._direct_writer.release()
+            except Exception:
+                pass
+            self._direct_writer = None
+
+        payload: dict[str, Any] = {"frame_metadatas": dict(self.frame_metadatas)}
+        if extra_metadata:
+            payload.update(extra_metadata)
+        json_str = json.dumps(payload, indent=4, cls=CustomJSONEncoder)
         with open(self._frame_metadata_filename, "w") as file:
             file.write(json_str)
  

@@ -11,10 +11,12 @@ Provides a unified widget for selecting and applying:
 from __future__ import annotations
 
 import os
+import shutil
 from typing import TYPE_CHECKING, Optional, List
 
 from PyQt6.QtCore import pyqtSignal, Qt, QSettings
 from PyQt6.QtWidgets import (
+    QComboBox,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
@@ -30,7 +32,7 @@ from PyQt6.QtWidgets import (
 if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
     from mesofield.base import Procedure
-    from mesofield.io.devices.cameras import MMCamera
+    from mesofield.devices.cameras import MMCamera
 
 
 # ---------------------------------------------------------------------------
@@ -500,6 +502,19 @@ class ConfigWizard(QWidget):
         )
         yaml_layout.addWidget(self._yaml_picker)
 
+        # -- Rig picker: copy a canonical hardware.yaml from the rig store ---
+        rig_row = QHBoxLayout()
+        rig_row.addWidget(QLabel("Rig:"))
+        self._rig_combo = QComboBox()
+        self._rig_combo.setToolTip(
+            "Copy a canonical hardware.yaml from this machine's rig store "
+            "into the experiment directory"
+        )
+        self._populate_rig_combo()
+        self._rig_combo.currentTextChanged.connect(self._on_rig_selected)
+        rig_row.addWidget(self._rig_combo, 1)
+        yaml_layout.addLayout(rig_row)
+
         self._yaml_status = QLabel("")
         yaml_layout.addWidget(self._yaml_status)
         layout.addWidget(yaml_group)
@@ -544,8 +559,57 @@ class ConfigWizard(QWidget):
 
     # -- Slots ---------------------------------------------------------------
 
+    def _populate_rig_combo(self) -> None:
+        """Fill the rig dropdown from the machine's rig store."""
+        from mesofield.scaffold import rigs
+
+        self._rig_combo.blockSignals(True)
+        self._rig_combo.clear()
+        self._rig_combo.addItem("— select rig —")
+        for name in rigs.list_rigs():
+            self._rig_combo.addItem(name)
+        self._rig_combo.addItem("dev (mock devices)")
+        # Needs a JSON destination dir before it can copy anything.
+        self._rig_combo.setEnabled(bool(self._json_picker.text()))
+        self._rig_combo.blockSignals(False)
+
+    def _on_rig_selected(self, label: str) -> None:
+        """Copy the chosen canonical rig into the experiment's directory."""
+        if not label or label.startswith("—"):
+            return
+        json_path = self._json_picker.text()
+        if not json_path:
+            self._yaml_status.setText("⚠ pick an experiment JSON first")
+            self._yaml_status.setStyleSheet("color: orange;")
+            return
+        dest = os.path.join(os.path.dirname(os.path.abspath(json_path)), "hardware.yaml")
+        if os.path.exists(dest):
+            reply = QMessageBox.question(
+                self, "Overwrite hardware.yaml?",
+                f"{dest}\nalready exists. Overwrite it with rig '{label}'?",
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                self._rig_combo.setCurrentIndex(0)
+                return
+        from mesofield.scaffold import rigs
+        from mesofield.scaffold.experiment import _hardware_yaml_mock
+
+        try:
+            if label.startswith("dev"):
+                with open(dest, "w", encoding="utf-8") as fh:
+                    fh.write(_hardware_yaml_mock())
+            else:
+                shutil.copyfile(rigs.rig_path(label), dest)
+        except Exception as exc:
+            QMessageBox.warning(self, "Rig copy failed", str(exc))
+            return
+        self._yaml_picker.line_edit.setText(dest)
+        self._yaml_status.setText(f"✔ copied rig '{label}' → hardware.yaml")
+        self._yaml_status.setStyleSheet("color: green;")
+
     def _on_json_path_changed(self, text: str) -> None:
         """When the JSON line-edit changes, try to auto-detect hardware.yaml."""
+        self._rig_combo.setEnabled(bool(text))
         if not text:
             return
         candidate = os.path.join(os.path.dirname(text), "hardware.yaml")

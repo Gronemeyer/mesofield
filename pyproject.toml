@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
 authors = [
-    {name = "Gronemeyer"}
+    {name = "Jacob Gronemeyer"}
 ]
 keywords = ["imaging", "microscopy", "acquisition", "neuroscience"]
 classifiers = [
@@ -34,6 +34,7 @@ dependencies = [
     "jupyter_core",
     "markdown-it-py",
     "matplotlib",
+    "mesokit-schema @ git+https://github.com/Gronemeyer/mesokit-schema.git",
     "nidaqmx",
     "numpy",
     "packaging",
@@ -42,6 +43,8 @@ dependencies = [
     "pillow",
     "platformdirs",
     "psygnal",
+    "pyaml",
+    "opencv-python",
     "pymmcore",
     "pymmcore-plus",
     "pymmcore-widgets",

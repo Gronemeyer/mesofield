@@ -9,9 +9,14 @@ class DeviceRegistry:
     
     @classmethod
     def register(cls, device_type: str) -> Callable[[Type[T]], Type[T]]:
-        """Register a device class for a specific device type."""
+        """Register a device class for a specific device type.
+
+        The decorator also stamps ``registry_key`` onto the class so any
+        device instance can report its YAML ``type:`` for hardware export.
+        """
         def decorator(device_class: Type[T]) -> Type[T]:
             cls._registry[device_type] = device_class
+            device_class.registry_key = device_type
             return device_class
         return decorator
     

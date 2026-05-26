@@ -9,9 +9,6 @@ DataManager & DataSaver Workflow Overview
     ├─ dm.saver.all_hardware()        # writes hardware outputs
     ├─ dm.saver.all_notes()           # writes notes.txt if any
     └─ dm.saver.writer_for(camera)    # returns writer & updates camera output paths
-3. Final database update: dm.update_database()
-    update_database() records the :class:`DataPaths` for the current configuration
-    into the HDF5 database using a MultiIndex of (Subject, Session, Task).
 """
 
 from dataclasses import dataclass, field
@@ -29,9 +26,7 @@ import pandas as pd
 
 from mesofield.config import ExperimentConfig
 from mesofield.data.writer import CustomWriter, CV2Writer
-from mesofield.io.h5db import H5Database
 from mesofield.utils._logger import get_logger, log_this_fr
-from typing import Dict
 
 
 @dataclass
@@ -243,11 +238,10 @@ class DataSaver:
 
 
 class DataManager:
-    """Very small wrapper providing optional :class:`DataSaver`."""
+    """Wrapper providing :class:`DataSaver` and :class:`DataQueue`."""
 
-    def __init__(self, h5_path: str) -> None:
+    def __init__(self) -> None:
         self.save: DataSaver
-        self.base = H5Database(h5_path)
         self.queue = DataQueue()
 
         self.devices: List[Any] = []
@@ -279,11 +273,6 @@ class DataManager:
         for dev in devices:
             if hasattr(dev, "signals"):
                 self.register_hardware_device(dev)
-
-    def append_to_database(self, df: pd.DataFrame, key: str = "data") -> None:
-        """Append ``df`` to the database if configured."""
-        if self.base:
-            self.base.update(df, key)
 
     # ------------------------------------------------------------------
     def start_queue_logger(self, path: str | None = None) -> None:
@@ -389,39 +378,3 @@ class DataManager:
         idx = pd.MultiIndex.from_arrays([[subject], [session]], names=["Subject", "Session"])
         return pd.DataFrame(records, index=idx)
 
-    # ------------------------------------------------------------------
-    def update_database(self) -> None:
-        """Record the current :class:`DataPaths` into the HDF5 database."""
-        if not (self.base and self.save):
-            return
-
-        cfg = self.save.cfg
-        subject, session, task = cfg.subject, cfg.session, getattr(cfg, "task", "")
-
-        # build single row dataframe with output paths
-        records: dict[str, str] = {
-            "configuration": self.save.paths.configuration,
-            "notes": self.save.paths.notes,
-            "timestamps": self.save.paths.timestamps,
-            "queue": self.queue_log_path or self.save.paths.queue,
-        }
-
-        for dev_id, path in self.save.paths.hardware.items():
-            records[dev_id] = path
-
-        for name, path in self.save.paths.writers.items():
-            records[name] = path
-
-        idx = pd.MultiIndex.from_arrays(
-            [[subject], [session], [task]],
-            names=["Subject", "Session", "Task"],
-        )
-
-        df = pd.DataFrame([records], index=idx)
-        self.append_to_database(df, key="datapaths")
-
-    def read_database(self, key: str = "datapaths") -> Optional[pd.DataFrame]:
-        """Read a DataFrame from the underlying :class:`H5Database`."""
-        if self.base:
-            return self.base.read(key)
-        return None

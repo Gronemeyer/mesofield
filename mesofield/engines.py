@@ -45,9 +45,17 @@ class MesoEngine(MDAEngine):
         if not led_sequence:
             raise ValueError('Missing led_sequence in MDASequence metadata and ExperimentConfig')
 
-        self._mmc.getPropertyObject('Arduino-Switch', 'State').loadSequence(led_sequence)
-        self._mmc.getPropertyObject('Arduino-Switch', 'State').setValue(4) # seems essential to initiate serial communication
-        self._mmc.getPropertyObject('Arduino-Switch', 'State').startSequence()
+        camera = getattr(self, 'camera', None)
+        self.logger.info(
+            f"setup_sequence: engine.camera={'set' if camera is not None else 'None'} "
+            f"has_start_led={hasattr(camera, 'start_led_sequence') if camera else False}"
+        )
+        if camera is not None and hasattr(camera, 'start_led_sequence'):
+            camera.start_led_sequence(led_sequence)
+        else:
+            self._mmc.getPropertyObject('Arduino-Switch', 'State').loadSequence(led_sequence)
+            self._mmc.getPropertyObject('Arduino-Switch', 'State').setValue(4) # seems essential to initiate serial communication
+            self._mmc.getPropertyObject('Arduino-Switch', 'State').startSequence()
 
         self.logger.info(f'setup_sequence loaded LED sequence at time: {time.time()}')
 
@@ -115,11 +123,13 @@ class MesoEngine(MDAEngine):
     def teardown_sequence(self, sequence: useq.MDASequence) -> None:
         """Perform any teardown required after the sequence has been executed."""
         self.logger.info(f'teardown_sequence at time: {time.time()}')
-        
+
         # Stop the Arduino LED Sequence
-        self._mmc.getPropertyObject('Arduino-Switch', 'State').stopSequence()
-        pass
-    
+        camera = getattr(self, 'camera', None)
+        if camera is not None and hasattr(camera, 'stop_led_sequence'):
+            camera.stop_led_sequence()
+        else:
+            self._mmc.getPropertyObject('Arduino-Switch', 'State').stopSequence()
 
 
 class PupilEngine(MDAEngine):

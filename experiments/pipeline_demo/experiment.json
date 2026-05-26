@@ -1,0 +1,24 @@
+{
+    "Configuration": {
+        "experimenter": "pipeline-test",
+        "protocol": "PIPELINE_DEMO",
+        "duration": 2,
+        "start_on_trigger": false
+    },
+    "procedure_file": "procedure.py",
+    "procedure_class": "PipelineDemoProcedure",
+    "Subjects": {
+        "DEMO01": {
+            "session": "01",
+            "task": "demo"
+        }
+    },
+    "DisplayKeys": [
+        "subject",
+        "session",
+        "task",
+        "experimenter",
+        "protocol",
+        "duration"
+    ]
+}
