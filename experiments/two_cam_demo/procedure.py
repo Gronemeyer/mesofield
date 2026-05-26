@@ -19,8 +19,8 @@ import threading
 
 from mesofield import DeviceRegistry
 from mesofield.base import Procedure
-from mesofield.examples.mock_camera import MockFrameProducer
-from mesofield.examples.mock_encoder import MockEncoderDevice
+from mesofield.devices.mocks import MockFrameProducer
+from mesofield.devices.mocks import MockEncoderDevice
 
 
 DeviceRegistry._registry.setdefault("mock_wheel", MockEncoderDevice)

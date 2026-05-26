@@ -79,10 +79,23 @@ class Procedure:
         self.events.procedure_error.connect(lambda _msg: self._finished_event.set())
 
         self.config: Configurator
+        self._config_path = config_path
         experiment_dir = os.path.dirname(os.path.abspath(config_path)) if config_path else None
         self.config = ExperimentConfig(experiment_dir)
-        if config_path:
+
+        # Scripted config: a subclass may declare parameters in Python
+        # (a dataclass or mapping) instead of an experiment.json file.
+        config_data = self.define_config()
+        if config_data is not None:
+            self.config.load_dict(config_data)
+        elif config_path and config_path.endswith(".json"):
             self.config.load_json(config_path)
+
+        # Scripted hardware: a subclass may construct device objects directly
+        # instead of relying on a hardware.yaml file.
+        devices = self.define_hardware()
+        if devices is not None:
+            self.config.hardware = HardwareManager(devices=devices)
 
         self.protocol = self.config.get("protocol", "default_experiment")
         self.experimenter = self.config.get("experimenter", "researcher")
@@ -168,6 +181,27 @@ class Procedure:
 
     # ------------------------------------------------------------------
     # Subclass extension hooks (no-op defaults)
+
+    def define_config(self) -> Any:
+        """Subclass hook to declare experiment parameters in Python.
+
+        Override to return a ``@dataclass`` instance or a plain mapping; it is
+        applied to :attr:`config` via :meth:`ExperimentConfig.load_dict`,
+        superseding any ``experiment.json``. Default ``None`` -> load JSON.
+        """
+        return None
+
+    def define_hardware(self) -> Any:
+        """Subclass hook to construct hardware devices in Python.
+
+        Override to return a list of pre-built device objects (imported and
+        instantiated in the procedure file). They are handed to a fresh
+        :class:`HardwareManager`, superseding any ``hardware.yaml``. Default
+        ``None`` -> load YAML. Device classes should be decorated with
+        ``@DeviceRegistry.register(...)`` so the setup can later be exported
+        to a ``hardware.yaml`` rig file via ``HardwareManager.to_yaml``.
+        """
+        return None
 
     def prerun(self) -> None:
         """Subclass hook called before arming devices.  Override as needed."""
@@ -428,6 +462,11 @@ def load_procedure_from_config(config_path: str) -> "Procedure":
     if not config_path or not os.path.isfile(config_path):
         return Procedure(config_path)
 
+    # A scripted procedure: config_path points straight at a Python file that
+    # defines a Procedure subclass (with define_config / define_hardware).
+    if config_path.endswith(".py"):
+        return _load_procedure_from_py(config_path)
+
     try:
         with open(config_path, "r", encoding="utf-8") as fh:
             cfg = json.load(fh)
@@ -468,6 +507,53 @@ def load_procedure_from_config(config_path: str) -> "Procedure":
         )
 
     return cls(config_path)
+
+
+def _load_procedure_from_py(py_path: str) -> "Procedure":
+    """Instantiate the Procedure subclass defined in a scripted ``procedure.py``.
+
+    The class is selected from a module-level ``PROCEDURE`` attribute when
+    present, otherwise the single :class:`Procedure` subclass *defined in*
+    that file. The ``.py`` path is passed as ``config_path`` so the
+    procedure's ``experiment_dir`` resolves to the file's directory; the
+    ``define_config`` hook supplies the actual parameters.
+    """
+    abs_path = os.path.abspath(py_path)
+    mod_name = f"mesofield_user_procedure_{uuid.uuid4().hex}"
+    spec = importlib.util.spec_from_file_location(mod_name, abs_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load procedure file: {abs_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[mod_name] = module
+    spec.loader.exec_module(module)
+
+    cls = getattr(module, "PROCEDURE", None)
+    if cls is None:
+        candidates = [
+            obj for obj in vars(module).values()
+            if isinstance(obj, type)
+            and issubclass(obj, Procedure)
+            and obj is not Procedure
+            and obj.__module__ == mod_name
+        ]
+        if not candidates:
+            raise AttributeError(
+                f"No Procedure subclass found in {abs_path}. Define one, or "
+                f"set a module-level 'PROCEDURE = <class>'."
+            )
+        if len(candidates) > 1:
+            names = ", ".join(c.__name__ for c in candidates)
+            raise AttributeError(
+                f"Multiple Procedure subclasses in {abs_path} ({names}); "
+                f"set a module-level 'PROCEDURE = <class>' to disambiguate."
+            )
+        cls = candidates[0]
+
+    if not (isinstance(cls, type) and issubclass(cls, Procedure)):
+        raise TypeError(
+            f"{cls!r} in {abs_path} must be a subclass of mesofield.base.Procedure"
+        )
+    return cls(abs_path)
 
 
 # Factory function for creating procedures
