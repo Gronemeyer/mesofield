@@ -104,6 +104,11 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         Engine = {"ThorCam": PupilEngine,
                   "Dhyana": MesoEngine}.get(self.id, DevEngine)
         self._engine = Engine(core, use_hardware_sequencing=True)
+        # Back-reference so engines can call camera helpers (e.g. LED control).
+        try:
+            self._engine.camera = self
+        except Exception:
+            pass
         core.mda.set_engine(self._engine)
         self.core = core
 
@@ -150,6 +155,83 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
                         setter(dev_id, prop, val)
 
     # `arm()` is inherited from BaseCamera: it calls set_writer + set_sequence.
+
+    # ------------------------------------------------------------------
+    # LED control
+    # ------------------------------------------------------------------
+    # The Arduino-Switch device adapter in some Micro-Manager configs becomes
+    # unusable when certain Dhyana camera properties are set (its sequenced
+    # ``State`` property no longer responds to ``loadSequence``/``startSequence``).
+    # The underlying serial port still works, so when ``led_serial`` is present
+    # in the camera YAML block we bypass the MM Arduino device and write raw
+    # bytes through MM's SerialManager (which already owns the COM port).
+    #
+    # YAML schema (sibling of ``properties``)::
+    #
+    #     led_serial:
+    #       port: "COM3"                 # MM SerialManager device label
+    #       start_command:               # list of byte sequences sent in order
+    #         - [5, 0, 4]
+    #         - [6, 1]
+    #         - [8]
+    #       stop_command:
+    #         - [9]
+    def _led_serial_cfg(self) -> Optional[dict]:
+        cfg = self.cfg.get("led_serial") if isinstance(self.cfg, dict) else None
+        return cfg if isinstance(cfg, dict) else None
+
+    def _send_serial_commands(self, commands) -> None:
+        """Write a list of byte sequences to the configured MM serial port."""
+        led = self._led_serial_cfg() or {}
+        port = led.get("port")
+        if not port or not commands or self.core is None:
+            return
+        writer = getattr(self.core, "writeToSerialPort", None)
+        if writer is None:
+            self.logger.warning("core has no writeToSerialPort; cannot send LED bytes")
+            return
+        for cmd in commands:
+            byte_list = [int(b) & 0xFF for b in cmd]
+            self.logger.info(f"writeToSerialPort({port!r}, {byte_list})")
+            writer(port, byte_list)
+
+    def start_led_sequence(self, pattern) -> None:
+        """Start the LED pattern.
+
+        If ``led_serial`` is configured on this camera, sends the configured
+        raw byte sequences via MM's SerialManager.  Otherwise falls back to
+        the original ``Arduino-Switch.State.loadSequence/startSequence`` path.
+        """
+        led = self._led_serial_cfg()
+        self.logger.info(
+            f"start_led_sequence: led_serial={'present' if led else 'absent'} "
+            f"pattern={pattern}"
+        )
+        if led is not None:
+            self._send_serial_commands(led.get("start_command", []))
+            return
+        if self.backend != "micromanager" or self.core is None:
+            return
+        prop = self.core.getPropertyObject("Arduino-Switch", "State")
+        prop.loadSequence(pattern)
+        prop.setValue(4)  # seems essential to initiate serial communication
+        prop.startSequence()
+
+    def stop_led_sequence(self) -> None:
+        """Stop the LED pattern (mirror of :meth:`start_led_sequence`)."""
+        led = self._led_serial_cfg()
+        self.logger.info(
+            f"stop_led_sequence: led_serial={'present' if led else 'absent'}"
+        )
+        if led is not None:
+            self._send_serial_commands(led.get("stop_command", []))
+            return
+        if self.backend != "micromanager" or self.core is None:
+            return
+        try:
+            self.core.getPropertyObject("Arduino-Switch", "State").stopSequence()
+        except Exception as exc:
+            self.logger.warning(f"stopSequence failed: {exc}")
 
     def start(self) -> bool:
         #self.is_active = True

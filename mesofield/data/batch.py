@@ -1,11 +1,36 @@
 import os
 import concurrent.futures
+import threading
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
 from tqdm import tqdm
 import tifffile
+
+from scipy.ndimage import percentile_filter
+
+# Defaults for sCMOS widefield with GCaMP8s — tune per setup.
+DFF_DEFAULTS = dict(
+    camera_offset=1602,    # validated from dark frames on 260422 in the dhyana-sensitivty experiment
+    fs=49.9,
+    percentile=8.0,
+    window_seconds=60.0,    # 'collapse_first' only
+    f0_floor=10.0,          # Rupprecht's "10 or 20 units" guard
+    n_f0_samples=500,       # 'pixelwise' only — frames used for global F0
+    chunk_frames=2000,      # 'pixelwise' only — temporal chunk for Pass 2
+    fix_first_frame=True,  # replace frame 0 with a copy of frame 1 (hot-pixel/
+                            # rolling-shutter artifact on the first acquired frame)
+    max_frames=58227,       # optional cap for methods that should only process
+                            # an initial segment of the stack
+)
+
+
+def _apply_first_frame_fix(arr, params):
+    """If enabled and arr has >=2 frames along axis 0, overwrite arr[0] with arr[1]."""
+    if params.get('fix_first_frame') and arr.shape[0] >= 2:
+        arr[0] = arr[1]
+    return arr
 
 # Set environment variables to suppress OpenCV/FFMPEG output BEFORE importing cv2
 os.environ['OPENCV_LOG_LEVEL'] = 'SILENT'
@@ -36,6 +61,169 @@ CODEC_DIRECTORY = str(_REPO_ROOT / "external" / "video-codecs")
 OPENH264_DLL_PATH = str(Path(CODEC_DIRECTORY) / "openh264-1.8.0-win64.dll")
 # ─────────────────────────────────────────────────────────────────
 
+
+# ─── Progress reporting ───────────────────────────────────────────────────
+# Algorithm functions accept a `progress` callable and just call `progress(n)`
+# after processing `n` frames. The default is a no-op, so algorithms stay
+# unaware of whether progress is wired up. The orchestrator builds a single
+# thread-safe reporter bound to a shared tqdm bar.
+
+def _noop_progress(_n):
+    pass
+
+
+def chunked(total, chunk, progress=_noop_progress):
+    """Yield (start, end) frame ranges and report progress after each chunk.
+
+    Use in algorithms instead of a manual `range(0, T, chunk)` loop:
+
+        for s, e in chunked(T, params['chunk_frames'], progress):
+            ...work on frames[s:e]...
+    """
+    for s in range(0, total, chunk):
+        e = min(s + chunk, total)
+        yield s, e
+        progress(e - s)
+
+
+def _make_progress_reporter(total_work, desc, enabled=True):
+    """Return (progress_fn, close_fn). progress_fn is thread-safe."""
+    if not enabled:
+        return _noop_progress, lambda: None
+    pbar = tqdm(total=total_work, desc=desc, unit="frame",
+                unit_scale=True, leave=False)
+    lock = threading.Lock()
+
+    def _update(n):
+        with lock:
+            pbar.update(n)
+
+    return _update, pbar.close
+
+
+# ─── ΔF/F algorithms ──────────────────────────────────────────────────────
+# Each algorithm is a pure function (tiff_path, params, progress) -> np.ndarray.
+# Register it in DFF_METHODS along with a `work(T, params)` estimator that
+# returns the number of "frame units" the algorithm will process, so the
+# orchestrator can size the progress bar without method-specific knowledge.
+
+def _dff_collapse_first(tiff_path, params, progress=_noop_progress):
+    """Method A: spatial mean → moving-percentile F0 → ΔF/F on the 1D trace.
+    Cheap. Pixels weighted by photon yield."""
+    tiff_array = tifffile.memmap(tiff_path)
+    max_frames = params.get('max_frames')
+    if max_frames is not None:
+        tiff_array = tiff_array[:max_frames]
+    T = tiff_array.shape[0]
+
+    F = np.empty(T, dtype=np.float32)
+    for s, e in chunked(T, params['chunk_frames'], progress):
+        F[s:e] = np.mean(tiff_array[s:e], axis=(1, 2),
+                         dtype=np.float64).astype(np.float32)
+
+    # Suppress the first-frame acquisition artifact before any ΔF/F math,
+    # otherwise the F0 estimator and the ratio at t=0 both get distorted.
+    _apply_first_frame_fix(F, params)
+
+    F -= params['camera_offset']
+    w = max(3, int(round(params['window_seconds'] * params['fs'])))
+    if w >= len(F):
+        F0 = np.full_like(F, np.percentile(F, params['percentile']))
+    else:
+        F0 = percentile_filter(F, percentile=params['percentile'],
+                               size=w, mode='nearest').astype(np.float32)
+    F0 = np.maximum(F0, 0.0)
+    return (F - F0) / (F0 + params['f0_floor'])
+
+
+def _dff_pixelwise(tiff_path, params, progress=_noop_progress):
+    """Method B: per-pixel global percentile F0 → ΔF/F → spatial mean.
+    F0 from n_f0_samples temporally-distributed frames (cheap, accurate
+    for slow drifts). No drift correction in F0 itself; detrend downstream
+    if bleaching matters. Pixels weighted equally — amplifies low-SNR regions."""
+    tiff_array = tifffile.memmap(tiff_path)
+    T = tiff_array.shape[0]
+    offset = params['camera_offset']
+
+    # Pass 1: F0 from temporally subsampled stack (memory-bounded).
+    # np.linspace(0, T-1, n) always includes index 0, so the first-frame
+    # artifact would leak into the F0 percentile estimate — fix it here.
+    n_samples = min(params['n_f0_samples'], T)
+    sample_idx = np.linspace(0, T - 1, n_samples, dtype=int)
+    sample_stack = np.asarray(tiff_array[sample_idx], dtype=np.float32)
+    if sample_idx[0] == 0:
+        _apply_first_frame_fix(sample_stack, params)
+    sample_stack -= offset
+    F0 = np.percentile(sample_stack, params['percentile'], axis=0)
+    F0 = np.maximum(F0, 0.0).astype(np.float32)
+    denom = F0 + params['f0_floor']
+    del sample_stack
+    progress(n_samples)
+
+    # Pass 2: chunked ΔF/F → spatial mean per frame. Fix the first frame of
+    # the very first block (before offset/ratio) so it propagates cleanly.
+    out = np.empty(T, dtype=np.float32)
+    for s, e in chunked(T, params['chunk_frames'], progress):
+        block = np.asarray(tiff_array[s:e], dtype=np.float32)
+        if s == 0:
+            _apply_first_frame_fix(block, params)
+        block -= offset
+        out[s:e] = ((block - F0) / denom).mean(axis=(1, 2), dtype=np.float64)
+    return out
+
+
+# Registry: name -> (function, work-estimator). Add new algorithms here and
+# they automatically participate in the shared progress bar.
+DFF_METHODS = {
+    'collapse_first': {
+        'fn':   _dff_collapse_first,
+        'work': lambda T, params: min(T, params['max_frames']) if params.get('max_frames') is not None else T,
+    },
+    'pixelwise': {
+        'fn':   _dff_pixelwise,
+        'work': lambda T, params: T + min(params['n_f0_samples'], T),
+    },
+}
+
+
+def _tiff_frame_count(path):
+    try:
+        with tifffile.TiffFile(path) as tf:
+            return len(tf.pages)
+    except Exception:
+        return int(tifffile.memmap(path).shape[0])
+
+
+def dff_trace_from_tiff(tiff_paths, method='collapse_first',
+                        show_progress=True, max_workers=None, **dff_params):
+    """
+    Compute ΔF/F traces concurrently across tiff files.
+
+    method : key into DFF_METHODS (e.g. 'collapse_first', 'pixelwise').
+    max_workers : cap this for 'pixelwise' if RAM-bound (each worker holds
+                  ~ n_f0_samples * H * W * 4 bytes during Pass 1).
+    **dff_params overrides DFF_DEFAULTS.
+
+    Returns dict {tiff_path: np.ndarray (T,) float32}
+    """
+    params = {**DFF_DEFAULTS, **dff_params}
+    spec = DFF_METHODS[method]
+    worker, work_of = spec['fn'], spec['work']
+
+    total_work = sum(work_of(_tiff_frame_count(p), params) for p in tiff_paths)
+    progress, close = _make_progress_reporter(
+        total_work, desc=f"ΔF/F ({method})", enabled=show_progress)
+
+    try:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(worker, p, params, progress): p
+                       for p in tiff_paths}
+            results = {}
+            for future in concurrent.futures.as_completed(futures):
+                results[futures[future]] = future.result()
+    finally:
+        close()
+    return results
 
 def mean_trace_from_tiff(tiff_paths, show_progress=True, save=False):
     """
