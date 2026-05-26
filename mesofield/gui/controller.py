@@ -482,10 +482,13 @@ class ConfigController(QWidget):
         """
         try:
             led_pattern = self.config.led_pattern
-            self.config.hardware.Dhyana.core.getPropertyObject('Arduino-Switch', 'State').loadSequence(led_pattern)
-            self.config.hardware.Dhyana.core.getPropertyObject('Arduino-Switch', 'State').loadSequence(led_pattern)
-            self.config.hardware.Dhyana.core.getPropertyObject('Arduino-Switch', 'State').setValue(4) # seems essential to initiate serial communication
-            self.config.hardware.Dhyana.core.getPropertyObject('Arduino-Switch', 'State').startSequence()
+            cam = self.config.hardware.Dhyana
+            if hasattr(cam, "start_led_sequence"):
+                cam.start_led_sequence(led_pattern)
+            else:
+                cam.core.getPropertyObject('Arduino-Switch', 'State').loadSequence(led_pattern)
+                cam.core.getPropertyObject('Arduino-Switch', 'State').setValue(4) # seems essential to initiate serial communication
+                cam.core.getPropertyObject('Arduino-Switch', 'State').startSequence()
             print("LED test pattern sent successfully.")
         except Exception as e:
             print(f"Error testing LED pattern: {e}")
@@ -495,7 +498,11 @@ class ConfigController(QWidget):
         Stop the LED pattern by sending a stop sequence to the Arduino-Switch device.
         """
         try:
-            self.config.hardware.Dhyana.core.getPropertyObject('Arduino-Switch', 'State').stopSequence()
+            cam = self.config.hardware.Dhyana
+            if hasattr(cam, "stop_led_sequence"):
+                cam.stop_led_sequence()
+            else:
+                cam.core.getPropertyObject('Arduino-Switch', 'State').stopSequence()
             print("LED test pattern stopped successfully.")
         except Exception as e:
             print(f"Error stopping LED pattern: {e}")
