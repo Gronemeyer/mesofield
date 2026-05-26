@@ -91,7 +91,7 @@ class ConfigFormWidget(QWidget):
                     editor.setPlaceholderText("e.g. 422222442 or [\"4\",\"2\",\"2\"]")
                 editor.editingFinished.connect(lambda k=key, e=editor: self._commit_text_editor(k, e))
             form.addRow(key, editor)
-        self.config_hint_text = QLabel("<i>All values are editable during recording before saving upon Procedure completion</i>")
+        self.config_hint_text = QLabel("<i>Values persist upon Procedure completion or with the \"Save\" button</i>")
         form.addRow(self.config_hint_text)
 
 
@@ -154,15 +154,36 @@ class ConfigController(QWidget):
         # subject selection dropdown
         self.subject_dropdown_label = QLabel('Select Subject:')
         self.subject_dropdown = QComboBox()
+        self.add_subject_button = QPushButton("+ Subject")
+        self.add_subject_button.setToolTip("Add a new subject to experiment.json")
+        self.add_parameter_button = QPushButton("+ Parameter")
+        self.add_parameter_button.setToolTip(
+            "Add a new parameter applied to every subject and made editable in DisplayKeys"
+        )
         sub_layout = QHBoxLayout()
         sub_layout.addWidget(self.subject_dropdown_label)
         sub_layout.addWidget(self.subject_dropdown)
+        sub_layout.addWidget(self.add_subject_button)
+        sub_layout.addWidget(self.add_parameter_button)
         layout.addLayout(sub_layout)
 
+        # BIDS filename preview — updates live as subject/session/task change
+        self.filename_preview_label = QLabel()
+        self.filename_preview_label.setWordWrap(True)
+        self.filename_preview_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.filename_preview_label.setStyleSheet("color: #9e9e9e; font-family: monospace;")
+        layout.addWidget(self.filename_preview_label)
+
         self.config_model = ConfigFormWidget(self.procedure.config, keys=self.display_keys)
-        
+
         self._populate_subjects()
         self._change_subject(0)
+
+        # Register live updates for the filename preview. Callbacks fire from
+        # ConfigRegister.set() — which is what ConfigFormWidget editors call.
+        for key in ("subject", "session", "task"):
+            self.config.register_callback(key, lambda _k, _v: self._update_filename_preview())
+        self._update_filename_preview()
         
         # 4. Record button to start the MDA sequence
         self.record_button = QPushButton("Record")
@@ -203,11 +224,18 @@ class ConfigController(QWidget):
         # 6. Add Note button to add a note to the configuration
         self.add_note_button = QPushButton("Add Note")
 
-        # Group the Record, Abort and Add Note buttons horizontally
+        # 7. Save button to persist edits to experiment.json on demand
+        self.save_button = QPushButton("Save")
+        save_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
+        self.save_button.setIcon(save_icon)
+        self.save_button.setToolTip("Save edits to experiment.json now")
+
+        # Group the Record, Abort, Add Note and Save buttons horizontally
         self._action_buttons_layout = QHBoxLayout()
         self._action_buttons_layout.addWidget(self.record_button)
         self._action_buttons_layout.addWidget(self.abort_button)
         self._action_buttons_layout.addWidget(self.add_note_button)
+        self._action_buttons_layout.addWidget(self.save_button)
         layout.addLayout(self._action_buttons_layout)
 
         # Absorb extra vertical space here so the form + primary action buttons
@@ -226,6 +254,9 @@ class ConfigController(QWidget):
         self.record_button.clicked.connect(self.record)
         self.abort_button.clicked.connect(self._abort)
         self.add_note_button.clicked.connect(self._add_note)
+        self.add_subject_button.clicked.connect(self._add_subject)
+        self.add_parameter_button.clicked.connect(self._add_parameter)
+        self.save_button.clicked.connect(self._save_config)
         self.open_bids_button.clicked.connect(self._open_bids_directory)
 
         # Toggle Record/Abort availability from the live procedure lifecycle.
@@ -353,6 +384,97 @@ class ConfigController(QWidget):
             layout.insertWidget(idx, new_form)
             layout.removeWidget(old_form)
             old_form.deleteLater()
+        self._update_filename_preview()
+
+    def _update_filename_preview(self):
+        """Render the BIDS filename template for the currently selected subject."""
+        if not hasattr(self, "filename_preview_label"):
+            return
+        subject = self.config.get("subject") or "?"
+        session = self.config.get("session") or "?"
+        task = self.config.get("task") or "?"
+        template = (
+            f"Filename template: "
+            f"YYYYMMDD_HHMMSS_sub-{subject}_ses-{session}_task-{task}_<suffix>.<ext>"
+        )
+        self.filename_preview_label.setText(template)
+
+    def _add_subject(self):
+        """Prompt for a new subject ID, add it to the config, and select it."""
+        subject_id, ok = QInputDialog.getText(self, "Add Subject", "Subject ID:")
+        if not ok or not subject_id.strip():
+            return
+        try:
+            self.config.add_subject(subject_id.strip())
+        except ValueError as e:
+            QMessageBox.warning(self, "Add Subject", str(e))
+            return
+
+        self.subject_dropdown.blockSignals(True)
+        self._populate_subjects()
+        self.subject_dropdown.blockSignals(False)
+        idx = self.subject_dropdown.findText(subject_id.strip())
+        if idx >= 0:
+            self.subject_dropdown.setCurrentIndex(idx)
+        else:
+            self._change_subject(0)
+
+    def _add_parameter(self):
+        """Prompt for a new parameter (name, type, default) and apply to all subjects."""
+        name, ok = QInputDialog.getText(self, "Add Parameter", "Parameter name:")
+        if not ok or not name.strip():
+            return
+        name = name.strip()
+
+        type_label, ok = QInputDialog.getItem(
+            self, "Add Parameter", f"Type for '{name}':", ["str", "int", "bool"], 0, False
+        )
+        if not ok:
+            return
+
+        if type_label == "int":
+            value, ok = QInputDialog.getInt(self, "Add Parameter", f"Default value for '{name}':", 0)
+            if not ok:
+                return
+            default = int(value)
+            type_hint = int
+        elif type_label == "bool":
+            choice, ok = QInputDialog.getItem(
+                self, "Add Parameter", f"Default value for '{name}':", ["False", "True"], 0, False
+            )
+            if not ok:
+                return
+            default = choice == "True"
+            type_hint = bool
+        else:
+            text, ok = QInputDialog.getText(self, "Add Parameter", f"Default value for '{name}':")
+            if not ok:
+                return
+            default = text
+            type_hint = str
+
+        try:
+            self.config.add_parameter(name, default, type_hint)
+        except ValueError as e:
+            QMessageBox.warning(self, "Add Parameter", str(e))
+            return
+
+        self.set_display_keys(self.config.display_keys)
+
+    def _save_config(self):
+        """Persist current displayed values to experiment.json on demand."""
+        path = getattr(self.config, "_json_file_path", "")
+        if not path or not os.path.isfile(path):
+            QMessageBox.warning(self, "Save", "No experiment.json is loaded.")
+            return
+        try:
+            self.config.save_json()
+        except Exception as e:
+            QMessageBox.critical(self, "Save", f"Failed to save: {e}")
+            return
+        self.save_button.setToolTip(
+            f"Saved {datetime.now().strftime('%H:%M:%S')} — {path}"
+        )
 
     def _test_led(self):
         """
