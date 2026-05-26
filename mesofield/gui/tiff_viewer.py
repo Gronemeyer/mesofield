@@ -1,7 +1,6 @@
 import sys
 import os
 import json
-import logging
 from typing import List, Tuple, Optional
 
 import numpy as np
@@ -28,13 +27,8 @@ from PyQt6.QtWidgets import (
     QMessageBox,
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='[%(asctime)s] %(levelname)s:%(name)s: %(message)s',
-    datefmt='%H:%M:%S'
-)
-logger = logging.getLogger("TiffViewer")
+from mesofield.utils._logger import get_logger
+logger = get_logger("TiffViewer")
 
 # Optimize pyqtgraph settings
 pg.setConfigOptions(useOpenGL=True, antialias=False)

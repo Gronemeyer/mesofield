@@ -50,7 +50,7 @@ class HardwareManager():
         else:
             self.yaml = {}
             if config_file:
-                self.logger.warning(
+                self.logger.debug(
                     f"Hardware config not found: {config_file}. "
                     "Starting in unconfigured state."
                 )

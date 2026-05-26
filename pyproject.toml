@@ -32,6 +32,7 @@ dependencies = [
     "ipython",
     "jupyter_client",
     "jupyter_core",
+    "loguru",
     "markdown-it-py",
     "matplotlib",
     "mesokit-schema @ git+https://github.com/Gronemeyer/mesokit-schema.git",

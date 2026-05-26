@@ -1,17 +1,10 @@
 import os
-import logging
 
 import click
 from pathlib import Path
 
-# Disable pymmcore-plus logger
-package_logger = logging.getLogger('pymmcore-plus')
-package_logger.setLevel(logging.CRITICAL)
-
 # Disable debugger warning about the use of frozen modules
 os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
-# Disable ipykernel logger
-logging.getLogger("ipykernel.inprocess.ipkernel").setLevel(logging.WARNING)
 
 
 '''
