@@ -52,6 +52,39 @@ from mesofield.protocols import Configurator
 from mesofield.utils._logger import get_logger
 
 
+def processor(*, camera: str, plot: bool = False, **plot_kwargs: Any):
+    """Mark a :class:`Procedure` method as a per-frame compute function.
+
+    The decorated function is called as ``func(self, img, idx, ts)`` and
+    should return a ``float | None``.  At procedure init the framework
+    builds a :class:`~mesofield.processors.FrameProcessor` that wraps it,
+    attaches it to the hardware device whose ``device_id`` matches
+    ``camera``, registers it on :class:`~mesofield.data.manager.DataManager`,
+    and (when ``plot=True``) tells the GUI to add a
+    :class:`~mesofield.gui.speedplotter.SerialWidget`.
+
+    ``plot_kwargs`` are forwarded straight to the widget — recognized
+    keys: ``label``, ``value_label``, ``value_units``, ``y_range``,
+    ``value_scale``, ``max_points``.
+
+    Example::
+
+        class MyProcedure(Procedure):
+            @processor(camera="meso", plot=True, label="Frame Mean")
+            def frame_mean(self, img, idx, ts):
+                return float(img.mean())
+    """
+    def wrap(fn):
+        fn._mesofield_processor = {
+            "camera": camera,
+            "plot": plot,
+            "plot_kwargs": plot_kwargs,
+            "name": fn.__name__,
+        }
+        return fn
+    return wrap
+
+
 class ProcedureSignals(QObject):
     """All procedure-level signals that a Qt GUI can connect to."""
     procedure_started      = pyqtSignal()
@@ -73,6 +106,12 @@ class Procedure:
     """
 
     def __init__(self, config_path: Optional[str] = None):
+        # Initialize the processor registry before anything else so the
+        # ``__setattr__`` hook can run safely from the first assignment on.
+        # We bypass the hook itself with object.__setattr__ to avoid the
+        # isinstance import dance on a guaranteed-non-processor value.
+        object.__setattr__(self, "processors", [])
+
         self.events = ProcedureSignals()
         self._finished_event = threading.Event()
         self.events.procedure_finished.connect(self._finished_event.set)
@@ -111,6 +150,7 @@ class Procedure:
         if self.config.hardware.is_configured:
             self.initialize_hardware()
             self.config.hardware._configure_engines(self.config)
+            self._materialize_decorated_processors()
         else:
             self.logger.info(
                 "Hardware not configured yet -- launch in default state. "
@@ -175,9 +215,129 @@ class Procedure:
         if self.config.hardware.is_configured:
             self.initialize_hardware()
             self.config.hardware._configure_engines(self.config)
+            self._materialize_decorated_processors()
 
         self.events.hardware_initialized.emit(self.config.hardware.is_configured)
         self.logger.info("Configuration hot-loaded successfully")
+
+    # ------------------------------------------------------------------
+    # Processor auto-discovery
+    #
+    # Any :class:`FrameProcessor` instance stored on the procedure (whether
+    # by direct attribute assignment or by the ``@processor`` decorator)
+    # lands on ``self.processors`` and is registered with the DataManager
+    # automatically.  Cleanup detaches them.
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        super().__setattr__(name, value)
+        # Avoid importing at module load (the processors package imports
+        # PyQt6, which we don't want forced on headless callers that never
+        # use processors).
+        try:
+            from mesofield.processors import FrameProcessor
+        except Exception:
+            return
+        if isinstance(value, FrameProcessor):
+            self._register_processor(value, attr_name=name)
+
+    def _register_processor(self, proc: Any, attr_name: Optional[str] = None) -> None:
+        """Register ``proc`` on :attr:`processors` and the DataManager.
+
+        Dedupe-safe and idempotent: re-registering the same instance is a
+        no-op.  When ``attr_name`` is supplied and a *different* processor
+        with the same name is already registered, the old one is detached
+        and replaced.
+        """
+        procs = self.processors  # plain attribute, no __setattr__ recursion
+        if proc in procs:
+            return
+        # If the user used the default name (lowercased class name) and
+        # assigned the processor to a specific attribute, prefer the
+        # attribute name. Explicit `name=...` at construction wins.
+        if attr_name is not None:
+            default_name = type(proc).__name__.lower()
+            if proc.device_id == default_name and attr_name != default_name:
+                proc.device_id = attr_name
+                proc.id = attr_name
+                proc.name = attr_name
+        # Replace any prior processor that shared this attribute name.
+        if attr_name is not None:
+            for existing in list(procs):
+                if existing.device_id == proc.device_id and existing is not proc:
+                    try:
+                        existing.detach()
+                    except Exception:
+                        pass
+                    procs.remove(existing)
+                    break
+        procs.append(proc)
+        # DataManager may not exist yet during early construction; the
+        # later ``Procedure.run`` call also re-registers devices, so this
+        # is best-effort.
+        dm = getattr(self, "data", None)
+        if dm is not None:
+            try:
+                dm.register_hardware_device(proc)
+            except Exception as exc:
+                self.logger.warning(
+                    f"register_hardware_device({proc.device_id}) failed: {exc}"
+                )
+
+    def _materialize_decorated_processors(self) -> None:
+        """Instantiate every ``@processor``-decorated method on this class.
+
+        Walks the MRO so decorators on base procedures are honored.
+        Skips names that already resolve to a :class:`FrameProcessor` on
+        this instance (idempotent for ``load_config`` hot reloads).
+        """
+        try:
+            from mesofield.processors import FrameProcessor
+        except Exception:
+            return
+        seen: set[str] = set()
+        for klass in type(self).__mro__:
+            for attr_name, member in klass.__dict__.items():
+                if attr_name in seen:
+                    continue
+                meta = getattr(member, "_mesofield_processor", None)
+                if meta is None:
+                    continue
+                seen.add(attr_name)
+                existing = getattr(self, attr_name, None)
+                if isinstance(existing, FrameProcessor):
+                    continue  # already materialized; skip on hot reload
+                camera = self._resolve_camera(meta["camera"], attr_name)
+                bound = member.__get__(self, type(self))  # bound method
+                cls = type(
+                    f"_Decorated_{attr_name}",
+                    (FrameProcessor,),
+                    {"compute": lambda self, img, idx, ts, _fn=bound: _fn(img, idx, ts)},
+                )
+                kwargs = dict(meta["plot_kwargs"])
+                instance = cls(
+                    name=attr_name,
+                    camera=camera,
+                    plot=meta["plot"],
+                    **kwargs,
+                )
+                # Goes through __setattr__ -> _register_processor.
+                setattr(self, attr_name, instance)
+
+    def _resolve_camera(self, device_id: str, for_name: str) -> Any:
+        """Look up a hardware device by ``device_id``; clear error if missing."""
+        devices = getattr(self.hardware, "devices", {}) or {}
+        # ``devices`` is a {device_id: device} mapping in HardwareManager.
+        if device_id in devices:
+            return devices[device_id]
+        # Fall back to scanning ``cameras`` tuple by their .device_id / .id.
+        for cam in getattr(self.hardware, "cameras", ()) or ():
+            if getattr(cam, "device_id", getattr(cam, "id", None)) == device_id:
+                return cam
+        available = sorted(devices.keys())
+        raise ValueError(
+            f"@processor(camera={device_id!r}) on {type(self).__name__}.{for_name}: "
+            f"no hardware device with that id. Available: {available}"
+        )
 
     # ------------------------------------------------------------------
     # Subclass extension hooks (no-op defaults)
@@ -318,6 +478,15 @@ class Procedure:
                 self.hardware.primary.signals.finished.disconnect(self._cleanup_procedure)
             except Exception:
                 pass
+            # Detach any procedure-authored FrameProcessors so their worker
+            # threads exit and the camera frame signal is released before
+            # the hardware itself shuts down.
+            for proc in list(getattr(self, "processors", [])):
+                try:
+                    proc.detach()
+                except Exception as exc:
+                    self.logger.warning(f"processor detach failed: {exc}")
+            self.processors.clear()
             self.hardware.stop_all()
             self.data.stop_queue_logger()
             self.stopped_time = datetime.now(timezone.utc)

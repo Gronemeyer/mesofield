@@ -88,6 +88,10 @@ class MainWindow(QMainWindow):
         self._acquisition_gui: MDA | None = None
         self._config_controller: ConfigController | None = None
         self._encoder_widget: SerialWidget | None = None
+        # Widgets built from `procedure.processors` -- one SerialWidget per
+        # FrameProcessor whose `plot_enabled` is True. Tracked here so we
+        # can tear them down on a `_build_acquisition_ui` rebuild.
+        self._processor_widgets: list[SerialWidget] = []
 
         # Connect hot-load signals
         self.config_wizard.configApplied.connect(self._on_config_applied)
@@ -303,11 +307,68 @@ class MainWindow(QMainWindow):
             )
             self.main_layout.addWidget(self._encoder_widget)
 
+        # -- Plots for procedure-authored FrameProcessors --------------------
+        self._build_processor_plots()
+
         # -- Refresh the MM config section in the wizard ---------------------
         self.config_wizard.refresh_mm_section()
 
         # -- Property browser toolbar buttons --------------------------------
         self._build_property_browsers()
+
+    def _build_processor_plots(self) -> None:
+        """Add one SerialWidget per `procedure.processors` entry with `plot_enabled`.
+
+        The procedure (or the ``@processor`` decorator) is responsible for
+        constructing the FrameProcessor and toggling its ``plot_enabled``
+        flag.  We just discover what's already on ``procedure.processors``
+        and render it.
+        """
+        # Tear down anything we built on the previous pass.
+        for widget in self._processor_widgets:
+            try:
+                self.main_layout.removeWidget(widget)
+                widget.deleteLater()
+            except Exception:
+                pass
+        self._processor_widgets.clear()
+
+        cfg = self.procedure.config
+        for proc in getattr(self.procedure, "processors", []):
+            if not getattr(proc, "plot_enabled", False):
+                continue
+            # Expose on cfg.hardware so SerialWidget's `device_attr` lookup
+            # works without any extra wiring on the user's side.
+            attr = proc.device_id
+            setattr(cfg.hardware, attr, proc)
+            # Fill in sensible defaults for any styling kwargs the
+            # processor didn't specify.
+            pc = dict(proc.plot_config)
+            pc.setdefault("label", attr.replace("_", " ").title())
+            pc.setdefault("value_label", "Value")
+            pc.setdefault("value_units", "")
+            pc.setdefault("y_range", (0, 4096))
+            pc.setdefault("value_scale", 1.0)
+            try:
+                widget = SerialWidget(
+                    cfg=cfg,
+                    device_attr=attr,
+                    signal_name="valueUpdated",
+                    **pc,
+                )
+            except Exception as exc:
+                # Don't let a bad plot config kill the whole acquisition UI.
+                self._log_exception(f"build SerialWidget for {attr}", exc)
+                continue
+            self.main_layout.addWidget(widget)
+            self._processor_widgets.append(widget)
+
+    def _log_exception(self, ctx: str, exc: Exception) -> None:
+        # Defensive logger — MainWindow has no central logger today.
+        try:
+            print(f"[MainWindow] {ctx} failed: {exc}")
+        except Exception:
+            pass
 
     def _build_property_browsers(self) -> None:
         """Add a toolbar button per MicroManager camera that opens a PropertyBrowser."""

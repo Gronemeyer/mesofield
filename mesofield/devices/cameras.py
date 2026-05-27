@@ -74,11 +74,16 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
             self.signals.finished.emit()
 
         def _on_frame(_img, _event, metadata):
+            idx = ts = None
             try:
                 cam_meta = metadata.get("camera_metadata", {}) if isinstance(metadata, dict) else {}
                 idx = cam_meta.get("ImageNumber")
                 ts = cam_meta.get("TimeReceivedByCore")
                 self.signals.data.emit(idx, ts)
+            except Exception:
+                pass
+            try:
+                self.signals.frame.emit(_img, idx, ts)
             except Exception:
                 pass
 
@@ -682,6 +687,11 @@ class OpenCVCamera(BaseCamera, QThread):
                     self.progress.emit(idx + 1, self._expected_frames)
                 # Standardized data signal -> DataQueue
                 self.signals.data.emit(idx, ts)
+                # Optional raw-frame signal for real-time processors.
+                try:
+                    self.signals.frame.emit(frame, idx, ts)
+                except Exception:
+                    pass
 
                 # Frame pacing — only sleep if we have headroom
                 if period:

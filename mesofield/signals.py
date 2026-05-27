@@ -6,7 +6,7 @@ system (e.g. :class:`~mesofield.data.manager.DataManager`,
 :class:`~mesofield.base.Procedure`) can connect uniformly without caring
 which backend the device uses.
 
-Three signals form the standard contract:
+Four signals form the standard contract:
 
 ``started()``
     Emitted once the device is actively acquiring / running.
@@ -19,6 +19,11 @@ Three signals form the standard contract:
     :class:`~mesofield.data.manager.DataQueue`.  ``payload`` is the raw
     sample (frame index, encoder click count, NIDAQ count, ...) and
     ``device_ts`` is the device-side timestamp (float seconds, optional).
+``frame(img, idx, device_ts)``
+    Optional.  Emitted by camera-like producers carrying the raw frame
+    array in addition to the lightweight ``data`` emission.  Subscribers
+    use this for real-time processing (see ``mesofield.processors``).
+    Producers without per-sample raw payloads never emit on this signal.
 
 The implementation wraps :mod:`psygnal` so emission is Qt-free, weakly
 referenced and thread-safe.  GUI code that needs a Qt slot can use
@@ -44,7 +49,7 @@ class DeviceSignals:
     behave as plain emitters on the bundle.
     """
 
-    __slots__ = ("started", "finished", "data")
+    __slots__ = ("started", "finished", "data", "frame")
 
     def __init__(self) -> None:
         from psygnal import SignalInstance
@@ -54,9 +59,10 @@ class DeviceSignals:
         self.started: SignalInstance = SignalInstance(())
         self.finished: SignalInstance = SignalInstance(())
         self.data: SignalInstance = SignalInstance((object, object))
+        self.frame: SignalInstance = SignalInstance((object, object, object))
 
     def disconnect_all(self) -> None:
-        for sig in (self.started, self.finished, self.data):
+        for sig in (self.started, self.finished, self.data, self.frame):
             try:
                 sig.disconnect()
             except Exception:

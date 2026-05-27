@@ -182,6 +182,34 @@ class DataProducer(HardwareDevice, Protocol):
 
 
 @runtime_checkable
+class FrameProcessor(Protocol):
+    """Protocol for optional real-time per-frame consumers.
+
+    A FrameProcessor subscribes to a :class:`DataProducer` camera's
+    ``signals.frame`` (carrying ``(img, idx, device_ts)``) and emits a
+    scalar result on its own ``signals.data`` and on a Qt-compatible
+    ``valueUpdated(time, value)`` signal.  See
+    :mod:`mesofield.processors` for the threaded reference base class.
+    """
+
+    name: str
+    data_type: str
+    sampling_rate: float
+
+    def attach(self, camera: "DataProducer") -> None:
+        """Subscribe to ``camera.signals.frame`` and start processing."""
+        ...
+
+    def detach(self) -> None:
+        """Disconnect and stop the worker."""
+        ...
+
+    def compute(self, img: Any, idx: Any, ts: Any) -> Optional[float]:
+        """Return a scalar for this frame, or ``None`` to skip."""
+        ...
+
+
+@runtime_checkable
 class StimulusDevice(HardwareDevice, Protocol):
     """Protocol for stimulus-presentation devices (e.g. PsychoPy).
 

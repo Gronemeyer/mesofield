@@ -21,6 +21,7 @@ from mesofield import DeviceRegistry
 from mesofield.base import Procedure
 from mesofield.devices.mocks import MockFrameProducer
 from mesofield.devices.mocks import MockEncoderDevice
+from mesofield.processors import FrameMean
 
 
 DeviceRegistry._registry.setdefault("mock_wheel", MockEncoderDevice)
@@ -29,6 +30,19 @@ DeviceRegistry._registry.setdefault("mock_camera", MockFrameProducer)
 
 class TwoCamDemoProcedure(Procedure):
     """Mock 2-camera + encoder procedure with duration-gated cleanup."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Worked example of the procedure-authored processor API:
+        # construct, assign, done. Auto-attached, auto-registered with the
+        # DataManager, and auto-plotted in the GUI when `plot=True`.
+        self.frame_mean = FrameMean(
+            camera=self.hardware.primary,
+            plot=True,
+            label="Frame Mean",
+            value_label="Mean intensity",
+            y_range=(0, 255),
+        )
 
     def on_started(self) -> None:
         duration = self.config.get("duration")
