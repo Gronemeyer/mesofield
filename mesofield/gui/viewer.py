@@ -152,7 +152,8 @@ class ImagePreview(QWidget):
                  _clims: Union[Tuple[float, float], Literal["auto"]] = (0, 255),
                  use_with_mda: bool = True,
                  mmcore: CMMCorePlus | None = None,
-                 image_payload=None):
+                 image_payload=None,
+                 progress_payload=None):
         super().__init__(parent=parent)
         if mmcore is None and image_payload is None:
             raise ValueError(
@@ -225,6 +226,12 @@ class ImagePreview(QWidget):
 
         self._progress_total = 0
         self._progress_count = 0
+
+        # Optional non-mmcore recording-progress source (e.g. OpenCVCamera).
+        if progress_payload is not None and hasattr(progress_payload, "connect"):
+            progress_payload.connect(
+                self._on_external_progress, type=Qt.ConnectionType.QueuedConnection
+            )
 
         self.destroyed.connect(self._disconnect)
 
@@ -315,6 +322,27 @@ class ImagePreview(QWidget):
             self.progress_bar.setValue(self._progress_count)
             # Update the text to "current/total"
             self.progress_bar.setFormat(f"{self._progress_count}/{self._progress_total}")
+
+    def _on_external_progress(self, count: int, total: int) -> None:
+        """Drive the progress bar from a non-mmcore producer (e.g. OpenCVCamera).
+
+        ``count < 0`` is the "recording finished" sentinel. ``total <= 0``
+        renders an indeterminate (busy) bar when the length is unknown.
+        """
+        if count < 0:
+            self.progress_bar.setVisible(False)
+            return
+        if not self.progress_bar.isVisible():
+            self.progress_bar.setTextVisible(True)
+            self.progress_bar.setVisible(True)
+        if total > 0:
+            self.progress_bar.setRange(0, total)
+            self.progress_bar.setValue(min(count, total))
+            self.progress_bar.setFormat(f"{min(count, total)}/{total}")
+        else:
+            # Unknown length -> indeterminate bar.
+            self.progress_bar.setRange(0, 0)
+            self.progress_bar.setFormat(f"{count} frames")
 
     def _on_sequence_started(self, sequence, metadata) -> None:
         self._reset_fps_counter()
@@ -652,15 +680,15 @@ class InteractivePreview(pg.ImageView):
         img = np.clip((img - min_val) * scale, 0, 255).astype(np.uint8, copy=False)
         return img
 
-    # @property
-    # def clims(self) -> Union[Tuple[float, float], Literal["auto"]]:
-    #     return self._clims
+    @property
+    def clims(self) -> Union[Tuple[float, float], Literal["auto"]]:
+        return self._clims
 
-    # @clims.setter
-    # def clims(self, clims: Union[Tuple[float, float], Literal["auto"]] = "auto") -> None:
-    #     self._clims = clims
-    #     if self._current_frame is not None:
-    #         self._display_image(self._current_frame)
+    @clims.setter
+    def clims(self, clims: Union[Tuple[float, float], Literal["auto"]] = "auto") -> None:
+        self._clims = clims
+        if self._current_frame is not None:
+            self._display_image(self._current_frame)
 
     # @property
     # def cmap(self) -> str:

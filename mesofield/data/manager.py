@@ -9,9 +9,6 @@ DataManager & DataSaver Workflow Overview
     ├─ dm.saver.all_hardware()        # writes hardware outputs
     ├─ dm.saver.all_notes()           # writes notes.txt if any
     └─ dm.saver.writer_for(camera)    # returns writer & updates camera output paths
-3. Final database update: dm.update_database()
-    update_database() records the :class:`DataPaths` for the current configuration
-    into the HDF5 database using a MultiIndex of (Subject, Session, Task).
 """
 
 from dataclasses import dataclass, field
@@ -29,9 +26,7 @@ import pandas as pd
 
 from mesofield.config import ExperimentConfig
 from mesofield.data.writer import CustomWriter, CV2Writer
-from mesofield.io.h5db import H5Database
 from mesofield.utils._logger import get_logger, log_this_fr
-from typing import Dict
 
 
 @dataclass
@@ -194,32 +189,59 @@ class DataSaver:
             self.logger.error(f"Error saving timestamps: {e}")
 
     def save_queue(self, rows: list[list[Any]], path: str | None = None) -> None:
-        """Save queued data rows to CSV file specified in DataPaths or override path."""
+        """Save queued data rows to CSV file specified in DataPaths or override path.
+
+        Rows are produced by ``DataManager._queue_writer_loop`` as
+        ``[queue_elapsed, packet_ts, device_ts, device_id, payload]``.
+        If any payload is a ``dict``, its keys are fanned out into
+        dedicated columns; the ``payload`` column then holds the
+        non-dict payloads only (blank when a row has dict columns).
+        """
         if path is None:
             path = self.paths.queue
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
+
+            keys: list[str] = []
+            seen: set[str] = set()
+            for row in rows:
+                payload = row[4] if len(row) > 4 else None
+                if isinstance(payload, dict):
+                    for k in payload:
+                        if k not in seen:
+                            seen.add(k)
+                            keys.append(k)
+
+            base_cols = ["queue_elapsed", "packet_ts", "device_ts", "device_id"]
             with open(path, "w", newline="") as csvfile:
                 writer = csv.writer(csvfile)
-                writer.writerow([
-                    "queue_elapsed",
-                    "packet_ts",
-                    "device_ts",
-                    "device_id",
-                    "payload",
-                ])
-                writer.writerows(rows)
+                if keys:
+                    writer.writerow([*base_cols, "payload", *keys])
+                    for row in rows:
+                        elapsed, ts, dts, dev_id, payload = row[:5]
+                        if isinstance(payload, dict):
+                            writer.writerow(
+                                [elapsed, ts, dts, dev_id, "",
+                                 *(payload.get(k, "") for k in keys)]
+                            )
+                        else:
+                            writer.writerow(
+                                [elapsed, ts, dts, dev_id, payload,
+                                 *("" for _ in keys)]
+                            )
+                else:
+                    writer.writerow([*base_cols, "payload"])
+                    writer.writerows(rows)
             self.logger.info(f"Queue log saved to {path}")
         except Exception as e:
             self.logger.error(f"Error saving queue log: {e}")
 
 
 class DataManager:
-    """Very small wrapper providing optional :class:`DataSaver`."""
+    """Wrapper providing :class:`DataSaver` and :class:`DataQueue`."""
 
-    def __init__(self, h5_path: str) -> None:
+    def __init__(self) -> None:
         self.save: DataSaver
-        self.base = H5Database(h5_path)
         self.queue = DataQueue()
 
         self.devices: List[Any] = []
@@ -241,15 +263,16 @@ class DataManager:
 
     #@log_this_fr
     def register_devices(self, devices: Iterable[Any]) -> None:
-        """Register a list of hardware devices with the manager."""
-        for dev in devices:
-            if hasattr(dev, "device_type") and hasattr(dev, "get_data"):
-                self.register_hardware_device(dev)
+        """Register a list of hardware devices with the manager.
 
-    def append_to_database(self, df: pd.DataFrame, key: str = "data") -> None:
-        """Append ``df`` to the database if configured."""
-        if self.base:
-            self.base.update(df, key)
+        Any device exposing a :class:`mesofield.signals.DeviceSignals`
+        bundle on ``device.signals`` is registered.  Devices that do not
+        emit on ``signals.data`` (e.g. stimulus devices) are still tracked
+        but contribute nothing to the queue.
+        """
+        for dev in devices:
+            if hasattr(dev, "signals"):
+                self.register_hardware_device(dev)
 
     # ------------------------------------------------------------------
     def start_queue_logger(self, path: str | None = None) -> None:
@@ -300,8 +323,15 @@ class DataManager:
             #     assert self._file is not None
             #     self._file.flush()
 
-    def register_hardware_device(self, device: Any) -> None:  # pragma: no cover - convenience
-        """Track a hardware device and connect its data stream to the queue."""
+    def register_hardware_device(self, device: Any) -> None:
+        """Track a hardware device and connect its data stream to the queue.
+
+        Devices expose a uniform :class:`mesofield.signals.DeviceSignals`
+        bundle on ``device.signals``.  We simply connect ``signals.data``
+        to push ``(payload, device_ts)`` packets onto the queue.  Devices
+        that never emit on ``signals.data`` (e.g. ``StimulusDevice``) are
+        registered but never produce queue entries.
+        """
         dev_id = getattr(device, "device_id", getattr(device, "id", "unknown"))
         if device in self.devices or dev_id in self._registered_ids:
             return
@@ -309,38 +339,19 @@ class DataManager:
         self.devices.append(device)
         self._registered_ids.add(dev_id)
 
-        # Try to connect various callback styles to push data to our queue
-        def _push(payload: Any, device_ts: Any = None, *, dev=device) -> None:
-            dev_id = getattr(dev, "device_id", getattr(dev, "id", "unknown"))
-            #print(f"DataManager: Pushing data from {dev_id} to queue: {payload}")
-            self.queue.push(dev_id, payload, device_ts=device_ts)
+        signals = getattr(device, "signals", None)
+        data_sig = getattr(signals, "data", None) if signals is not None else None
+        if data_sig is None or not hasattr(data_sig, "connect"):
+            return
 
-        # Connect using a standard data_event if present
-        evt = getattr(device, "data_event", None)
-        if evt is not None and hasattr(evt, "connect"):
-            try:
-                evt.connect(_push)
-            except Exception:
-                pass
-            
-        sig = getattr(device, "serialDataReceived", None)
-        if sig is not None and hasattr(sig, "connect"):
-            try:
-                sig.connect(_push)
-            except Exception:
-                pass
+        def _push(payload: Any, device_ts: Any = None, *, _id=dev_id) -> None:
+            self.queue.push(_id, payload, device_ts=device_ts)
 
-        if sig is None and getattr(device, "core", None) is not None:
-            # connect metadata-only from core.mda.events.frameReady
-            sig = getattr(device.core.mda.events, "frameReady", None)
-            if sig is not None and hasattr(sig, "connect"):
-                try:
-                    # frameReady callback signature: (image, metadata) You can find these in the tiff_frame_metadata.json files for reference
-                    sig.connect(lambda _img, event, metadata: _push(payload=metadata['camera_metadata']['ImageNumber'],
-                                                                    device_ts=metadata['camera_metadata']['TimeReceivedByCore']))
-                except Exception:
-                    pass
-                
+        try:
+            data_sig.connect(_push)
+        except Exception:
+            pass
+
     #TODO: move this logic to DataSaver
     def get_device_outputs(self, subject: str, session: str) -> pd.DataFrame:
         """Return a DataFrame of output file paths for registered devices."""
@@ -367,39 +378,3 @@ class DataManager:
         idx = pd.MultiIndex.from_arrays([[subject], [session]], names=["Subject", "Session"])
         return pd.DataFrame(records, index=idx)
 
-    # ------------------------------------------------------------------
-    def update_database(self) -> None:
-        """Record the current :class:`DataPaths` into the HDF5 database."""
-        if not (self.base and self.save):
-            return
-
-        cfg = self.save.cfg
-        subject, session, task = cfg.subject, cfg.session, getattr(cfg, "task", "")
-
-        # build single row dataframe with output paths
-        records: dict[str, str] = {
-            "configuration": self.save.paths.configuration,
-            "notes": self.save.paths.notes,
-            "timestamps": self.save.paths.timestamps,
-            "queue": self.queue_log_path or self.save.paths.queue,
-        }
-
-        for dev_id, path in self.save.paths.hardware.items():
-            records[dev_id] = path
-
-        for name, path in self.save.paths.writers.items():
-            records[name] = path
-
-        idx = pd.MultiIndex.from_arrays(
-            [[subject], [session], [task]],
-            names=["Subject", "Session", "Task"],
-        )
-
-        df = pd.DataFrame([records], index=idx)
-        self.append_to_database(df, key="datapaths")
-
-    def read_database(self, key: str = "datapaths") -> Optional[pd.DataFrame]:
-        """Read a DataFrame from the underlying :class:`H5Database`."""
-        if self.base:
-            return self.base.read(key)
-        return None

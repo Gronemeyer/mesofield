@@ -1,5 +1,6 @@
 import os
 import json
+import dataclasses
 import datetime
 from typing import Dict, Any, List, Optional, Type, TypeVar, Callable
 
@@ -432,6 +433,28 @@ class ExperimentConfig(ConfigRegister):
                 except Exception as e:
                     self.logger.error(f"Failed to reinitialize hardware: {e}")
                     raise
+        self._apply_config(loaded_config)
+
+    def load_dict(self, data: Any) -> None:
+        """Load parameters from a dataclass instance or plain mapping.
+
+        This is the programmatic counterpart to :meth:`load_json` used by
+        scripted procedures (see :meth:`Procedure.define_config`). Unlike
+        :meth:`load_json` it does not touch the hardware YAML path -- scripted
+        hardware is supplied directly via :meth:`Procedure.define_hardware`.
+
+        *data* may be a ``@dataclass`` instance or any mapping. Both the flat
+        and the ``Configuration``/``Subjects`` shapes are accepted.
+        """
+        if dataclasses.is_dataclass(data) and not isinstance(data, type):
+            loaded_config = dataclasses.asdict(data)
+        else:
+            loaded_config = dict(data)
+        self.logger.info("Loading configuration from in-memory mapping")
+        self._apply_config(loaded_config)
+
+    def _apply_config(self, loaded_config: dict) -> None:
+        """Apply a parsed configuration mapping to the registry."""
         self.display_keys = loaded_config.get("DisplayKeys")
         # Detect new style JSON with 'Configuration' and 'Subjects'
         self.subjects = {}
@@ -555,5 +578,90 @@ class ExperimentConfig(ConfigRegister):
                 self.set(key, val)
             except Exception as e:
                 self.logger.error(f"Failed to update session in JSON file: {e}")
+
+    def _read_json_file(self) -> Optional[dict]:
+        path = getattr(self, "_json_file_path", "")
+        if not path or not os.path.isfile(path):
+            self.logger.warning("No JSON file to update; _json_file_path not set or file missing")
+            return None
+        with open(path, "r") as f:
+            return json.load(f)
+
+    def _write_json_file(self, data: dict) -> None:
+        path = getattr(self, "_json_file_path", "")
+        with open(path, "w") as f:
+            json.dump(data, f, indent=4)
+
+    def add_subject(self, subject_id: str) -> None:
+        """Add a new subject, seeding parameters from existing subjects.
+
+        The new subject's parameter dict is the union of keys from existing
+        subjects with blank string values, so all subjects share a consistent
+        parameter set and :meth:`select_subject` will accept the new entry.
+        Persists to ``experiment.json``.
+        """
+        subject_id = (subject_id or "").strip()
+        if not subject_id:
+            raise ValueError("Subject ID must not be empty")
+        if subject_id in self.subjects:
+            raise ValueError(f"Subject '{subject_id}' already exists")
+
+        seed_keys: set = set()
+        for params in self.subjects.values():
+            seed_keys.update(params.keys())
+        if not seed_keys and self.display_keys:
+            seed_keys = {k for k in self.display_keys if k != "subject"}
+        if not seed_keys:
+            seed_keys = {"session"}
+
+        new_params = {k: "" for k in seed_keys}
+        self.subjects[subject_id] = new_params
+
+        data = self._read_json_file()
+        if data is not None:
+            data.setdefault("Subjects", {})
+            data["Subjects"][subject_id] = new_params
+            self._write_json_file(data)
+
+    def add_parameter(self, name: str, default: Any, type_hint: Type) -> None:
+        """Add a subject-scoped parameter to every subject and DisplayKeys.
+
+        Registers the parameter in the config registry, fills it on every
+        subject in :attr:`subjects`, appends it to :attr:`display_keys`, and
+        persists the additions to ``experiment.json``.
+        """
+        name = (name or "").strip()
+        if not name:
+            raise ValueError("Parameter name must not be empty")
+        if self.has(name):
+            raise ValueError(f"Parameter '{name}' already exists")
+        if type_hint not in (str, int, bool):
+            raise ValueError("type_hint must be str, int, or bool")
+
+        self.register(name, default, type_hint, "User-added subject parameter", "subject")
+
+        for params in self.subjects.values():
+            if name not in params:
+                params[name] = default
+
+        if self.selected_subject and self.selected_subject in self.subjects:
+            self.set(name, self.subjects[self.selected_subject].get(name, default))
+        else:
+            self.set(name, default)
+
+        if self.display_keys is None:
+            self.display_keys = []
+        if name not in self.display_keys:
+            self.display_keys.append(name)
+
+        data = self._read_json_file()
+        if data is not None:
+            subjects_block = data.setdefault("Subjects", {})
+            for subj_id in subjects_block:
+                subjects_block[subj_id].setdefault(name, default)
+            display = data.setdefault("DisplayKeys", [])
+            if name not in display:
+                display.append(name)
+            self._write_json_file(data)
 
 

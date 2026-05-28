@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QTabWidget,
     QLayout,
     QToolBar,
+    QSizePolicy,
 )
 
 from PyQt6.QtGui import QIcon, QAction
@@ -43,6 +44,18 @@ class MainWindow(QMainWindow):
         self._toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBar(self._toolbar)
         self._prop_browsers: list = []  # open PropertyBrowser dialogs
+        self._prop_actions: list = []  # QAction objects for property browsers
+        #--------------------------------------------------------------------#
+
+        #=========================== Toolbar action ==========================#
+        # Place frequently used tools on the main hardware toolbar.
+        self._act_tiff_viewer = QAction("TIFF Viewer\u2026", self)
+        self._act_tiff_viewer.setToolTip(
+            "Open the TIFF ROI viewer (read-only; refuses files in the active recording)."
+        )
+        self._act_tiff_viewer.triggered.connect(self._open_tiff_viewer)
+        self._toolbar.addAction(self._act_tiff_viewer)
+        self._tiff_viewer = None  # keep a reference so the window isn't GC'd
         #--------------------------------------------------------------------#
 
         #============================== Layout ==============================#
@@ -51,16 +64,23 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         self.main_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
 
-        # Build a tab widget (always present)
+        # Build a tab widget (always present). Pin its horizontal size so the
+        # ConfigController tab (fixed width) doesn't get stretched when the
+        # main window is enlarged — extra horizontal space goes to the MDA
+        # acquisition view on the left instead.
         self.right_tabs = QTabWidget()
         self.right_tabs.addTab(self.config_wizard, "⚙ Setup")
         self.right_tabs.addTab(self.console_widget, "Terminal")
+        self.right_tabs.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
+        )
 
         # The top row layout will hold [acquisition_gui | right_tabs]
         self._top_row = QHBoxLayout()
         self._mda_layout = QVBoxLayout()
-        self._top_row.addLayout(self._mda_layout)
-        self._top_row.addWidget(self.right_tabs)
+        # Give all extra width to the MDA column; right_tabs stays at sizeHint.
+        self._top_row.addLayout(self._mda_layout, 1)
+        self._top_row.addWidget(self.right_tabs, 0)
         self.main_layout.addLayout(self._top_row)
         #--------------------------------------------------------------------#
 
@@ -68,10 +88,15 @@ class MainWindow(QMainWindow):
         self._acquisition_gui: MDA | None = None
         self._config_controller: ConfigController | None = None
         self._encoder_widget: SerialWidget | None = None
+        # Widgets built from `procedure.processors` -- one SerialWidget per
+        # FrameProcessor whose `plot_enabled` is True. Tracked here so we
+        # can tear them down on a `_build_acquisition_ui` rebuild.
+        self._processor_widgets: list[SerialWidget] = []
 
         # Connect hot-load signals
         self.config_wizard.configApplied.connect(self._on_config_applied)
         self.config_wizard.hardwareReady.connect(self._build_acquisition_ui)
+        self.config_wizard.procedureChanged.connect(self._on_procedure_changed)
 
         # If hardware is already configured (e.g. config_path was passed),
         # build the full UI immediately.
@@ -84,6 +109,34 @@ class MainWindow(QMainWindow):
         """Switch to the Terminal tab."""
         terminal_index = self.right_tabs.indexOf(self.console_widget)
         self.right_tabs.setCurrentIndex(terminal_index)
+
+    def _open_tiff_viewer(self):
+        """Launch the TIFF ROI viewer pre-pointed at the current experiment dir.
+
+        The viewer is given a reference to the running ``Procedure`` so it can
+        refuse to open any file inside the active recording's output directory
+        while a camera is acquiring.
+        """
+        from mesofield.gui.tiff_viewer import TiffViewer
+
+        cfg = self.procedure.config
+        initial_dir = (
+            getattr(cfg, "bids_dir", None)
+            or getattr(cfg, "save_dir", None)
+            or ""
+        )
+
+        # Re-use existing window if still open; otherwise create a new one.
+        if self._tiff_viewer is not None and self._tiff_viewer.isVisible():
+            self._tiff_viewer.raise_()
+            self._tiff_viewer.activateWindow()
+            return
+
+        viewer = TiffViewer(initial_dir=initial_dir, procedure=self.procedure)
+        viewer.setWindowFlag(Qt.WindowType.Window, True)
+        viewer.resize(1100, 800)
+        viewer.show()
+        self._tiff_viewer = viewer
     
                 
     def initialize_console(self, procedure):
@@ -191,6 +244,19 @@ class MainWindow(QMainWindow):
 
     #============================== Private Methods =============================#
 
+    def _on_procedure_changed(self, new_procedure) -> None:
+        """The ConfigWizard discovered a different ``Procedure`` subclass.
+
+        Rebind the live reference so all subsequent UI rebuilds operate on
+        the user's custom subclass.
+        """
+        self.procedure = new_procedure
+        # Refresh the embedded IPython console's namespace so that typing
+        # ``procedure`` in the Terminal returns the live, hardware-initialized
+        # instance instead of the empty default created at launch.
+        if getattr(self, "kernel", None) is not None:
+            self.kernel.shell.push({"procedure": new_procedure})
+
     def _on_config_applied(self) -> None:
         """Rebuild config-dependent tabs after the user applies a configuration."""
         self.display_keys = self.procedure.config.display_keys
@@ -209,6 +275,12 @@ class MainWindow(QMainWindow):
         self.right_tabs.insertTab(1, self._config_controller, "ExperimentConfig")
         self.right_tabs.setCurrentWidget(self._config_controller)
 
+        # Pin the right column width to the ConfigController's fixed width
+        # (plus a small allowance for tab frame/margins) so the tab area is
+        # not stretched by wider tabs (e.g. the Terminal/Setup wizard).
+        cc_width = self._config_controller.width() or self._config_controller.sizeHint().width()
+        self.right_tabs.setFixedWidth(cc_width + 12)
+
     def _build_acquisition_ui(self) -> None:
         """Build (or rebuild) hardware-dependent widgets: MDA viewer and encoder."""
         # -- MDA / acquisition GUI -------------------------------------------
@@ -216,7 +288,7 @@ class MainWindow(QMainWindow):
             self._mda_layout.removeWidget(self._acquisition_gui)
             self._acquisition_gui.deleteLater()
 
-        self._acquisition_gui = MDA(self.procedure.config)
+        self._acquisition_gui = MDA(self.procedure)
         self._mda_layout.insertWidget(0, self._acquisition_gui)
 
         # -- Encoder widget ---------------------------------------------------
@@ -235,20 +307,83 @@ class MainWindow(QMainWindow):
             )
             self.main_layout.addWidget(self._encoder_widget)
 
+        # -- Plots for procedure-authored FrameProcessors --------------------
+        self._build_processor_plots()
+
         # -- Refresh the MM config section in the wizard ---------------------
         self.config_wizard.refresh_mm_section()
 
         # -- Property browser toolbar buttons --------------------------------
         self._build_property_browsers()
 
+    def _build_processor_plots(self) -> None:
+        """Add one SerialWidget per `procedure.processors` entry with `plot_enabled`.
+
+        The procedure (or the ``@processor`` decorator) is responsible for
+        constructing the FrameProcessor and toggling its ``plot_enabled``
+        flag.  We just discover what's already on ``procedure.processors``
+        and render it.
+        """
+        # Tear down anything we built on the previous pass.
+        for widget in self._processor_widgets:
+            try:
+                self.main_layout.removeWidget(widget)
+                widget.deleteLater()
+            except Exception:
+                pass
+        self._processor_widgets.clear()
+
+        cfg = self.procedure.config
+        for proc in getattr(self.procedure, "processors", []):
+            if not getattr(proc, "plot_enabled", False):
+                continue
+            # Expose on cfg.hardware so SerialWidget's `device_attr` lookup
+            # works without any extra wiring on the user's side.
+            attr = proc.device_id
+            setattr(cfg.hardware, attr, proc)
+            # Fill in sensible defaults for any styling kwargs the
+            # processor didn't specify.
+            pc = dict(proc.plot_config)
+            pc.setdefault("label", attr.replace("_", " ").title())
+            pc.setdefault("value_label", "Value")
+            pc.setdefault("value_units", "")
+            pc.setdefault("y_range", (0, 4096))
+            pc.setdefault("value_scale", 1.0)
+            try:
+                widget = SerialWidget(
+                    cfg=cfg,
+                    device_attr=attr,
+                    signal_name="valueUpdated",
+                    **pc,
+                )
+            except Exception as exc:
+                # Don't let a bad plot config kill the whole acquisition UI.
+                self._log_exception(f"build SerialWidget for {attr}", exc)
+                continue
+            self.main_layout.addWidget(widget)
+            self._processor_widgets.append(widget)
+
+    def _log_exception(self, ctx: str, exc: Exception) -> None:
+        # Defensive logger — MainWindow has no central logger today.
+        try:
+            print(f"[MainWindow] {ctx} failed: {exc}")
+        except Exception:
+            pass
+
     def _build_property_browsers(self) -> None:
         """Add a toolbar button per MicroManager camera that opens a PropertyBrowser."""
-        # Close any existing browsers and clear toolbar actions
+        # Close any existing browsers and remove only property-browser actions
         for dlg in self._prop_browsers:
             dlg.close()
             dlg.deleteLater()
         self._prop_browsers.clear()
-        self._toolbar.clear()
+        # Remove previously-added property-browser actions but keep other toolbar actions
+        for act in getattr(self, "_prop_actions", []):
+            try:
+                self._toolbar.removeAction(act)
+            except Exception:
+                pass
+        self._prop_actions.clear()
 
         cameras = self.procedure.config.hardware.cameras
         mm_cams = [
@@ -279,6 +414,7 @@ class MainWindow(QMainWindow):
                 lambda checked, b=browser: self._show_property_browser(b)
             )
             self._toolbar.addAction(action)
+            self._prop_actions.append(action)
 
     @staticmethod
     def _show_property_browser(browser) -> None:

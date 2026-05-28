@@ -1,23 +1,89 @@
-"""
+﻿"""
 Base procedure classes for implementing experimental workflows in Mesofield.
 
-This module provides base classes that implement the Procedure protocol and integrate
-with the Mesofield configuration and hardware management systems.
+This module defines a *generic* :class:`Procedure` orchestrator that contains
+zero device-specific logic.  Custom experiment subclasses live outside the
+package (typically under ``experiments/<name>/procedure.py``) and are
+discovered via :func:`load_procedure_from_config`, which reads the optional
+``procedure_file`` and ``procedure_class`` fields from ``experiment.json``.
+
+Lifecycle (subclass hooks shown in **bold**):
+
+1. ``initialize_hardware``  -- bring devices up
+2. ``prerun``               -- **subclass hook** (default: no-op)
+3. ``hardware.arm_all``     -- per-run prep on every device
+4. connect ``hardware.primary.signals.finished`` -> ``_cleanup_procedure``
+5. ``on_started``           -- **subclass hook** (default: no-op)
+6. ``hardware.start_all``
+7. ``on_finished``          -- **subclass hook** (default: no-op)
+8. ``save_data`` + cleanup
 """
 
+import importlib.util
+import json
 import os
-from datetime import datetime
+import sys
+import threading
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, Optional, Type
 
-from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, Type
+from PyQt6.QtCore import QObject, pyqtSignal
+
+from mesokit_schema import (
+    AcquisitionManifest,
+    DataqueuePayloadSchema,
+    ProducerEntry,
+    SessionIdentity,
+    SidecarEntry,
+    TimeBasis,
+)
 
 from mesofield.config import ExperimentConfig
-from mesofield.protocols import Configurator
-from mesofield.hardware import HardwareManager
 from mesofield.data.manager import DataManager
+
+try:
+    from mesofield._version import __version__ as _MESOFIELD_VERSION
+except Exception:  # pragma: no cover
+    _MESOFIELD_VERSION = "0.0.0+unknown"
+from mesofield.hardware import HardwareManager
+from mesofield.protocols import Configurator
 from mesofield.utils._logger import get_logger
-from mesofield.data.writer import CustomWriter
-from PyQt6.QtCore import QObject, pyqtSignal
+
+
+def processor(*, camera: str, plot: bool = False, **plot_kwargs: Any):
+    """Mark a :class:`Procedure` method as a per-frame compute function.
+
+    The decorated function is called as ``func(self, img, idx, ts)`` and
+    should return a ``float | None``.  At procedure init the framework
+    builds a :class:`~mesofield.processors.FrameProcessor` that wraps it,
+    attaches it to the hardware device whose ``device_id`` matches
+    ``camera``, registers it on :class:`~mesofield.data.manager.DataManager`,
+    and (when ``plot=True``) tells the GUI to add a
+    :class:`~mesofield.gui.speedplotter.SerialWidget`.
+
+    ``plot_kwargs`` are forwarded straight to the widget — recognized
+    keys: ``label``, ``value_label``, ``value_units``, ``y_range``,
+    ``value_scale``, ``max_points``.
+
+    Example::
+
+        class MyProcedure(Procedure):
+            @processor(camera="meso", plot=True, label="Frame Mean")
+            def frame_mean(self, img, idx, ts):
+                return float(img.mean())
+    """
+    def wrap(fn):
+        fn._mesofield_processor = {
+            "camera": camera,
+            "plot": plot,
+            "plot_kwargs": plot_kwargs,
+            "name": fn.__name__,
+        }
+        return fn
+    return wrap
+
 
 class ProcedureSignals(QObject):
     """All procedure-level signals that a Qt GUI can connect to."""
@@ -26,49 +92,71 @@ class ProcedureSignals(QObject):
     data_saved             = pyqtSignal()
     procedure_error        = pyqtSignal(str)      # emits error message
     procedure_finished     = pyqtSignal()
-    
-    
-class Procedure:
-    """High level class describing an experiment run in Mesofield.
 
-    Can be created **without** a *config_path* to start in a default / empty
-    state.  Call :meth:`load_config` later to apply an experiment JSON and
-    bring up hardware.
+
+class Procedure:
+    """Generic orchestrator for a Mesofield experiment.
+
+    Subclass this in ``experiments/<name>/procedure.py`` and override the
+    extension hooks (:meth:`prerun`, :meth:`on_started`, :meth:`on_finished`)
+    and/or the lifecycle methods (:meth:`run`, :meth:`save_data`,
+    :meth:`cleanup`) as needed.  The base class never references a specific
+    device type -- multi-camera sync is driven by the YAML ``primary: true``
+    flag and ``HardwareManager.start_all/stop_all``.
     """
 
     def __init__(self, config_path: Optional[str] = None):
+        # Initialize the processor registry before anything else so the
+        # ``__setattr__`` hook can run safely from the first assignment on.
+        # We bypass the hook itself with object.__setattr__ to avoid the
+        # isinstance import dance on a guaranteed-non-processor value.
+        object.__setattr__(self, "processors", [])
+
         self.events = ProcedureSignals()
+        self._finished_event = threading.Event()
+        self.events.procedure_finished.connect(self._finished_event.set)
+        self.events.procedure_error.connect(lambda _msg: self._finished_event.set())
 
         self.config: Configurator
+        self._config_path = config_path
         experiment_dir = os.path.dirname(os.path.abspath(config_path)) if config_path else None
         self.config = ExperimentConfig(experiment_dir)
-        if config_path:
+
+        # Scripted config: a subclass may declare parameters in Python
+        # (a dataclass or mapping) instead of an experiment.json file.
+        config_data = self.define_config()
+        if config_data is not None:
+            self.config.load_dict(config_data)
+        elif config_path and config_path.endswith(".json"):
             self.config.load_json(config_path)
 
-        # Default parameters for a typical Mesofield experiment
-        defaults = {"duration": 60, "start_on_trigger": False}
-        for key, value in defaults.items():
-            if not self.config.has(key):
-                self.config.set(key, value)
+        # Scripted hardware: a subclass may construct device objects directly
+        # instead of relying on a hardware.yaml file.
+        devices = self.define_hardware()
+        if devices is not None:
+            self.config.hardware = HardwareManager(devices=devices)
 
         self.protocol = self.config.get("protocol", "default_experiment")
         self.experimenter = self.config.get("experimenter", "researcher")
 
         self.data_dir = self.config.data_dir
-        self.h5_path = os.path.join(self.data_dir, f"{self.protocol}.h5")
+
+        self.start_time: Optional[datetime] = None
+        self.stopped_time: Optional[datetime] = None
 
         self.logger = get_logger(f"PROCEDURE.{self.protocol}")
         self.logger.info(f"Initialized procedure: {self.protocol}")
 
-        # Only initialise hardware when the hardware manager has a config
         if self.config.hardware.is_configured:
             self.initialize_hardware()
             self.config.hardware._configure_engines(self.config)
+            self._materialize_decorated_processors()
         else:
             self.logger.info(
-                "Hardware not configured yet – launch in default state. "
+                "Hardware not configured yet -- launch in default state. "
                 "Use load_config() to apply a configuration."
             )
+
     # ------------------------------------------------------------------
     # Convenience accessors
 
@@ -79,175 +167,439 @@ class Procedure:
     @property
     def hardware(self) -> HardwareManager:
         return self.config.hardware
-    
-    # ------------------------------------------------------------------
-    # Core business logic
-    def initialize_hardware(self) -> None:
-        """Boot up hardware and a `DataManager`.
-        
-        The core logic here is to have a `Procedure` with instance attributes of: 
-            | `ExperimentConfig` | `HardwareManager` | `DataManager` |
 
-        Hardware is ininitialized via the `ExperimentConfig.HardwareManager` instance.
-        This is partially leftover from a legacy design, but remains convenient to pass an `ExperimentConfig`
-        object in order to provide stateful access to the hardware configuration and management without 
-        passing the entire `Procedure` instance itself.
-        
-        The `DataManager` singleton is initialized here, too, as an attribute of the `Procedure` instance. 
-        """
+    # ------------------------------------------------------------------
+    # Hardware bring-up
+
+    def initialize_hardware(self) -> None:
+        """Boot up hardware and a :class:`DataManager`."""
         try:
             self.config.hardware.initialize(self.config)
-            self.data = DataManager(self.h5_path)
+            self.data = DataManager()
+            # Register devices eagerly so iPython terminals and GUI inspectors
+            # see them on `procedure.data.devices` before run() is called.
+            # `Procedure.run()` short-circuits the re-registration via its
+            # `if not self.data.devices:` guard.
+            self.data.register_devices(self.config.hardware.devices.values())
             self.logger.info("Hardware initialized successfully")
-            
-        except RuntimeError as e:  # pragma: no cover - initialization failures
+        except RuntimeError as e:
             self.logger.error(f"Failed to initialize hardware: {e}")
             self.config.hardware.deinitialize()
             raise
-            
-    # ------------------------------------------------------------------
-    #TODO: Connect an update event from the GUI controller with this method
+
     def setup_configuration(self, json_config: Optional[str]) -> None:
-        """ This method loads ExperimentConfig instance with a JSON configuration file.
-        
-        It then sends this ExperimentConfig object to the HardwareManager, relaying it to MicroManager mda engines
-        
-        NOTE: This method is called by the ConfigController in the GUI whenever a json configuration file is picked
-        """
+        """Load a JSON configuration into the existing :class:`ExperimentConfig`."""
         if json_config:
             self.config.load_json(json_config)
             self.config.hardware._configure_engines(self.config)
 
-    # ------------------------------------------------------------------
-
     def load_config(self, json_path: Optional[str] = None,
                     hardware_yaml_path: Optional[str] = None) -> None:
-        """Hot-load an experiment configuration and/or hardware YAML.
-
-        This is the primary entry-point for the *ConfigWizard* to apply
-        user-selected configuration files at runtime.
-
-        Parameters
-        ----------
-        json_path : str, optional
-            Path to an experiment JSON config file.  When provided, the
-            adjacent ``hardware.yaml`` is also discovered automatically
-            (unless *hardware_yaml_path* is given explicitly).
-        hardware_yaml_path : str, optional
-            Explicit path to a ``hardware.yaml`` file.  Takes precedence
-            over any YAML discovered relative to *json_path*.
-        """
-        # 1. Load hardware YAML first (explicit path takes priority)
+        """Hot-load an experiment configuration and/or hardware YAML."""
         if hardware_yaml_path:
             self.config.load_hardware(hardware_yaml_path)
         elif json_path:
-            # Discover hardware.yaml adjacent to the JSON file
             candidate = os.path.join(
                 os.path.dirname(os.path.abspath(json_path)), "hardware.yaml"
             )
             if os.path.isfile(candidate):
                 self.config.load_hardware(candidate)
 
-        # 2. Load experiment JSON parameters
         if json_path:
             self.config.load_json(json_path)
 
-        # 3. Refresh derived attributes
         self.protocol = self.config.get("protocol", "default_experiment")
         self.experimenter = self.config.get("experimenter", "researcher")
         self.data_dir = self.config.data_dir
-        self.h5_path = os.path.join(self.data_dir, f"{self.protocol}.h5")
 
-        # 4. Bring up hardware if now configured
         if self.config.hardware.is_configured:
             self.initialize_hardware()
             self.config.hardware._configure_engines(self.config)
+            self._materialize_decorated_processors()
 
         self.events.hardware_initialized.emit(self.config.hardware.is_configured)
         self.logger.info("Configuration hot-loaded successfully")
 
     # ------------------------------------------------------------------
-    
-    def prerun(self) -> None:
-        """Run any pre-experiment setup logic."""
-        self.logger.info("Running pre-experiment setup")
+    # Processor auto-discovery
+    #
+    # Any :class:`FrameProcessor` instance stored on the procedure (whether
+    # by direct attribute assignment or by the ``@processor`` decorator)
+    # lands on ``self.processors`` and is registered with the DataManager
+    # automatically.  Cleanup detaches them.
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        super().__setattr__(name, value)
+        # Avoid importing at module load (the processors package imports
+        # PyQt6, which we don't want forced on headless callers that never
+        # use processors).
+        try:
+            from mesofield.processors import FrameProcessor
+        except Exception:
+            return
+        if isinstance(value, FrameProcessor):
+            self._register_processor(value, attr_name=name)
+
+    def _register_processor(self, proc: Any, attr_name: Optional[str] = None) -> None:
+        """Register ``proc`` on :attr:`processors` and the DataManager.
+
+        Dedupe-safe and idempotent: re-registering the same instance is a
+        no-op.  When ``attr_name`` is supplied and a *different* processor
+        with the same name is already registered, the old one is detached
+        and replaced.
+        """
+        procs = self.processors  # plain attribute, no __setattr__ recursion
+        if proc in procs:
+            return
+        # If the user used the default name (lowercased class name) and
+        # assigned the processor to a specific attribute, prefer the
+        # attribute name. Explicit `name=...` at construction wins.
+        if attr_name is not None:
+            default_name = type(proc).__name__.lower()
+            if proc.device_id == default_name and attr_name != default_name:
+                proc.device_id = attr_name
+                proc.id = attr_name
+                proc.name = attr_name
+        # Replace any prior processor that shared this attribute name.
+        if attr_name is not None:
+            for existing in list(procs):
+                if existing.device_id == proc.device_id and existing is not proc:
+                    try:
+                        existing.detach()
+                    except Exception:
+                        pass
+                    procs.remove(existing)
+                    break
+        procs.append(proc)
+        # DataManager may not exist yet during early construction; the
+        # later ``Procedure.run`` call also re-registers devices, so this
+        # is best-effort.
+        dm = getattr(self, "data", None)
+        if dm is not None:
+            try:
+                dm.register_hardware_device(proc)
+            except Exception as exc:
+                self.logger.warning(
+                    f"register_hardware_device({proc.device_id}) failed: {exc}"
+                )
+
+    def _materialize_decorated_processors(self) -> None:
+        """Instantiate every ``@processor``-decorated method on this class.
+
+        Walks the MRO so decorators on base procedures are honored.
+        Skips names that already resolve to a :class:`FrameProcessor` on
+        this instance (idempotent for ``load_config`` hot reloads).
+        """
+        try:
+            from mesofield.processors import FrameProcessor
+        except Exception:
+            return
+        seen: set[str] = set()
+        for klass in type(self).__mro__:
+            for attr_name, member in klass.__dict__.items():
+                if attr_name in seen:
+                    continue
+                meta = getattr(member, "_mesofield_processor", None)
+                if meta is None:
+                    continue
+                seen.add(attr_name)
+                existing = getattr(self, attr_name, None)
+                if isinstance(existing, FrameProcessor):
+                    continue  # already materialized; skip on hot reload
+                camera = self._resolve_camera(meta["camera"], attr_name)
+                bound = member.__get__(self, type(self))  # bound method
+                cls = type(
+                    f"_Decorated_{attr_name}",
+                    (FrameProcessor,),
+                    {"compute": lambda self, img, idx, ts, _fn=bound: _fn(img, idx, ts)},
+                )
+                kwargs = dict(meta["plot_kwargs"])
+                instance = cls(
+                    name=attr_name,
+                    camera=camera,
+                    plot=meta["plot"],
+                    **kwargs,
+                )
+                # Goes through __setattr__ -> _register_processor.
+                setattr(self, attr_name, instance)
+
+    def _resolve_camera(self, device_id: str, for_name: str) -> Any:
+        """Look up a hardware device by ``device_id``; clear error if missing."""
+        devices = getattr(self.hardware, "devices", {}) or {}
+        # ``devices`` is a {device_id: device} mapping in HardwareManager.
+        if device_id in devices:
+            return devices[device_id]
+        # Fall back to scanning ``cameras`` tuple by their .device_id / .id.
+        for cam in getattr(self.hardware, "cameras", ()) or ():
+            if getattr(cam, "device_id", getattr(cam, "id", None)) == device_id:
+                return cam
+        available = sorted(devices.keys())
+        raise ValueError(
+            f"@processor(camera={device_id!r}) on {type(self).__name__}.{for_name}: "
+            f"no hardware device with that id. Available: {available}"
+        )
+
+    # ------------------------------------------------------------------
+    # Subclass extension hooks (no-op defaults)
+
+    def define_config(self) -> Any:
+        """Subclass hook to declare experiment parameters in Python.
+
+        Override to return a ``@dataclass`` instance or a plain mapping; it is
+        applied to :attr:`config` via :meth:`ExperimentConfig.load_dict`,
+        superseding any ``experiment.json``. Default ``None`` -> load JSON.
+        """
+        return None
+
+    def define_hardware(self) -> Any:
+        """Subclass hook to construct hardware devices in Python.
+
+        Override to return a list of pre-built device objects (imported and
+        instantiated in the procedure file). They are handed to a fresh
+        :class:`HardwareManager`, superseding any ``hardware.yaml``. Default
+        ``None`` -> load YAML. Device classes should be decorated with
+        ``@DeviceRegistry.register(...)`` so the setup can later be exported
+        to a ``hardware.yaml`` rig file via ``HardwareManager.to_yaml``.
+        """
+        return None
+
+    def prerun(self) -> None:
+        """Subclass hook called before arming devices.  Override as needed."""
+        return None
+
+    def on_started(self) -> None:
+        """Subclass hook called immediately after ``start_all``."""
+        return None
+
+    def on_finished(self) -> None:
+        """Subclass hook called immediately after the primary device finishes."""
+        return None
+
+    # ------------------------------------------------------------------
+    # Core lifecycle
+
+    def run(self) -> None:
+        """Drive a standard experiment run.
+
+        Subclasses may override, but the default body is generic and handles
+        any combination of devices declared in ``hardware.yaml``.
+        """
+        self.logger.info("================= Starting experiment ===================")
+
+        # 1. DataManager / queue logger setup
         self.data.setup(self.config)
         if not self.data.devices:
             self.data.register_devices(self.config.hardware.devices.values())
-
         self.data.start_queue_logger()
 
-        for cam in self.hardware.cameras:
-            cam.set_writer(self.config.make_path)
-            cam.set_sequence(self.config.build_sequence)
-    
-    def run(self) -> None:
-        """Run the standard Mesofield workflow."""
-        self.logger.info("================= Starting experiment ===================")
-
+        # 2. Subclass pre-run hook
         self.prerun()
-        self.data.start_queue_logger()
-        
+
         try:
-            self.hardware.cameras[0].core.mda.events.sequenceFinished.connect(self._cleanup_procedure) #type: ignore
+            # 3. Per-run device prep
+            self.hardware.arm_all(self.config)
 
-            if self.config.get("start_on_trigger", False):
-                self.psychopy_process = self._launch_psychopy()
-                self.psychopy_process.start()
+            # 4. Wire termination: primary device's finished signal triggers cleanup
+            self.hardware.primary.signals.finished.connect(self._cleanup_procedure)
 
-            self.start_time = datetime.now()
-            if self.hardware.encoder is not None:
-                self.hardware.encoder.start_recording()
-            for cam in self.hardware.cameras:
-                cam.start()
-        except Exception as e:  # pragma: no cover - hardware errors
+            # 5. Start everything
+            self.start_time = datetime.now(timezone.utc)
+            self.events.procedure_started.emit()
+            self.hardware.start_all()
+
+            # 6. Subclass post-start hook
+            self.on_started()
+        except Exception as e:
             self.logger.error(f"Error during experiment: {e}")
+            self.events.procedure_error.emit(str(e))
             raise
 
-    # ------------------------------------------------------------------
     def save_data(self) -> None:
         mgr = getattr(self, "data_manager", self.data)
-        if len(self.hardware.cameras) > 1:
-            self.hardware.cameras[1].core.stopSequenceAcquisition() #type: ignore
-        for cam in self.hardware.cameras:
-            cam.stop()
         mgr.save.configuration()
         mgr.save.all_notes()
         mgr.save.all_hardware()
         mgr.save.save_timestamps(self.protocol, self.start_time, self.stopped_time)
-        mgr.update_database()
-        #self.config.auto_increment_session()
-        # persist any modified configuration values back to the JSON file
         self.config.save_json()
+        self.events.data_saved.emit()
         self.logger.info("Data saved successfully")
 
-
     def cleanup(self) -> None:
-        """Clean up after the experiment procedure."""
+        """Public cleanup entry-point (manual stop)."""
         self._cleanup_procedure()
 
+    def run_until_finished(self, timeout: Optional[float] = None) -> bool:
+        """Run the procedure and block until cleanup completes.
 
-    # ------------------------------------------------------------------
-    def _launch_psychopy(self):
-        from mesofield.subprocesses.psychopy import PsychoPyProcess
-        return PsychoPyProcess(self.config)
+        Starts the procedure via :meth:`run`, then waits for the
+        ``procedure_finished`` (or ``procedure_error``) signal.  Handles
+        ``KeyboardInterrupt`` and ``timeout`` by invoking :meth:`cleanup`
+        automatically, so callers (e.g. ``__main__`` blocks in experiment
+        scripts) do not need to wire up their own threading events.
 
+        Parameters
+        ----------
+        timeout:
+            Optional hard ceiling in seconds.  When ``None`` (default), waits
+            indefinitely for the primary device's ``finished`` signal.  When
+            provided, forces cleanup if the deadline passes.
+
+        Returns
+        -------
+        bool
+            ``True`` if the procedure finished on its own, ``False`` if
+            cleanup was forced by timeout or interrupt.
+        """
+        self._finished_event.clear()
+        deadline = None if timeout is None else (datetime.now().timestamp() + timeout)
+        try:
+            self.run()
+            while not self._finished_event.is_set():
+                remaining = None
+                if deadline is not None:
+                    remaining = deadline - datetime.now().timestamp()
+                    if remaining <= 0:
+                        self.logger.warning(
+                            "run_until_finished: timeout reached, forcing cleanup"
+                        )
+                        break
+                self._finished_event.wait(timeout=min(0.5, remaining) if remaining else 0.5)
+        except KeyboardInterrupt:
+            self.logger.info("run_until_finished: KeyboardInterrupt, cleaning up")
+        finally:
+            if not self._finished_event.is_set():
+                self.cleanup()
+        return self._finished_event.is_set()
 
     def _cleanup_procedure(self):
         self.logger.info("Cleanup Procedure")
         try:
-            if len(self.hardware.cameras) > 1:
-                self.hardware.cameras[1].core.stopSequenceAcquisition()
-            self.hardware.cameras[0].core.mda.events.sequenceFinished.disconnect(self._cleanup_procedure)
-            self.hardware.stop()
+            try:
+                self.hardware.primary.signals.finished.disconnect(self._cleanup_procedure)
+            except Exception:
+                pass
+            # Detach any procedure-authored FrameProcessors so their worker
+            # threads exit and the camera frame signal is released before
+            # the hardware itself shuts down.
+            for proc in list(getattr(self, "processors", [])):
+                try:
+                    proc.detach()
+                except Exception as exc:
+                    self.logger.warning(f"processor detach failed: {exc}")
+            self.processors.clear()
+            self.hardware.stop_all()
             self.data.stop_queue_logger()
-            self.stopped_time = datetime.now()
+            self.stopped_time = datetime.now(timezone.utc)
             self.save_data()
-            if hasattr(self, "data_manager"):
-                self.data.update_database()
-        except Exception as e:  # pragma: no cover - cleanup failure
+            self._write_acquisition_manifest()
+            self.on_finished()
+            self.events.procedure_finished.emit()
+        except Exception as e:
             self.logger.error(f"Error during cleanup: {e}")
+            self.events.procedure_error.emit(str(e))
+        finally:
+            # `events.procedure_finished` is a pyqtSignal; its Python-side
+            # `.connect`s only run with a live QApplication. Setting the
+            # event directly here keeps `run_until_finished` working in
+            # headless contexts (tests, CLI smoke runs, batch scripts).
+            self._finished_event.set()
+
+    # ------------------------------------------------------------------
+    # Acquisition manifest (mesokit-schema contract)
+
+    def manifest_extra(self) -> Dict[str, Any]:
+        """Override to inject extra session-level metadata into the
+        AcquisitionManifest's ``extra`` block. Default: empty."""
+        return {}
+
+    def _write_acquisition_manifest(self) -> None:
+        """Emit a `mesokit_schema.AcquisitionManifest` next to the data.
+
+        Called automatically during cleanup. Override to disable or change
+        where the manifest lands; use :meth:`manifest_extra` if you only
+        want to attach extra session metadata.
+        """
+        session_root = (
+            Path(self.data_dir)
+            / f"sub-{self.config.subject}"
+            / f"ses-{self.config.session}"
+        )
+        session_root.mkdir(parents=True, exist_ok=True)
+
+        def _relativise(p: Any) -> Optional[str]:
+            if not p:
+                return None
+            try:
+                return str(Path(p).resolve().relative_to(session_root.resolve()))
+            except ValueError:
+                return str(p)
+
+        def _coerce_sidecars(raw) -> list[SidecarEntry]:
+            out: list[SidecarEntry] = []
+            for item in raw or []:
+                if isinstance(item, SidecarEntry):
+                    rel = _relativise(item.path) or item.path
+                    out.append(item.model_copy(update={"path": rel}))
+                else:
+                    data = dict(item)
+                    rel = _relativise(data.get("path"))
+                    if rel is not None:
+                        data["path"] = rel
+                    out.append(SidecarEntry.model_validate(data))
+            return out
+
+        def _coerce_dataqueue_schema(raw) -> Optional[DataqueuePayloadSchema]:
+            if raw is None:
+                return None
+            if isinstance(raw, DataqueuePayloadSchema):
+                return raw
+            return DataqueuePayloadSchema.model_validate(raw)
+
+        producers: list[ProducerEntry] = []
+        for device_id, device in self.config.hardware.devices.items():
+            output_path = getattr(device, "output_path", None)
+            if not output_path:
+                continue
+            sidecars_method = getattr(device, "sidecars", None)
+            sidecar_list = sidecars_method() if callable(sidecars_method) else []
+            dq_schema_raw = getattr(device, "dataqueue_payload_schema", None)
+            producers.append(
+                ProducerEntry(
+                    device_id=device_id,
+                    device_type=getattr(device, "device_type", "device"),
+                    data_type=getattr(device, "data_type", device_id),
+                    bids_type=getattr(device, "bids_type", None),
+                    file_type=getattr(device, "file_type", "csv"),
+                    output_path=_relativise(output_path) or str(output_path),
+                    metadata_path=_relativise(getattr(device, "metadata_path", None)),
+                    sampling_rate_hz=getattr(device, "sampling_rate", None) or None,
+                    time_basis=TimeBasis(
+                        clock_source=getattr(device, "clock_source", "wall_unix_s"),
+                    ),
+                    calibration=dict(getattr(device, "calibration", {}) or {}),
+                    sidecars=_coerce_sidecars(sidecar_list),
+                    dataqueue_schema=_coerce_dataqueue_schema(dq_schema_raw),
+                )
+            )
+
+        manifest = AcquisitionManifest(
+            mesofield_version=str(_MESOFIELD_VERSION),
+            acquisition_complete=True,
+            started_at=self.start_time,
+            ended_at=self.stopped_time,
+            session=SessionIdentity(
+                subject=str(self.config.subject),
+                session=str(self.config.session),
+                task=str(self.config.task) if self.config.task else None,
+                experimenter=self.experimenter,
+                protocol=self.protocol,
+            ),
+            producers=producers,
+            extra=self.manifest_extra(),
+        )
+        out = session_root / "manifest.json"
+        manifest.write(out)
+        self.logger.info(f"Wrote AcquisitionManifest -> {out}")
 
     # ------------------------------------------------------------------
 
@@ -256,20 +608,128 @@ class Procedure:
         self.config.notes.append(f"{timestamp}: {note}")
         self.logger.info(f"Added note: {note}")
 
-    def load_database(self, key: str = "datapaths"):
-        """Return a DataFrame with all sessions stored for this Procedure."""
-        if hasattr(self, "data_manager"):
-            return self.data.read_database(key)
-        return None
 
 
+# ----------------------------------------------------------------------
+# Procedure discovery
+
+def load_procedure_from_config(config_path: str) -> "Procedure":
+    """Instantiate the right :class:`Procedure` subclass for a given JSON.
+
+    The experiment JSON may declare two optional fields:
+
+    ``procedure_file``
+        Path to a Python file containing the subclass.  Relative paths are
+        resolved against the JSON's directory.
+    ``procedure_class``
+        Name of the class to import from ``procedure_file``.
+
+    When either field is missing, a base :class:`Procedure` is returned.
+    The user file is loaded via :func:`importlib.util.spec_from_file_location`
+    so ``experiments/`` does not need to be on ``sys.path``.
+    """
+    if not config_path or not os.path.isfile(config_path):
+        return Procedure(config_path)
+
+    # A scripted procedure: config_path points straight at a Python file that
+    # defines a Procedure subclass (with define_config / define_hardware).
+    if config_path.endswith(".py"):
+        return _load_procedure_from_py(config_path)
+
+    try:
+        with open(config_path, "r", encoding="utf-8") as fh:
+            cfg = json.load(fh)
+    except Exception:
+        return Procedure(config_path)
+
+    proc_file = cfg.get("procedure_file")
+    proc_class = cfg.get("procedure_class")
+    if not proc_file or not proc_class:
+        return Procedure(config_path)
+
+    # Resolve relative paths against the JSON's directory
+    json_dir = os.path.dirname(os.path.abspath(config_path))
+    if not os.path.isabs(proc_file):
+        proc_file = os.path.join(json_dir, proc_file)
+
+    if not os.path.isfile(proc_file):
+        raise FileNotFoundError(
+            f"procedure_file declared in {config_path} not found: {proc_file}"
+        )
+
+    mod_name = f"mesofield_user_procedure_{uuid.uuid4().hex}"
+    spec = importlib.util.spec_from_file_location(mod_name, proc_file)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load procedure_file: {proc_file}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[mod_name] = module
+    spec.loader.exec_module(module)
+
+    cls = getattr(module, proc_class, None)
+    if cls is None:
+        raise AttributeError(
+            f"Class '{proc_class}' not found in {proc_file}"
+        )
+    if not (isinstance(cls, type) and issubclass(cls, Procedure)):
+        raise TypeError(
+            f"{proc_class} in {proc_file} must be a subclass of mesofield.base.Procedure"
+        )
+
+    return cls(config_path)
+
+
+def _load_procedure_from_py(py_path: str) -> "Procedure":
+    """Instantiate the Procedure subclass defined in a scripted ``procedure.py``.
+
+    The class is selected from a module-level ``PROCEDURE`` attribute when
+    present, otherwise the single :class:`Procedure` subclass *defined in*
+    that file. The ``.py`` path is passed as ``config_path`` so the
+    procedure's ``experiment_dir`` resolves to the file's directory; the
+    ``define_config`` hook supplies the actual parameters.
+    """
+    abs_path = os.path.abspath(py_path)
+    mod_name = f"mesofield_user_procedure_{uuid.uuid4().hex}"
+    spec = importlib.util.spec_from_file_location(mod_name, abs_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load procedure file: {abs_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[mod_name] = module
+    spec.loader.exec_module(module)
+
+    cls = getattr(module, "PROCEDURE", None)
+    if cls is None:
+        candidates = [
+            obj for obj in vars(module).values()
+            if isinstance(obj, type)
+            and issubclass(obj, Procedure)
+            and obj is not Procedure
+            and obj.__module__ == mod_name
+        ]
+        if not candidates:
+            raise AttributeError(
+                f"No Procedure subclass found in {abs_path}. Define one, or "
+                f"set a module-level 'PROCEDURE = <class>'."
+            )
+        if len(candidates) > 1:
+            names = ", ".join(c.__name__ for c in candidates)
+            raise AttributeError(
+                f"Multiple Procedure subclasses in {abs_path} ({names}); "
+                f"set a module-level 'PROCEDURE = <class>' to disambiguate."
+            )
+        cls = candidates[0]
+
+    if not (isinstance(cls, type) and issubclass(cls, Procedure)):
+        raise TypeError(
+            f"{cls!r} in {abs_path} must be a subclass of mesofield.base.Procedure"
+        )
+    return cls(abs_path)
 
 
 # Factory function for creating procedures
 def create_procedure(
     procedure_class: Type[Procedure],
     config_path: Optional[str],
-    **custom_parameters,
+    **custom_parameters: Any,
 ) -> Procedure:
     """Factory function to create procedure instances."""
     procedure = procedure_class(config_path)
@@ -280,3 +740,4 @@ def create_procedure(
 
 # Legacy constants for backward compatibility
 NAME = "mesofield"
+

@@ -91,7 +91,7 @@ class ConfigFormWidget(QWidget):
                     editor.setPlaceholderText("e.g. 422222442 or [\"4\",\"2\",\"2\"]")
                 editor.editingFinished.connect(lambda k=key, e=editor: self._commit_text_editor(k, e))
             form.addRow(key, editor)
-        self.config_hint_text = QLabel("<i>All values are editable during recording before saving upon Procedure completion</i>")
+        self.config_hint_text = QLabel("<i>Values persist upon Procedure completion or with the \"Save\" button</i>")
         form.addRow(self.config_hint_text)
 
 
@@ -154,15 +154,36 @@ class ConfigController(QWidget):
         # subject selection dropdown
         self.subject_dropdown_label = QLabel('Select Subject:')
         self.subject_dropdown = QComboBox()
+        self.add_subject_button = QPushButton("+ Subject")
+        self.add_subject_button.setToolTip("Add a new subject to experiment.json")
+        self.add_parameter_button = QPushButton("+ Parameter")
+        self.add_parameter_button.setToolTip(
+            "Add a new parameter applied to every subject and made editable in DisplayKeys"
+        )
         sub_layout = QHBoxLayout()
         sub_layout.addWidget(self.subject_dropdown_label)
         sub_layout.addWidget(self.subject_dropdown)
+        sub_layout.addWidget(self.add_subject_button)
+        sub_layout.addWidget(self.add_parameter_button)
         layout.addLayout(sub_layout)
 
+        # BIDS filename preview — updates live as subject/session/task change
+        self.filename_preview_label = QLabel()
+        self.filename_preview_label.setWordWrap(True)
+        self.filename_preview_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.filename_preview_label.setStyleSheet("color: #9e9e9e; font-family: monospace;")
+        layout.addWidget(self.filename_preview_label)
+
         self.config_model = ConfigFormWidget(self.procedure.config, keys=self.display_keys)
-        
+
         self._populate_subjects()
         self._change_subject(0)
+
+        # Register live updates for the filename preview. Callbacks fire from
+        # ConfigRegister.set() — which is what ConfigFormWidget editors call.
+        for key in ("subject", "session", "task"):
+            self.config.register_callback(key, lambda _k, _v: self._update_filename_preview())
+        self._update_filename_preview()
         
         # 4. Record button to start the MDA sequence
         self.record_button = QPushButton("Record")
@@ -193,16 +214,36 @@ class ConfigController(QWidget):
         self.record_button.setToolTip("Start Recording (MDA Sequence)")
         self.record_button.setShortcut("Ctrl+R")  # Set shortcut for recording
 
-        # 5. Add Note button to add a note to the configuration
+        # 5. Abort button to safely stop a running Procedure
+        self.abort_button = QPushButton("Abort")
+        stop_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_MediaStop)
+        self.abort_button.setIcon(stop_icon)
+        self.abort_button.setToolTip("Abort the running Procedure (safe stop + save)")
+        self.abort_button.setEnabled(False)
+
+        # 6. Add Note button to add a note to the configuration
         self.add_note_button = QPushButton("Add Note")
 
-        # Group the Record and Add Note buttons horizontally
+        # 7. Save button to persist edits to experiment.json on demand
+        self.save_button = QPushButton("Save")
+        save_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
+        self.save_button.setIcon(save_icon)
+        self.save_button.setToolTip("Save edits to experiment.json now")
+
+        # Group the Record, Abort, Add Note and Save buttons horizontally
         self._action_buttons_layout = QHBoxLayout()
         self._action_buttons_layout.addWidget(self.record_button)
+        self._action_buttons_layout.addWidget(self.abort_button)
         self._action_buttons_layout.addWidget(self.add_note_button)
+        self._action_buttons_layout.addWidget(self.save_button)
         layout.addLayout(self._action_buttons_layout)
 
-        # Dynamic hardware-specific controls
+        # Absorb extra vertical space here so the form + primary action buttons
+        # stay anchored to the top, and hardware-specific controls stay pinned
+        # to the bottom edge regardless of window height.
+        layout.addStretch(1)
+
+        # Dynamic hardware-specific controls (pinned to bottom of the panel)
         self.dynamic_controller = DynamicController(self.procedure.config, parent=self)
         layout.addWidget(self.dynamic_controller)
         # ------------------------------------------------------------------------------------- #
@@ -211,8 +252,21 @@ class ConfigController(QWidget):
 
         self.subject_dropdown.currentIndexChanged.connect(self._change_subject) # When the subject is changed, update the config form
         self.record_button.clicked.connect(self.record)
+        self.abort_button.clicked.connect(self._abort)
         self.add_note_button.clicked.connect(self._add_note)
+        self.add_subject_button.clicked.connect(self._add_subject)
+        self.add_parameter_button.clicked.connect(self._add_parameter)
+        self.save_button.clicked.connect(self._save_config)
         self.open_bids_button.clicked.connect(self._open_bids_directory)
+
+        # Toggle Record/Abort availability from the live procedure lifecycle.
+        # Bound-method connections auto-disconnect when this widget (a
+        # QObject) is destroyed on a config reload.
+        events = getattr(self.procedure, "events", None)
+        if events is not None:
+            events.procedure_started.connect(self._on_run_started)
+            events.procedure_finished.connect(self._on_run_finished)
+            events.procedure_error.connect(self._on_run_finished)
 
         # Connect dynamic controls using constants defined in DynamicController
         dynamic_buttons = [
@@ -268,6 +322,24 @@ class ConfigController(QWidget):
                 QMessageBox.critical(self, "Procedure Error", f"Failed to run procedure: {str(e)}")
                 return
 
+    def _abort(self):
+        """Safely stop the running Procedure (stops hardware, saves data)."""
+        if self.procedure is None:
+            return
+        self.abort_button.setEnabled(False)
+        try:
+            self.procedure.cleanup()
+        except Exception as e:
+            QMessageBox.critical(self, "Abort Error", f"Failed to abort procedure: {e}")
+
+    def _on_run_started(self, *_args) -> None:
+        self.record_button.setEnabled(False)
+        self.abort_button.setEnabled(True)
+
+    def _on_run_finished(self, *_args) -> None:
+        self.record_button.setEnabled(True)
+        self.abort_button.setEnabled(False)
+
     def _stop_live_streams(self) -> None:
         """Ensure any live/sequence streams are halted before starting acquisition."""
         cores = getattr(self.config, "_cores", ())
@@ -312,6 +384,97 @@ class ConfigController(QWidget):
             layout.insertWidget(idx, new_form)
             layout.removeWidget(old_form)
             old_form.deleteLater()
+        self._update_filename_preview()
+
+    def _update_filename_preview(self):
+        """Render the BIDS filename template for the currently selected subject."""
+        if not hasattr(self, "filename_preview_label"):
+            return
+        subject = self.config.get("subject") or "?"
+        session = self.config.get("session") or "?"
+        task = self.config.get("task") or "?"
+        template = (
+            f"Filename template: "
+            f"YYYYMMDD_HHMMSS_sub-{subject}_ses-{session}_task-{task}_<suffix>.<ext>"
+        )
+        self.filename_preview_label.setText(template)
+
+    def _add_subject(self):
+        """Prompt for a new subject ID, add it to the config, and select it."""
+        subject_id, ok = QInputDialog.getText(self, "Add Subject", "Subject ID:")
+        if not ok or not subject_id.strip():
+            return
+        try:
+            self.config.add_subject(subject_id.strip())
+        except ValueError as e:
+            QMessageBox.warning(self, "Add Subject", str(e))
+            return
+
+        self.subject_dropdown.blockSignals(True)
+        self._populate_subjects()
+        self.subject_dropdown.blockSignals(False)
+        idx = self.subject_dropdown.findText(subject_id.strip())
+        if idx >= 0:
+            self.subject_dropdown.setCurrentIndex(idx)
+        else:
+            self._change_subject(0)
+
+    def _add_parameter(self):
+        """Prompt for a new parameter (name, type, default) and apply to all subjects."""
+        name, ok = QInputDialog.getText(self, "Add Parameter", "Parameter name:")
+        if not ok or not name.strip():
+            return
+        name = name.strip()
+
+        type_label, ok = QInputDialog.getItem(
+            self, "Add Parameter", f"Type for '{name}':", ["str", "int", "bool"], 0, False
+        )
+        if not ok:
+            return
+
+        if type_label == "int":
+            value, ok = QInputDialog.getInt(self, "Add Parameter", f"Default value for '{name}':", 0)
+            if not ok:
+                return
+            default = int(value)
+            type_hint = int
+        elif type_label == "bool":
+            choice, ok = QInputDialog.getItem(
+                self, "Add Parameter", f"Default value for '{name}':", ["False", "True"], 0, False
+            )
+            if not ok:
+                return
+            default = choice == "True"
+            type_hint = bool
+        else:
+            text, ok = QInputDialog.getText(self, "Add Parameter", f"Default value for '{name}':")
+            if not ok:
+                return
+            default = text
+            type_hint = str
+
+        try:
+            self.config.add_parameter(name, default, type_hint)
+        except ValueError as e:
+            QMessageBox.warning(self, "Add Parameter", str(e))
+            return
+
+        self.set_display_keys(self.config.display_keys)
+
+    def _save_config(self):
+        """Persist current displayed values to experiment.json on demand."""
+        path = getattr(self.config, "_json_file_path", "")
+        if not path or not os.path.isfile(path):
+            QMessageBox.warning(self, "Save", "No experiment.json is loaded.")
+            return
+        try:
+            self.config.save_json()
+        except Exception as e:
+            QMessageBox.critical(self, "Save", f"Failed to save: {e}")
+            return
+        self.save_button.setToolTip(
+            f"Saved {datetime.now().strftime('%H:%M:%S')} — {path}"
+        )
 
     def _test_led(self):
         """
@@ -319,10 +482,13 @@ class ConfigController(QWidget):
         """
         try:
             led_pattern = self.config.led_pattern
-            self.config.hardware.Dhyana.core.getPropertyObject('Arduino-Switch', 'State').loadSequence(led_pattern)
-            self.config.hardware.Dhyana.core.getPropertyObject('Arduino-Switch', 'State').loadSequence(led_pattern)
-            self.config.hardware.Dhyana.core.getPropertyObject('Arduino-Switch', 'State').setValue(4) # seems essential to initiate serial communication
-            self.config.hardware.Dhyana.core.getPropertyObject('Arduino-Switch', 'State').startSequence()
+            cam = self.config.hardware.Dhyana
+            if hasattr(cam, "start_led_sequence"):
+                cam.start_led_sequence(led_pattern)
+            else:
+                cam.core.getPropertyObject('Arduino-Switch', 'State').loadSequence(led_pattern)
+                cam.core.getPropertyObject('Arduino-Switch', 'State').setValue(4) # seems essential to initiate serial communication
+                cam.core.getPropertyObject('Arduino-Switch', 'State').startSequence()
             print("LED test pattern sent successfully.")
         except Exception as e:
             print(f"Error testing LED pattern: {e}")
@@ -332,20 +498,30 @@ class ConfigController(QWidget):
         Stop the LED pattern by sending a stop sequence to the Arduino-Switch device.
         """
         try:
-            self.config.hardware.Dhyana.core.getPropertyObject('Arduino-Switch', 'State').stopSequence()
+            cam = self.config.hardware.Dhyana
+            if hasattr(cam, "stop_led_sequence"):
+                cam.stop_led_sequence()
+            else:
+                cam.core.getPropertyObject('Arduino-Switch', 'State').stopSequence()
             print("LED test pattern stopped successfully.")
         except Exception as e:
             print(f"Error stopping LED pattern: {e}")
     
     def _add_note(self):
         """
-        Open a dialog to get a note from the user and save it to the ExperimentConfig.notes list.
+        Open a dialog to get a note from the user, save it to the
+        ExperimentConfig.notes list, and push it onto the live DataQueue so it
+        is timestamped into dataqueue.csv.
         """
-        time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.now()
+        time = now.strftime("%Y-%m-%d %H:%M:%S")
         text, ok = QInputDialog.getText(self, 'Add Note', 'Enter your note:')
         if ok and text:
             note_with_timestamp = f"{time}: {text}"
             self.config.notes.append(note_with_timestamp)
+            data_manager = getattr(self.procedure, "data", None)
+            if data_manager is not None and getattr(data_manager, "queue", None) is not None:
+                data_manager.queue.push("notes", text, timestamp=now)
 
     def _test_nidaq(self):
         """
