@@ -1,13 +1,18 @@
-import serial.tools.list_ports #pip install pyserial
+"""Miscellaneous diagnostic helpers.
+
+These utilities are not imported by the runtime; they are convenience
+functions for use in ad-hoc scripts, notebooks, and the embedded IPython
+console. ``nidaqmx`` is imported lazily inside the NI-DAQ helpers so this
+module loads cleanly on machines without NI-DAQmx installed.
+"""
+
+import serial.tools.list_ports  # pip install pyserial
 import requests
-#import nidaqmx
 import pymmcore_plus
 from useq import MDASequence
 import pandas as pd
 
 
-
-#TODO test rotary encoder connection
 def test_arduino_connection():
     try:
         arduino = serial.Serial('COM4', 9600)
@@ -110,9 +115,11 @@ def identify_device(vendor_id, product_id, usb_ids):
     product = usb_ids.get(vendor_id, {}).get("products", {}).get(product_id, "Unknown Product")
     return vendor, product
 
-def list_serial_ports(usb_ids):
-    """
-    List all available serial ports on the system and identify connected USB devices
+def list_serial_ports_with_vendors(usb_ids):
+    """List serial ports and resolve their vendor / product names.
+
+    Args:
+        usb_ids: Dictionary produced by :func:`parse_usb_ids`.
     """
     ports = serial.tools.list_ports.comports()
     if not ports:
@@ -132,17 +139,22 @@ def list_serial_ports(usb_ids):
 
 def list_nidaq_devices():
     """List all connected NI-DAQ devices."""
+    import nidaqmx  # lazy: not all rigs have NI-DAQmx installed
     system = nidaqmx.system.System.local()
     return [device.name for device in system.devices]
 
+
 def read_analog_input(device_name, channel='ai0'):
     """Read a single analog input from a specified channel."""
+    import nidaqmx
     with nidaqmx.Task() as task:
         task.ai_channels.add_ai_voltage_chan(f"{device_name}/{channel}")
         return task.read()
 
+
 def test_nidaq_connection(device_name):
     """Test connection to a specified NI-DAQ device."""
+    import nidaqmx
     try:
         with nidaqmx.Task() as task:
             task.ai_channels.add_ai_voltage_chan(f"{device_name}/ai0")

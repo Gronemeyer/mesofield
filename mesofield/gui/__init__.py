@@ -1,10 +1,18 @@
-from typing import Any, Dict, List
-from PyQt6.QtCore import (
-    Qt, QAbstractTableModel, QModelIndex, QVariant
-)
-from PyQt6.QtWidgets import (
-    QWidget, QTableView, QVBoxLayout, QApplication
-)
+"""Mesofield Qt GUI package.
+
+Defines the desktop application widgets used by ``mesofield launch``:
+the main window, acquisition view, dynamic device controls, config
+wizard, image preview, and serial / encoder plotters.
+
+This top-level module exposes :class:`ConfigTableModel`, a thin
+``QAbstractTableModel`` that presents a :class:`ConfigRegister` as a
+table of (key, value) rows so the GUI can edit experiment parameters
+live.
+"""
+
+from typing import Any, List
+
+from PyQt6.QtCore import Qt, QAbstractTableModel, QModelIndex, QVariant
 
 class ConfigTableModel(QAbstractTableModel):
     """A table model that presents ConfigRegister as rows of (key, value)."""

@@ -1,3 +1,29 @@
+"""Experiment configuration registry.
+
+This module defines two classes:
+
+:class:`ConfigRegister`
+    A generic key/value registry with optional type validation and
+    per-key change callbacks. Used as a building block by
+    :class:`ExperimentConfig`.
+
+:class:`ExperimentConfig`
+    Experiment-aware extension of ``ConfigRegister`` with default
+    parameters (subject / session / task / LED pattern / duration), a
+    BIDS-style path layout (``experiment_dir`` → ``data_dir`` →
+    ``bids_dir``), JSON load/save, and an attached
+    :class:`~mesofield.hardware.HardwareManager`.
+
+Typical lifecycle:
+
+.. code-block:: python
+
+    cfg = ExperimentConfig("path/to/hardware.yaml")
+    cfg.load_json("path/to/experiment.json")
+    cfg.set("subject", "001")
+    seq = cfg.build_sequence(cfg.hardware.primary)
+"""
+
 import os
 import json
 import dataclasses
@@ -14,7 +40,7 @@ from mesofield.utils._logger import get_logger
 
 T = TypeVar('T')
 
-# Configuration Registry pattern
+
 class ConfigRegister:
     """A registry that maintains configuration values with optional type validation."""
     
@@ -101,25 +127,29 @@ class ConfigRegister:
 
 
 class ExperimentConfig(ConfigRegister):
-    """## Generate and store parameters using a configuration registry. 
-    
-    #### Example Usage:
-    ```python
-    config = ExperimentConfig()
-    # create dict and pandas DataFrame from JSON file path:
-    config.load_parameters('path/to/json_file.json')
-        
-    config._save_dir = './output'
-    config.subject = '001'
-    config.task = 'TestTask'
-    config.notes.append('This is a test note.')
+    """Generate and store experiment parameters using a configuration registry.
 
-    # Update a parameter
-    config.update_parameter('new_param', 'test_value')
+    ``ExperimentConfig`` extends :class:`ConfigRegister` with experiment-aware
+    defaults (subject / session / task, LED pattern, duration, etc.), a
+    BIDS-style path layout (``experiment_dir / data_dir / bids_dir``), and
+    integration with a :class:`~mesofield.hardware.HardwareManager`.
 
-    # Save parameters and notes
-    config.save_parameters()
-    ```
+    Example:
+        .. code-block:: python
+
+            from mesofield.config import ExperimentConfig
+
+            config = ExperimentConfig("path/to/hardware.yaml")
+            # Populate from a JSON config file:
+            config.load_json("path/to/experiment.json")
+
+            config.experiment_dir = "./output"
+            config.set("subject", "001")
+            config.set("task", "TestTask")
+            config.notes.append("This is a test note.")
+
+            # Persist parameters and notes back to JSON:
+            config.save_json("path/to/experiment.json")
     """
 
     def __init__(self, path: Optional[str] = None):
@@ -276,6 +306,21 @@ class ExperimentConfig(ConfigRegister):
     
     
     def build_sequence(self, camera: DataProducer) -> useq.MDASequence:
+        """Build a :class:`useq.MDASequence` sized to this experiment.
+
+        The loop count is derived from ``num_meso_frames`` when set, or
+        from ``camera.sampling_rate * sequence_duration`` otherwise.  All
+        ``HardwareManager`` fields are attached as sequence metadata so
+        downstream engines (e.g. :class:`~mesofield.engines.MesoEngine`)
+        can resolve the LED pattern and NI-DAQ at setup time.
+
+        Args:
+            camera: The primary :class:`DataProducer` whose
+                ``sampling_rate`` drives the default loop count.
+
+        Returns:
+            A ready-to-run ``MDASequence`` with a zero-interval time plan.
+        """
         if self.has('num_meso_frames'):
             loops = int(self.get('num_meso_frames'))
         else:
@@ -347,6 +392,7 @@ class ExperimentConfig(ConfigRegister):
     
     @led_pattern.setter
     def led_pattern(self, value: Any) -> None:
+        """Set the LED pattern, normalising strings / JSON lists to ``list[str]``."""
         self.set("led_pattern", value)
 
     @staticmethod
@@ -378,15 +424,31 @@ class ExperimentConfig(ConfigRegister):
 
         raise ValueError("led_pattern must be a list or a JSON string representing a list")
     
-    # Helper method to generate a unique file path
     def make_path(self, suffix: str, extension: str, bids_type: Optional[str] = None, create_dir: bool = False):
-        """ Example:
-        ```py
-            ExperimentConfig._generate_unique_file_path("images", "jpg", "func")
-            print(unique_path)
-        ```
-        Output:
-            C:/save_dir/data/sub-id/ses-id/func/20250110_123456_sub-001_ses-01_task-example_images.jpg
+        """Build a unique BIDS-style output file path.
+
+        The returned path follows the layout
+        ``<bids_dir>/[<bids_type>/]<timestamp>_sub-<id>_ses-<id>_task-<id>_<suffix>.<ext>``.
+        If a file with that name already exists, ``_<n>`` is appended to keep
+        the path unique.
+
+        Args:
+            suffix: Trailing tag added to the filename, e.g. ``"images"``.
+            extension: File extension without the leading dot, e.g. ``"jpg"``.
+            bids_type: Optional BIDS modality subdirectory under ``bids_dir``
+                (e.g. ``"func"``). When ``None``, the file is placed directly
+                under ``bids_dir``.
+            create_dir: When ``True``, parent directories are created.
+
+        Returns:
+            Absolute path to the generated file.
+
+        Example:
+            .. code-block:: python
+
+                cfg.make_path("images", "jpg", "func")
+                # -> 'C:/save_dir/data/sub-001/ses-01/func/'
+                #    '20250110_123456_sub-001_ses-01_task-example_images.jpg'
         """
         file = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_sub-{self.subject}_ses-{self.session}_task-{self.task}_{suffix}.{extension}"
 

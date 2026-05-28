@@ -1,6 +1,3 @@
-import os
-from typing import cast
-
 # Necessary modules for the IPython console
 from qtconsole.rich_jupyter_widget import RichJupyterWidget
 from qtconsole.inprocess import QtInProcessKernelManager
@@ -16,7 +13,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
 )
 
-from PyQt6.QtGui import QIcon, QAction
+from PyQt6.QtGui import QAction
 from PyQt6.QtCore import QCoreApplication, Qt
 
 from mesofield.gui.mdagui import MDA

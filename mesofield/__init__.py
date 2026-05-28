@@ -1,9 +1,28 @@
+"""Mesofield top-level package.
+
+This module exposes the :class:`DeviceRegistry` decorator used by hardware
+adapters to declare themselves under a YAML ``type:`` key. The remaining
+subpackages are not auto-imported; pull them in explicitly:
+
+.. code-block:: python
+
+    from mesofield.base import Procedure
+    from mesofield.config import ExperimentConfig
+    from mesofield.hardware import HardwareManager
+"""
+
 from typing import Type, Callable, Dict, Optional, Any, TypeVar
 
 T = TypeVar("T")
 
 class DeviceRegistry:
-    """Registry for device classes."""
+    """Registry mapping YAML ``type:`` strings to device classes.
+
+    Hardware adapters register themselves via the
+    :meth:`~DeviceRegistry.register` decorator; the
+    :class:`~mesofield.hardware.HardwareManager` looks them up by string
+    when materialising devices from a YAML file.
+    """
     
     _registry: Dict[str, Type[Any]] = {}
     

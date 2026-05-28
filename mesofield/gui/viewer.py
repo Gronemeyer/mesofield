@@ -6,7 +6,6 @@ from pymmcore_plus import CMMCorePlus
 from qtpy.QtCore import Qt, QTimer
 from qtpy.QtGui import QImage, QPixmap
 from qtpy.QtWidgets import (
-    QHBoxLayout,
     QVBoxLayout,
     QProgressBar,
     QLabel,
@@ -76,35 +75,26 @@ class ImagePreview(QWidget):
       during Multi-Dimensional Acquisitions. If set to `False`, the widget will not update
       during MDA runs.
 
-    **Examples**
-    --------
-    ```python
-    from pymmcore_plus import CMMCorePlus
-    from PyQt6.QtWidgets import QApplication, QVBoxLayout, QWidget
+    Example:
+        .. code-block:: python
 
-    # Initialize a CMMCorePlus instance
-    mmc = CMMCorePlus()
+            from pymmcore_plus import CMMCorePlus
+            from PyQt6.QtWidgets import QApplication, QVBoxLayout, QWidget
 
-    # Set up the application and main window
-    app = QApplication([])
-    window = QWidget()
-    layout = QVBoxLayout(window)
+            mmc = CMMCorePlus()
 
-    # Create the ImagePreview widget
-    image_preview = ImagePreview(mmcore=mmc)
+            app = QApplication([])
+            window = QWidget()
+            layout = QVBoxLayout(window)
 
-    # Add the widget to the layout
-    layout.addWidget(image_preview)
-    window.show()
+            image_preview = ImagePreview(mmcore=mmc)
+            layout.addWidget(image_preview)
+            window.show()
+            app.exec()
 
-    # Start the Qt event loop
-    app.exec()
-    ```
-
-    **Methods**
-    -------
-    - `clims`: Property to get or set the contrast limits of the image.
-    - `cmap`: Property to get or set the colormap of the image.
+    Methods:
+        ``clims``: Property to get or set the contrast limits of the image.
+        ``cmap``:  Property to get or set the colormap of the image.
 
     **Initialization Parameters**
     ----------

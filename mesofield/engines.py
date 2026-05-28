@@ -1,3 +1,24 @@
+"""Custom MicroManager ``MDAEngine`` subclasses used by mesofield.
+
+Three flavours are provided, all subclasses of
+:class:`pymmcore_plus.mda.MDAEngine`:
+
+``MesoEngine``
+    Drives the mesoscope camera; loads an LED sequence on the Arduino
+    switch in :meth:`MesoEngine.setup_sequence` and streams images out of
+    the circular buffer in :meth:`MesoEngine.exec_sequenced_event`.
+
+``PupilEngine``
+    Drives the pupil camera; optionally pulses an NI-DAQ line at
+    sequence start (used for synchronisation with downstream
+    instruments).
+
+``DevEngine``
+    Hardware-free development engine. Streams whatever the camera
+    backend produces with no Arduino/NIDAQ interaction; intended for
+    mock cameras and CI.
+"""
+
 import nidaqmx.system
 import useq
 import time
@@ -24,15 +45,28 @@ if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
 
 class MesoEngine(MDAEngine):
+    """MDA engine for the mesoscope camera.
+
+    Loads an LED switching sequence onto an Arduino driver in
+    :meth:`setup_sequence`, then streams images out of the camera's
+    circular buffer in :meth:`exec_sequenced_event`. Subclasses
+    :class:`pymmcore_plus.mda.MDAEngine`.
+    """
+
     def __init__(self, mmc, use_hardware_sequencing: bool = True) -> None:
         super().__init__(mmc)
         self.logger = get_logger(f'{__name__}.{self.__class__.__name__}')
         self._mmc: CMMCorePlus = mmc
         self.use_hardware_sequencing = use_hardware_sequencing
         self._wheel_data = None
-        # TODO: adder triggerable parameter 
-        
+        # TODO: add triggerable parameter
+
     def set_config(self, cfg) -> None:
+        """Bind a live :class:`~mesofield.config.ExperimentConfig` to this engine.
+
+        Called by the :class:`~mesofield.base.Procedure` orchestrator after
+        hardware is up so the engine can reach the configured encoder.
+        """
         self._config: ExperimentConfig = cfg
         self._encoder = cfg.hardware.encoder
     
@@ -67,8 +101,6 @@ class MesoEngine(MDAEngine):
         This method is not part of the PMDAEngine protocol (it is called by
         `exec_event`, which *is* part of the protocol), but it is made public
         in case a user wants to subclass this engine and override this method.
-        
-        custom override sequencerunning loop jgronemeyer24
         """
 
         n_events = len(event.events)
@@ -133,6 +165,14 @@ class MesoEngine(MDAEngine):
 
 
 class PupilEngine(MDAEngine):
+    """MDA engine for the pupil camera with optional NI-DAQ triggering.
+
+    On :meth:`setup_sequence` an NI-DAQ object may be loaded from the
+    sequence metadata; on :meth:`exec_sequenced_event` that NI-DAQ is
+    pulsed at sequence start so other instruments can synchronise.
+    Subclasses :class:`pymmcore_plus.mda.MDAEngine`.
+    """
+
     def __init__(self, mmc, use_hardware_sequencing: bool = True) -> None:
         super().__init__(mmc)
         self._mmc: CMMCorePlus = mmc
@@ -140,10 +180,14 @@ class PupilEngine(MDAEngine):
         self._wheel_data = None
         # TODO: add triggerable parameter
         self.logger = get_logger(f'{__name__}.{self.__class__.__name__}')
-        
+
     def set_config(self, cfg: 'ExperimentConfig') -> None:
+        """Bind a live :class:`~mesofield.config.ExperimentConfig`.
+
+        Caches the configured NI-DAQ device and (when more than one
+        ``CMMCorePlus`` is in play) a reference to the primary core.
+        """
         self._config = cfg
-        #self._encoder = cfg.hardware.encoder
         self.nidaq = cfg.hardware.nidaq
         if len(self._config._cores) > 1:
             self._mmc1 = cfg._cores[0]
@@ -151,6 +195,7 @@ class PupilEngine(MDAEngine):
             self._mmc1 = None
 
     def setup_sequence(self, sequence: useq.MDASequence) -> SummaryMetaV1 | None:
+        """Resolve the NI-DAQ from sequence metadata and reset it for the run."""
         self.nidaq = sequence.metadata.get("nidaq")
         if self.nidaq is not None:
             self.nidaq.reset()
@@ -163,8 +208,6 @@ class PupilEngine(MDAEngine):
         This method is not part of the PMDAEngine protocol (it is called by
         `exec_event`, which *is* part of the protocol), but it is made public
         in case a user wants to subclass this engine and override this method.
-        
-        custom override sequencerunning loop jgronemeyer24
         """
         n_events = len(event.events)
 
@@ -248,7 +291,13 @@ class PupilEngine(MDAEngine):
 
 
 class DevEngine(MDAEngine):
-    
+    """Hardware-free development engine for mock cameras and CI.
+
+    Streams images out of the camera's circular buffer with no Arduino
+    or NI-DAQ interaction. Use this engine for development and tests
+    that don't have access to physical rig hardware.
+    """
+
     def __init__(self, mmc, use_hardware_sequencing: bool = True) -> None:
         super().__init__(mmc)
         self._mmc = mmc
@@ -257,8 +306,9 @@ class DevEngine(MDAEngine):
         self.logger = get_logger(f'{__name__}.{self.__class__.__name__}')
 
         self._encoder: SerialWorker = None
-        
+
     def set_config(self, cfg) -> None:
+        """Bind a live :class:`~mesofield.config.ExperimentConfig` to this engine."""
         self._config = cfg
     
     def exec_sequenced_event(self, event: 'SequencedEvent') -> Iterable['PImagePayload']:
@@ -267,8 +317,6 @@ class DevEngine(MDAEngine):
         This method is not part of the PMDAEngine protocol (it is called by
         `exec_event`, which *is* part of the protocol), but it is made public
         in case a user wants to subclass this engine and override this method.
-        
-        custom override sequencerunning loop jgronemeyer24
         """
         n_events = len(event.events)
 

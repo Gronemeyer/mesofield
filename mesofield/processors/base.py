@@ -123,6 +123,21 @@ class FrameProcessor:
 
     # ---- subclass contract --------------------------------------------
     def compute(self, img: Any, idx: Any, ts: Any) -> Optional[float]:
+        """Subclass hook: return one scalar (or ``None``) per frame.
+
+        Called on every frame the attached camera emits. Implementations
+        should be fast — anything heavy will starve the camera buffer.
+        Return ``None`` to skip emitting a sample for this frame.
+
+        Args:
+            img: Frame from the camera (typically a 2-D ``ndarray``).
+            idx: Frame index assigned by the camera (monotonic).
+            ts: Device timestamp for the frame.
+
+        Returns:
+            A single ``float`` to be pushed to the data queue / plot, or
+            ``None`` to skip this frame.
+        """
         raise NotImplementedError
 
     # ---- compute-load reporting ----------------------------------------

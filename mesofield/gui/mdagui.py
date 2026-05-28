@@ -10,10 +10,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
 )
 
-from pymmcore_widgets import (
-    MDAWidget,
-    ExposureWidget,
-)
+from pymmcore_widgets import MDAWidget
 
 from mesofield.data.writer import CustomWriter
 from mesofield.gui.viewer import ImagePreview, InteractivePreview

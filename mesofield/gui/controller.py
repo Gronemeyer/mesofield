@@ -2,7 +2,6 @@ import os
 from datetime import datetime
 from contextlib import suppress
 import threading
-import numpy as np
 
 from qtpy.QtCore import Qt
 from PyQt6.QtCore import pyqtSignal
@@ -14,25 +13,22 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QComboBox,
-    QFileDialog,
     QMessageBox,
     QInputDialog,
-    QDialog,
     QStyle,
     QFormLayout,
     QSpinBox,
-    QCheckBox
+    QCheckBox,
 )
 from PyQt6.QtGui import QIcon
 from qtpy.QtGui import QDesktopServices
 from qtpy.QtCore import QUrl
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from mesofield.config import ExperimentConfig
     from mesofield.protocols import Procedure
 
-from mesofield.gui import ConfigTableModel
 from .dynamic_controller import DynamicController
 
 class ConfigFormWidget(QWidget):
@@ -268,13 +264,13 @@ class ConfigController(QWidget):
             events.procedure_finished.connect(self._on_run_finished)
             events.procedure_error.connect(self._on_run_finished)
 
-        # Connect dynamic controls using constants defined in DynamicController
+        # Connect dynamic controls using constants defined in DynamicController.
+        # Snap and PsychoPy launch are handled elsewhere (CameraButtons in
+        # mdagui.py, PsychoPyDevice.arm() respectively).
         dynamic_buttons = [
             (DynamicController.LED_TEST_BTN, self._test_led),
             (DynamicController.STOP_BTN, self._stop_led),
-            (DynamicController.SNAP_BTN, lambda: self._save_snapshot(self._mmc1.snap())),
             (DynamicController.NIDAQ_BTN, self._test_nidaq),
-            #(DynamicController.PSYCHOPY_BTN, self.launch_psychopy),
         ]
         for btn_attr, handler in dynamic_buttons:
             if hasattr(self.dynamic_controller, btn_attr):

@@ -1,4 +1,3 @@
-import sys
 import os
 import json
 from typing import List, Tuple, Optional
@@ -7,7 +6,7 @@ import numpy as np
 import tifffile
 import pyqtgraph as pg
 
-from PyQt6.QtCore import QObject, pyqtSignal, QRunnable, QThreadPool, Qt, QPointF, QTimer
+from PyQt6.QtCore import QObject, pyqtSignal, QRunnable, QThreadPool, Qt, QTimer
 from PyQt6.QtWidgets import (
     QApplication,
     QWidget,

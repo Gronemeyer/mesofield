@@ -51,6 +51,11 @@ class Nidaq:
         return None
 
     def test_connection(self):
+        """Pulse the configured DO line high for ~3 s as a connectivity test.
+
+        Logs the outcome; does not raise on failure (errors are surfaced
+        via the logger).
+        """
         self.logger.info(f"Testing connection to NI-DAQ device: {self.device_name}")
         try:
             with nidaqmx.Task() as task:
@@ -61,14 +66,21 @@ class Nidaq:
             self.logger.info("NI-DAQ connection successful")
         except nidaqmx.DaqError as e:
             self.logger.error(f"NI-DAQ connection failed: {e}")
-            
+
     def reset(self):
+        """Stop the worker thread (if running) and reset the NI-DAQ device."""
         self.logger.info(f"Resetting NIDAQ device")
         if self._thread and self._thread.is_alive():
             self.stop()
         nidaqmx.system.Device(self.device_name).reset_device()
 
     def start(self):
+        """Begin counting edges on ``ctr`` and pulsing ``lines`` from a thread.
+
+        Configures both a counter-input task (rising-edge counts) and a
+        digital-output task (camera trigger), then launches a worker
+        thread that drives them on the configured ``poll_interval``.
+        """
         # Configure and start the CI task
         self._ci = nidaqmx.Task()
         self._ci.ci_channels.add_ci_count_edges_chan(

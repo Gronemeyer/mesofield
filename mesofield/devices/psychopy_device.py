@@ -101,6 +101,13 @@ class PsychoPyDevice:
 
     # -- introspection --------------------------------------------------
     def status(self) -> Dict[str, Any]:
+        """Snapshot of the PsychoPy subprocess state.
+
+        Returns:
+            Dict with ``device_id``, a ``running`` flag, and ``started``
+            / ``stopped`` timestamps (``None`` if the lifecycle stage
+            hasn't been reached).
+        """
         return {
             "device_id": self.device_id,
             "running": self._process is not None,

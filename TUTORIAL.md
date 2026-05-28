@@ -136,7 +136,7 @@ producer (what writes data) and the parser (what reads it back).
 ```python
 # devices/thermal_example.py
 from mesofield import DeviceRegistry
-from mesofield.io.devices.base import BaseSerialDevice
+from mesofield.devices.base import BaseSerialDevice
 from mesofield.datakit.sources.register import TimeseriesSource
 
 
@@ -206,7 +206,7 @@ pip install databench
 
 ```python
 from databench import Project
-proj = Project(dataset="processed/260515_dataset_mvp.h5")
+proj = Project(dataset="processed/dataset_mvp.h5")
 session = proj.session(subject="SUBJ01", session="01", task="demo")
 ```
 
@@ -237,7 +237,7 @@ provenance chain extends past acquisition.
 ## Where things live
 
 - `mesofield.base.Procedure` — orchestrates a run (lifecycle, manifest)
-- `mesofield.io.devices.base.BaseDataProducer` / `BaseSerialDevice` — start here for new devices
+- `mesofield.devices.base.BaseDataProducer` / `BaseSerialDevice` — start here for new devices
 - `mesofield.datakit.sources.register.TimeseriesSource` — start here for new parsers
 - `mesofield.processing.ProcessorRunner` — start here for intermediate processing
 - `mesokit_schema` — the manifests themselves; you rarely import these directly

@@ -2,11 +2,19 @@
 ```
 
 ```{toctree}
-:caption: Overview
+:caption: Get started
 :hidden:
 
 Home <self>
 tutorial
+```
+
+```{toctree}
+:caption: Guides
+:hidden:
+
+user_guide
+developer_guide
 ```
 
 ```{toctree}

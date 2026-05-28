@@ -117,11 +117,6 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         core.mda.set_engine(self._engine)
         self.core = core
 
-    # def _setup_opencv(self):
-    #     vid = VideoThread()
-    #     self.camera_device = vid
-    #     self.core = vid
-
     # `set_writer` is inherited from BaseCamera: it resolves the output path
     # and picks the writer (CustomWriter for OME-TIFF, CV2Writer for MP4)
     # from the shared `_WRITER_FOR_FILE_TYPE` mapping. Override only if you
@@ -136,6 +131,13 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
             self.logger.warning("Setting sequence is not supported for OpenCV backend.")
 
     def initialize(self):
+        """Apply the YAML ``properties`` block to the underlying camera.
+
+        Each ``{device_id: {property: value}}`` pair is forwarded to the
+        backend (``core.setROI`` for ROIs, ``core.setProperty`` otherwise)
+        with special handling for the synthetic ``fps``, ``viewer_type``,
+        and ``auto_contrast`` keys.
+        """
         for dev_id, props in self.properties.items():
             if not isinstance(props, dict):
                 continue
@@ -239,15 +241,23 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
             self.logger.warning(f"stopSequence failed: {exc}")
 
     def start(self) -> bool:
-        #self.is_active = True
+        """Launch the MDA sequence non-blocking.
+
+        Returns:
+            Always ``True``. The sequence runs asynchronously on the
+            camera backend; lifecycle is reported via ``self.signals``.
+        """
         self._started = datetime.now()
-        self.core.run_mda(events=self.sequence, output=self.writer, block=False) #type: ignore
+        self.core.run_mda(events=self.sequence, output=self.writer, block=False)  # type: ignore
         return True
 
     def stop(self) -> bool:
-        """Stop acquisition.  Non-primary MM cameras must be told explicitly
-        to halt their sequence acquisition (the primary camera's MDA driver
-        does not stop them)."""
+        """Stop acquisition.
+
+        Non-primary Micro-Manager cameras must be told explicitly to halt
+        their sequence acquisition — the primary camera's MDA driver
+        does not stop them.
+        """
         self._stopped = datetime.now()
         if (
             self.backend == "micromanager"
@@ -261,6 +271,7 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         return True
 
     def get_data(self):
+        """Return the latest captured frame, or ``None`` if not active."""
         return getattr(self.camera_device, "get_frame", lambda: None)() if self.is_active else None
 
     # --- live preview contract (BaseCamera abstract methods) ------------
@@ -292,9 +303,9 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
             self.logger.debug(f"stopSequenceAcquisition: {exc}")
 
     def shutdown(self):
+        """Cancel any in-flight MDA on the Micro-Manager backend."""
         if self.backend == "micromanager" and hasattr(self.core, "reset"):
             self.core.mda.cancel()
-            #self.core.reset()
     
     def __getattr__(self, name: str):
         """
@@ -524,6 +535,12 @@ class OpenCVCamera(BaseCamera, QThread):
         self.logger.info(f"Writer set to {self.output_path}")
 
     def start(self) -> bool:
+        """Spawn the capture thread and begin writing frames to MP4.
+
+        Returns:
+            ``True`` if the thread started, ``False`` if it was already
+            running.
+        """
         if self.isRunning():
             self.logger.warning("OpenCVCamera.start: already running")
             return False
@@ -537,6 +554,7 @@ class OpenCVCamera(BaseCamera, QThread):
         return True
 
     def stop(self) -> bool:
+        """Signal the capture thread to stop and wait for it to join."""
         if not self.isRunning() and not self._stop:
             return True
         self._stop = True
@@ -548,8 +566,11 @@ class OpenCVCamera(BaseCamera, QThread):
         return True
 
     def shutdown(self) -> None:
-        # `stop()` joins the capture thread, whose `run()` finally-block
-        # already releases the CV2Writer and writes its sidecar.
+        """Tear down the capture thread.
+
+        ``stop()`` joins the capture thread; its ``run()`` finally-block
+        releases the :class:`CV2Writer` and writes the sidecar JSON.
+        """
         self.stop()
 
     # --- live preview contract (BaseCamera abstract methods) ------------

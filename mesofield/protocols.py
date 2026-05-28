@@ -6,32 +6,33 @@ the mesofield project, allowing for interoperability between different
 hardware instruments, data producers, and data consumers.
 
 Protocol Implementation Notes
-----------------------------
+-----------------------------
 When implementing these protocols, there are two approaches:
 
-1. Direct inheritance (for regular classes without metaclass conflicts):
-   ```python
-   class MySensor(DataAcquisitionDevice):
-       def __init__(self):
-           self._init_logger()  # Initialize logging
-           # Implement required methods and attributes
-   ```
+1. **Direct inheritance** (for regular classes without metaclass conflicts):
 
-2. Duck typing (for classes with existing inheritance or metaclass conflicts, e.g., QThread):
-   ```python
-   class MyQThreadSensor(QThread):  # Cannot inherit from Protocol due to metaclass conflict
-       def __init__(self):
-           super().__init__()
-           self._init_logger()  # Initialize logging manually
-           # Implement all required methods and attributes
-           self.device_type = "sensor"
-           self.device_id = "my_sensor"
-           # etc.
-   ```
+   .. code-block:: python
 
-The second approach is necessary for Qt classes (QObject, QThread, QWidget) or
-any class that already uses a metaclass. Protocol checking uses duck typing
-internally, so both approaches will work with our system.
+       class MySensor(DataAcquisitionDevice):
+           def __init__(self):
+               self._init_logger()
+               # Implement required methods and attributes
+
+2. **Duck typing** (for classes with existing inheritance or metaclass
+   conflicts, e.g. ``QThread``):
+
+   .. code-block:: python
+
+       class MyQThreadSensor(QThread):
+           def __init__(self):
+               super().__init__()
+               self._init_logger()
+               self.device_type = "sensor"
+               self.device_id = "my_sensor"
+
+The second approach is necessary for Qt classes (``QObject``, ``QThread``,
+``QWidget``) or any class that already uses a metaclass. Protocol checking
+uses duck typing internally, so both approaches work with our system.
 """
 
 import threading
@@ -252,21 +253,6 @@ class DataConsumer(Protocol):
         ...
 
 
-# Helper functions for protocol checking
-
-def is_hardware_device(obj) -> bool:
-    """Check if an object implements the HardwareDevice interface."""
-    required_attrs = ['device_id', 'device_type', 'config', 'initialize',
-                     'start', 'stop', 'close', 'get_status']
-    return all(hasattr(obj, attr) for attr in required_attrs)
-
-def is_data_acquisition_device(obj) -> bool:
-    """Check if an object implements the DataAcquisitionDevice interface."""
-    if not is_hardware_device(obj):
-        return False
-    return hasattr(obj, 'data_rate') and hasattr(obj, 'get_data')
-
-
 # ---------------------------------------------------------------------------
 # Threading mixins
 # ---------------------------------------------------------------------------
@@ -278,29 +264,27 @@ class ThreadedHardwareDevice:
     This mixin provides the basic structure for a hardware device that uses
     Python's threading module. It handles the thread creation, starting, and stopping.
 
-    Usage:
-    ```python
-    class MySensor(ThreadedHardwareDevice):
-        device_type = "sensor"
-        device_id = "my_sensor"
+    Example:
+        .. code-block:: python
 
-        def __init__(self, config=None):
-            super().__init__()
-            self.config = config or {}
+            class MySensor(ThreadedHardwareDevice):
+                device_type = "sensor"
+                device_id = "my_sensor"
 
-        def initialize(self):
-            # Initialize your device
-            pass
+                def __init__(self, config=None):
+                    super().__init__()
+                    self.config = config or {}
 
-        def _run(self):
-            # This is called in the thread context
-            while not self._stop_event.is_set():
-                # Do work
-                pass
+                def initialize(self):
+                    pass
 
-        def get_status(self):
-            return {"active": not self._stop_event.is_set()}
-    ```
+                def _run(self):
+                    while not self._stop_event.is_set():
+                        # Do work
+                        pass
+
+                def get_status(self):
+                    return {"active": not self._stop_event.is_set()}
     """
 
     def __init__(self):
@@ -352,31 +336,28 @@ class AsyncioHardwareDevice:
     This mixin provides the basic structure for a hardware device that uses
     Python's asyncio module. It handles the task creation, starting, and cancellation.
 
-    Usage:
-    ```python
-    class MySensor(AsyncioHardwareDevice):
-        device_type = "sensor"
-        device_id = "my_sensor"
+    Example:
+        .. code-block:: python
 
-        def __init__(self, loop=None, config=None):
-            super().__init__(loop)
-            self.config = config or {}
+            class MySensor(AsyncioHardwareDevice):
+                device_type = "sensor"
+                device_id = "my_sensor"
 
-        def initialize(self):
-            # Initialize your device
-            pass
+                def __init__(self, loop=None, config=None):
+                    super().__init__(loop)
+                    self.config = config or {}
 
-        async def _run(self):
-            # This is the coroutine that runs as a task
-            while True:
-                # Do work
-                if self._should_stop():
-                    break
-                await asyncio.sleep(0.01)
+                def initialize(self):
+                    pass
 
-        def get_status(self):
-            return {"active": self._task is not None and not self._task.done()}
-    ```
+                async def _run(self):
+                    while True:
+                        if self._should_stop():
+                            break
+                        await asyncio.sleep(0.01)
+
+                def get_status(self):
+                    return {"active": self._task is not None and not self._task.done()}
     """
 
     def __init__(self, loop=None):

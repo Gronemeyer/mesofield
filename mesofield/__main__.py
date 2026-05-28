@@ -1,3 +1,28 @@
+"""Mesofield command-line interface.
+
+Top-level CLI for running acquisition, scaffolding new experiments,
+and converting / inspecting recorded data. Each subcommand is defined
+below with its own help string; run ``mesofield <cmd> --help`` for
+details.
+
+Subcommands
+-----------
+``launch``
+    Launch the acquisition GUI with an ``experiment.json``.
+``new``
+    Scaffold a new experiment directory (``--rig`` / ``--hardware``).
+``batch_pupil``
+    Convert pupil videos in a BIDS tree to MP4.
+``convert_h264``
+    Convert video files to H.264 for better compatibility.
+``install-drivers``
+    Download the Thorlabs Scientific Camera SDK and install native DLLs.
+``plot_session`` / ``trace_meso``
+    Diagnostic plots from a BIDS-formatted session directory.
+``ipython``
+    Open an embedded IPython terminal with a live ``ExperimentConfig``.
+"""
+
 import os
 
 import click
@@ -5,36 +30,6 @@ from pathlib import Path
 
 # Disable debugger warning about the use of frozen modules
 os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
-
-
-'''
-================================== Command Line Interface ======================================
-Commands:
-    launch: Launch the mesofield acquisition interface
-        --params: Path to the config file
-        
-    batch_pupil: Convert the pupil videos to mp4 format
-        --dir: Directory containing the BIDS formatted /data hierarchy
-        
-    convert_h264: Convert video files to H264 format for better compatibility
-        --dir: Directory containing video files to convert
-        --pattern: Glob pattern to match files (e.g., "*.mp4", "pupil*.mp4")
-    
-    install-drivers: Download Thorlabs Scientific Camera SDK and install native DLLs
-        --mm-dir: Explicit Micro-Manager root directory (auto-detected when omitted)
-        --keep-zip/--no-keep-zip: Keep the downloaded zip file after extraction
-        
-    plot_session: Plot the session data
-        --dir: Path to experimental directory containing BIDS formatted /data hierarchy
-        --sub: Subject ID (the name of the subject folder)
-        --ses: Session ID (two digit number indicating the session)
-        --save: Save the plot to the processing directory in the Experiment folder
-        
-    trace_meso: Get the mean trace of the mesoscopic data
-        --dir: Path to experimental directory containing BIDS formatted /data hierarchy
-        --sub: Subject ID (the name of the subject folder)
-        
-'''
 @click.group()
 def cli():
     """mesofields Command Line Interface"""
@@ -577,7 +572,7 @@ def ipython(yaml_path, json_path):
     from IPython import embed
         
     config = ExperimentConfig(yaml_path)
-    config.load_parameters(json_path)
+    config.load_json(json_path)
     embed(header='Mesofield ExperimentConfig Terminal. Type `config.` + TAB ', local={'config': config})
 
 
