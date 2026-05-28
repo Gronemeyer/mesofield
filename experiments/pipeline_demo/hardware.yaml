@@ -10,19 +10,10 @@
 # a wall-clock `duration` cap (see experiment.json) to call cleanup.
 memory_buffer_size: 1000
 
-wheel:
-  type: mock_wheel        # registered by procedure.py at import time
-  primary: true
-  sample_interval_ms: 50
-  cpr: 2400
-  diameter_mm: 80
-  output:
-    suffix: wheel
-    file_type: csv
-    bids_type: beh
 
 camera:
   type: mock_camera       # registered by procedure.py at import time
+  primary: true
   width: 32
   height: 32
   frame_interval_ms: 100

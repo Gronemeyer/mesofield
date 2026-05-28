@@ -79,7 +79,13 @@ test = [
     "pytest-cov",
     "mypy",
     "gitchangelog",
-    "mkdocs",
+]
+docs = [
+    "sphinx>=7",
+    "pydata-sphinx-theme",
+    "myst-parser",
+    "sphinx-copybutton",
+    "sphinx-design",
 ]
 
 [project.scripts]
@@ -89,6 +95,7 @@ mesofield = "mesofield.__main__:cli"
 Homepage = "https://github.com/Gronemeyer/mesofield/"
 Repository = "https://github.com/Gronemeyer/mesofield/"
 Issues = "https://github.com/Gronemeyer/mesofield/issues"
+Documentation = "https://gronemeyer.github.io/mesofield/"
 
 [tool.setuptools.packages.find]
 exclude = ["tests*", ".github*"]

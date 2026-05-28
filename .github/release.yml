@@ -1,8 +1,8 @@
 changelog:
   categories:
     - title: "New Features"
-      labels: [enhancement]
+      labels: [enhancement, feat, Feat, Enhancement]
     - title: "Bug Fixes"
-      labels: [bug]
+      labels: [bug, fix, Fix, Bug]
     - title: "Other Changes"
       labels: ["*"]

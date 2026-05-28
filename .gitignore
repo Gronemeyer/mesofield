@@ -185,3 +185,7 @@ cython_debug/
 Dhyana 400BSI_PIDe408.xml
 .vscode/launch.json
 
+
+# Sphinx-apidoc generated stubs (rebuilt every docs build)
+docs/api/mesofield*.rst
+docs/_build/
