@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -49,7 +50,10 @@ __all__ = [
     "PlaybackCamera",
     "PlaybackEncoder",
     "PlaybackContext",
+    "PlaybackSession",
     "discover_playback_context",
+    "discover_playback_sessions",
+    "PlaybackBrowser",
     "launch_playback_app",
 ]
 
@@ -978,12 +982,273 @@ def discover_playback_context(
 
 
 # ---------------------------------------------------------------------------
+# Session-list discovery (drives the ConfigController dropdowns)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class PlaybackSession:
+    """One ``(subject, session)`` directory discovered on disk.
+
+    Holds just enough metadata for the ConfigController dropdowns to present
+    a choice: the parsed subject/session ids, the absolute session directory,
+    the path to its manifest, and the task/protocol read from the manifest's
+    session block (used as display hints and to seed ``ExperimentConfig``).
+    """
+
+    subject: str
+    session: str
+    session_dir: Path
+    manifest_path: Path
+    task: Optional[str] = None
+    protocol: Optional[str] = None
+
+
+_SUB_RE = re.compile(r"^sub-(.+)$")
+_SES_RE = re.compile(r"^ses-(.+)$")
+
+
+def discover_playback_sessions(experiment_dir: Path) -> List[PlaybackSession]:
+    """Enumerate every ``data/sub-*/ses-*/manifest.json`` under *experiment_dir*.
+
+    Falls back to scanning *experiment_dir* itself when it points directly at
+    a session directory. Sessions are returned sorted by (subject, session) so
+    the dropdowns have a predictable order.
+    """
+    experiment_dir = Path(experiment_dir).expanduser().resolve()
+    candidates = sorted(experiment_dir.glob("data/sub-*/ses-*/manifest.json"))
+    if not candidates and (experiment_dir / "manifest.json").is_file():
+        candidates = [experiment_dir / "manifest.json"]
+    sessions: List[PlaybackSession] = []
+    for manifest_path in candidates:
+        session_dir = manifest_path.parent
+        sub_match = _SUB_RE.match(session_dir.parent.name)
+        ses_match = _SES_RE.match(session_dir.name)
+        if not (sub_match and ses_match):
+            continue
+        info: Dict[str, Any] = {}
+        try:
+            with manifest_path.open("r", encoding="utf-8") as fh:
+                info = (json.load(fh) or {}).get("session") or {}
+        except Exception:
+            pass
+        sessions.append(
+            PlaybackSession(
+                subject=sub_match.group(1),
+                session=ses_match.group(1),
+                session_dir=session_dir,
+                manifest_path=manifest_path,
+                task=info.get("task"),
+                protocol=info.get("protocol"),
+            )
+        )
+    sessions.sort(key=lambda s: (s.subject, s.session))
+    return sessions
+
+
+# ---------------------------------------------------------------------------
+# Browser: ties subject/session dropdowns to procedure swaps
+# ---------------------------------------------------------------------------
+
+
+class PlaybackBrowser:
+    """Drives :class:`~mesofield.gui.controller.ConfigController` for playback.
+
+    Two responsibilities:
+
+    1. Re-seed ``ExperimentConfig.subjects`` from the set of recorded sessions
+       on disk so the subject dropdown lists what is actually playable, and
+       register the per-subject session ids as ``register_choices`` on the
+       ``session`` key so it renders as a dropdown.
+    2. When the user picks a different subject or session, tear down the
+       current playback procedure and swap a freshly-built one into
+       :class:`~mesofield.gui.maingui.MainWindow`, re-using the existing
+       widget-rebuild path (``_build_acquisition_ui`` + ``_on_config_applied``).
+
+    Implementation note: the actual swap is deferred via ``QTimer.singleShot``
+    because the change callback fires inside a QComboBox signal handler --
+    rebuilding the parent ConfigController during that callback would delete
+    the QObject that emitted the signal.
+    """
+
+    def __init__(
+        self,
+        main_window: Any,
+        sessions: List[PlaybackSession],
+        *,
+        speed: float = 1.0,
+        loop: bool = False,
+    ) -> None:
+        self.main_window = main_window
+        self.sessions = list(sessions)
+        self.speed = float(speed)
+        self.loop = bool(loop)
+        self.logger = get_logger(f"{__name__}.PlaybackBrowser")
+
+        self._by_subject: Dict[str, List[PlaybackSession]] = {}
+        for ses in self.sessions:
+            self._by_subject.setdefault(ses.subject, []).append(ses)
+
+        self._swapping: bool = False
+        self._current: Optional[PlaybackSession] = None
+        self._install()
+
+    # -- public API -----------------------------------------------------
+    @property
+    def current(self) -> Optional[PlaybackSession]:
+        return self._current
+
+    # -- install ---------------------------------------------------------
+    def _install(self) -> None:
+        """Apply browser-aware behaviour to the live ConfigController.
+
+        Called once at startup and again after every procedure swap (because
+        the new procedure has a fresh ``ExperimentConfig`` object and the
+        ConfigController is rebuilt by ``MainWindow._on_config_applied``).
+        """
+        proc = self.main_window.procedure
+        cfg = proc.config
+
+        # Mirror the disk inventory onto cfg.subjects so the existing subject
+        # dropdown wiring (built in ConfigController._populate_subjects from
+        # cfg.subjects.keys()) reflects what's available for replay.
+        cfg.subjects = {
+            sub: {
+                "session": ses_list[0].session,
+                "task": ses_list[0].task or cfg.get("task", "playback") or "playback",
+            }
+            for sub, ses_list in self._by_subject.items()
+        }
+
+        current_sub = cfg.get("subject")
+        if current_sub not in cfg.subjects and cfg.subjects:
+            current_sub = next(iter(cfg.subjects))
+
+        # Build (and lock in) session choices for the current subject so the
+        # ConfigController's form renders a session dropdown rather than a
+        # free-text editor.
+        self._set_session_choices(current_sub)
+
+        # When _change_subject was last called by the ConfigController, it ran
+        # select_subject(initial) which set "session" to whatever cfg.subjects
+        # said. If we have a more precise current_session (from the active
+        # PlaybackContext), enforce it here so the form picks the right entry.
+        if self._current is not None and current_sub == self._current.subject:
+            cfg.set("session", self._current.session)
+
+        # Listen for subject/session changes; subject changes also update
+        # session choices (the dropdown gets repopulated for the new subject).
+        cfg.register_callback("subject", self._on_subject_changed)
+        cfg.register_callback("session", self._on_session_changed)
+
+        # Push a refreshed ConfigController tab (the form widget reads
+        # choices at construction time, so a rebuild is required for the new
+        # session list to render).
+        try:
+            self.main_window._on_config_applied()
+        except Exception as exc:
+            self.logger.debug(f"_on_config_applied() reinstall failed: {exc}")
+
+        # Relabel the Record button now that the controller has been rebuilt.
+        cc = getattr(self.main_window, "_config_controller", None)
+        if cc is not None and hasattr(cc, "record_button"):
+            cc.record_button.setText("Play")
+            cc.record_button.setToolTip("Play back the selected session")
+
+    def _set_session_choices(self, subject: str) -> None:
+        cfg = self.main_window.procedure.config
+        sess_list = [s.session for s in self._by_subject.get(subject, [])]
+        if sess_list:
+            cfg.register_choices("session", sess_list)
+
+    # -- callbacks -------------------------------------------------------
+    def _on_subject_changed(self, _key: str, value: Any) -> None:
+        if self._swapping:
+            return
+        # Update choices for the new subject so the form, when ConfigController
+        # rebuilds it after select_subject returns, renders the right options.
+        self._set_session_choices(str(value))
+        # The session change that select_subject() fires next will dispatch
+        # the actual procedure swap.
+
+    def _on_session_changed(self, _key: str, value: Any) -> None:
+        if self._swapping:
+            return
+        cfg = self.main_window.procedure.config
+        subject = cfg.get("subject")
+        # Defer to the event loop so the QComboBox that emitted this change
+        # is not destroyed in the middle of its own signal dispatch.
+        try:
+            from PyQt6.QtCore import QTimer
+
+            QTimer.singleShot(0, lambda: self._swap_to(str(subject), str(value)))
+        except Exception:
+            # Headless / no Qt loop -- swap synchronously (e.g. tests).
+            self._swap_to(str(subject), str(value))
+
+    # -- swap ------------------------------------------------------------
+    def _swap_to(self, subject: str, session: str) -> None:
+        target = next(
+            (s for s in self.sessions if s.subject == subject and s.session == session),
+            None,
+        )
+        if target is None:
+            self.logger.warning(
+                f"No session found on disk for sub-{subject}/ses-{session}; "
+                "ignoring change"
+            )
+            return
+        if self._current is not None and target.session_dir == self._current.session_dir:
+            return  # no-op
+        self.logger.info(
+            f"Swapping playback target -> sub-{subject}/ses-{session} "
+            f"({target.session_dir})"
+        )
+        self._swapping = True
+        try:
+            self._teardown_current()
+            new_ctx = discover_playback_context(
+                target.session_dir, speed=self.speed, loop=self.loop
+            )
+            self.main_window.procedure = new_ctx.procedure
+            try:
+                self.main_window._build_acquisition_ui()
+            except Exception as exc:
+                self.logger.exception(f"_build_acquisition_ui failed: {exc}")
+            self._current = target
+            # Re-install on the new procedure's fresh config object.
+            self._install()
+        finally:
+            self._swapping = False
+
+    def _teardown_current(self) -> None:
+        proc = self.main_window.procedure
+        try:
+            proc.cleanup()
+        except Exception:
+            pass
+        try:
+            proc.config.hardware.shutdown()
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
 # GUI launcher
 # ---------------------------------------------------------------------------
 
 
-def launch_playback_app(context: PlaybackContext) -> int:
-    """Open the standard mesofield GUI against a :class:`PlaybackContext`."""
+def launch_playback_app(
+    context: PlaybackContext,
+    *,
+    browser_sessions: Optional[List[PlaybackSession]] = None,
+) -> int:
+    """Open the standard mesofield GUI against a :class:`PlaybackContext`.
+
+    When ``browser_sessions`` is supplied, a :class:`PlaybackBrowser` is wired
+    into the MainWindow's ConfigController so the subject/session dropdowns
+    swap playback targets on change.
+    """
     from PyQt6.QtWidgets import QApplication
 
     from mesofield.gui.maingui import MainWindow
@@ -991,11 +1256,31 @@ def launch_playback_app(context: PlaybackContext) -> int:
     app = QApplication.instance() or QApplication([])
 
     window = MainWindow(context.procedure)
-    window.setWindowTitle(
-        f"Mesofield Playback — {context.session_dir.name} "
-        f"(speed={context.speed:g}x{', loop' if context.loop else ''})"
+    title = (
+        f"Mesofield Playback (speed={context.speed:g}x"
+        f"{', loop' if context.loop else ''})"
     )
+    window.setWindowTitle(title)
     window.show()
+
+    browser: Optional[PlaybackBrowser] = None
+    if browser_sessions:
+        # Find the session entry that matches the loaded context so the
+        # browser's _current pointer is correct before any change events.
+        match = next(
+            (s for s in browser_sessions if s.session_dir == context.session_dir),
+            None,
+        )
+        browser = PlaybackBrowser(
+            window,
+            browser_sessions,
+            speed=context.speed,
+            loop=context.loop,
+        )
+        browser._current = match
+        # Hold a reference on the window so the browser isn't GC'd while the
+        # GUI is alive.
+        window._playback_browser = browser  # type: ignore[attr-defined]
 
     # Re-anchor the wall clock at the moment we kick off, so any GUI startup
     # delay does not eat the head of the recording, then start the procedure.
@@ -1003,6 +1288,6 @@ def launch_playback_app(context: PlaybackContext) -> int:
     try:
         context.procedure.run()
     except Exception:
-        get_logger(__name__).exception("PlaybackProcedure.run failed")
+        get_logger(__name__).exception("playback procedure.run failed")
 
     return app.exec()

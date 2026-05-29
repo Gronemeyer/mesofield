@@ -201,10 +201,15 @@ def viewer(config):
 def playback(experiment_dir: str, speed: float, loop: bool):
     """Launch Mesofield in playback mode for a recorded experiment."""
 
-    from mesofield.playback import discover_playback_context, launch_playback_app
+    from mesofield.playback import (
+        discover_playback_context,
+        discover_playback_sessions,
+        launch_playback_app,
+    )
 
+    sessions = discover_playback_sessions(Path(experiment_dir))
     context = discover_playback_context(Path(experiment_dir), speed=speed, loop=loop)
-    launch_playback_app(context)
+    launch_playback_app(context, browser_sessions=sessions)
 
 
 # ---------------------------------------------------------------------------
