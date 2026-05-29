@@ -105,6 +105,11 @@ class Procedure:
     flag and ``HardwareManager.start_all/stop_all``.
     """
 
+    # When True (set on subclasses like PlaybackProcedure), `run`/`cleanup`
+    # skip writer/queue-logger/manifest side effects so the on-disk session
+    # is left untouched.
+    playback: bool = False
+
     def __init__(self, config_path: Optional[str] = None):
         # Initialize the processor registry before anything else so the
         # ``__setattr__`` hook can run safely from the first assignment on.
@@ -390,7 +395,8 @@ class Procedure:
         self.data.setup(self.config)
         if not self.data.devices:
             self.data.register_devices(self.config.hardware.devices.values())
-        self.data.start_queue_logger()
+        if not self.playback:
+            self.data.start_queue_logger()
 
         # 2. Subclass pre-run hook
         self.prerun()
@@ -488,10 +494,12 @@ class Procedure:
                     self.logger.warning(f"processor detach failed: {exc}")
             self.processors.clear()
             self.hardware.stop_all()
-            self.data.stop_queue_logger()
+            if not self.playback:
+                self.data.stop_queue_logger()
             self.stopped_time = datetime.now(timezone.utc)
-            self.save_data()
-            self._write_acquisition_manifest()
+            if not self.playback:
+                self.save_data()
+                self._write_acquisition_manifest()
             self.on_finished()
             self.events.procedure_finished.emit()
         except Exception as e:
