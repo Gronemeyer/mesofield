@@ -29,6 +29,8 @@ from PyQt6.QtWidgets import (
     QFrame,
 )
 
+from mesofield.gui import theme
+
 if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
     from mesofield.base import Procedure
@@ -295,13 +297,13 @@ class _CameraConfigCard(QFrame):
                     f"✔ Loaded: <b>{display}</b>  "
                     "<span style='color:#888'>(pymmcore-plus demo default)</span>"
                 )
-                self._status.setStyleSheet("color: green;")
+                self._status.setStyleSheet(f"color: {theme.ACCENT};")
             else:
                 self._status.setText(f"✔ Loaded: <b>{display}</b>")
-                self._status.setStyleSheet("color: green;")
+                self._status.setStyleSheet(f"color: {theme.ACCENT};")
         else:
             self._status.setText("⚠ No system configuration loaded")
-            self._status.setStyleSheet("color: orange;")
+            self._status.setStyleSheet(f"color: {theme.WARN};")
 
     # -- slots ---------------------------------------------------------------
 
@@ -580,7 +582,7 @@ class ConfigWizard(QWidget):
         json_path = self._json_picker.text()
         if not json_path:
             self._yaml_status.setText("⚠ pick an experiment JSON first")
-            self._yaml_status.setStyleSheet("color: orange;")
+            self._yaml_status.setStyleSheet(f"color: {theme.WARN};")
             return
         dest = os.path.join(os.path.dirname(os.path.abspath(json_path)), "hardware.yaml")
         if os.path.exists(dest):
@@ -605,7 +607,7 @@ class ConfigWizard(QWidget):
             return
         self._yaml_picker.line_edit.setText(dest)
         self._yaml_status.setText(f"✔ copied rig '{label}' → hardware.yaml")
-        self._yaml_status.setStyleSheet("color: green;")
+        self._yaml_status.setStyleSheet(f"color: {theme.ACCENT};")
 
     def _on_json_path_changed(self, text: str) -> None:
         """When the JSON line-edit changes, try to auto-detect hardware.yaml."""
@@ -616,10 +618,10 @@ class ConfigWizard(QWidget):
         if os.path.isfile(candidate):
             self._yaml_picker.line_edit.setText(candidate)
             self._yaml_status.setText("✔ hardware.yaml auto-detected")
-            self._yaml_status.setStyleSheet("color: green;")
+            self._yaml_status.setStyleSheet(f"color: {theme.ACCENT};")
         else:
             self._yaml_status.setText("⚠ hardware.yaml not found in JSON directory")
-            self._yaml_status.setStyleSheet("color: orange;")
+            self._yaml_status.setStyleSheet(f"color: {theme.WARN};")
 
     def _apply(self) -> None:
         """Apply the selected configuration files to the Procedure."""

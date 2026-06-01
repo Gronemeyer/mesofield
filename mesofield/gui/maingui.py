@@ -200,25 +200,8 @@ class MainWindow(QMainWindow):
             "Mesofield Terminal — interactive Python console\n"
             "Type what_do() for a guide on available commands and objects.\n"
         )
-        dark_bg   = "#2b2b2b"
-        light_txt = "#39FF14"
-        self.console_widget.setStyleSheet(f"""
-            /* console outer frame */
-            RichJupyterWidget {{
-                background-color: {dark_bg};
-            }}
-
-            /* the code / output editors */
-            QPlainTextEdit, QTextEdit {{
-                background-color: {dark_bg};
-                color: {light_txt};
-            }}
-
-            /* the prompt numbers */
-            QLabel {{
-                color: {light_txt};
-            }}
-        """)
+        from mesofield.gui import theme
+        self.console_widget.setStyleSheet(theme.terminal_qss())
         #----------------------------------------------------------------------------#
 
     def closeEvent(self, event):
@@ -314,12 +297,13 @@ class MainWindow(QMainWindow):
         self._build_property_browsers()
 
     def _build_processor_plots(self) -> None:
-        """Add one SerialWidget per `procedure.processors` entry with `plot_enabled`.
+        """Add one SerialWidget per (processor, channel) where the channel
+        has an entry in ``processor.plot_config``.
 
         The procedure (or the ``@processor`` decorator) is responsible for
-        constructing the FrameProcessor and toggling its ``plot_enabled``
-        flag.  We just discover what's already on ``procedure.processors``
-        and render it.
+        constructing the FrameProcessor and declaring per-channel plot
+        styling.  We just discover ``procedure.processors`` and render
+        anything the user opted in to plot.
         """
         # Tear down anything we built on the previous pass.
         for widget in self._processor_widgets:
@@ -332,33 +316,41 @@ class MainWindow(QMainWindow):
 
         cfg = self.procedure.config
         for proc in getattr(self.procedure, "processors", []):
-            if not getattr(proc, "plot_enabled", False):
+            plot_cfg = getattr(proc, "plot_config", None) or {}
+            if not plot_cfg:
                 continue
-            # Expose on cfg.hardware so SerialWidget's `device_attr` lookup
-            # works without any extra wiring on the user's side.
             attr = proc.device_id
+            # Expose on cfg.hardware once so SerialWidget's ``device_attr``
+            # lookup resolves to this processor for every channel.
             setattr(cfg.hardware, attr, proc)
-            # Fill in sensible defaults for any styling kwargs the
-            # processor didn't specify.
-            pc = dict(proc.plot_config)
-            pc.setdefault("label", attr.replace("_", " ").title())
-            pc.setdefault("value_label", "Value")
-            pc.setdefault("value_units", "")
-            pc.setdefault("y_range", (0, 4096))
-            pc.setdefault("value_scale", 1.0)
-            try:
-                widget = SerialWidget(
-                    cfg=cfg,
-                    device_attr=attr,
-                    signal_name="valueUpdated",
-                    **pc,
+            for channel in getattr(proc, "channels", ("value",)):
+                if channel not in plot_cfg:
+                    continue
+                styling = dict(plot_cfg[channel])
+                styling.setdefault(
+                    "label",
+                    f"{attr.replace('_', ' ').title()} — {channel}"
+                    if len(plot_cfg) > 1 else attr.replace("_", " ").title(),
                 )
-            except Exception as exc:
-                # Don't let a bad plot config kill the whole acquisition UI.
-                self._log_exception(f"build SerialWidget for {attr}", exc)
-                continue
-            self.main_layout.addWidget(widget)
-            self._processor_widgets.append(widget)
+                styling.setdefault("value_label", "Value")
+                styling.setdefault("value_units", "")
+                styling.setdefault("y_range", (0, 4096))
+                styling.setdefault("value_scale", 1.0)
+                try:
+                    widget = SerialWidget(
+                        cfg=cfg,
+                        device_attr=attr,
+                        signal_name=f"{channel}Updated",
+                        **styling,
+                    )
+                except Exception as exc:
+                    # Don't let a bad plot config kill the whole UI.
+                    self._log_exception(
+                        f"build SerialWidget for {attr}:{channel}", exc
+                    )
+                    continue
+                self.main_layout.addWidget(widget)
+                self._processor_widgets.append(widget)
 
     def _log_exception(self, ctx: str, exc: Exception) -> None:
         # Defensive logger — MainWindow has no central logger today.

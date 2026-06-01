@@ -1038,7 +1038,9 @@ class TiffViewer(QWidget):
 
 
 def main() -> None:
+    from mesofield.gui import theme
     app = QApplication([])
+    theme.apply_theme(app)
     viewer = TiffViewer()
     viewer.show()
     app.exec()

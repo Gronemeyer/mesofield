@@ -1252,8 +1252,10 @@ def launch_playback_app(
     from PyQt6.QtWidgets import QApplication
 
     from mesofield.gui.maingui import MainWindow
+    from mesofield.gui import theme
 
     app = QApplication.instance() or QApplication([])
+    theme.apply_theme(app)
 
     window = MainWindow(context.procedure)
     title = (

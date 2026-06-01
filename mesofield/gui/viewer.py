@@ -83,7 +83,9 @@ class ImagePreview(QWidget):
 
             mmc = CMMCorePlus()
 
+            from mesofield.gui import theme
             app = QApplication([])
+            theme.apply_theme(app)
             window = QWidget()
             layout = QVBoxLayout(window)
 

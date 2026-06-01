@@ -167,7 +167,10 @@ class ConfigController(QWidget):
         self.filename_preview_label = QLabel()
         self.filename_preview_label.setWordWrap(True)
         self.filename_preview_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.filename_preview_label.setStyleSheet("color: #9e9e9e; font-family: monospace;")
+        from mesofield.gui import theme
+        self.filename_preview_label.setStyleSheet(
+            f"color: {theme.TEXT_DIM}; font-family: {theme.MONO_FONT};"
+        )
         layout.addWidget(self.filename_preview_label)
 
         self.config_model = ConfigFormWidget(self.procedure.config, keys=self.display_keys)
@@ -192,21 +195,8 @@ class ConfigController(QWidget):
         pix.setMask(mask)
         self.record_button.setIcon(QIcon(pix))
 
-        # Use default background, no custom color
-        self.record_button.setStyleSheet("""
-            QPushButton {
-            background-color: #424242; /* Dark Grey */
-            border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            }
-            QPushButton:hover {
-            background-color: #616161;
-            }
-            QPushButton:pressed {
-            background-color: #212121;
-            }
-        """)        
+        from mesofield.gui import theme
+        self.record_button.setStyleSheet(theme.record_button_qss())
         self.record_button.setToolTip("Start Recording (MDA Sequence)")
         self.record_button.setShortcut("Ctrl+R")  # Set shortcut for recording
 
