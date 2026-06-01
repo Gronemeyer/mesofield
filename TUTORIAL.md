@@ -247,7 +247,7 @@ provenance chain extends past acquisition.
 If you have sessions acquired before mesofield wrote manifests:
 
 ```sh
-mesofield retrofit-manifest /path/to/experiment
+mesofield process retrofit-manifest /path/to/experiment
 ```
 
 This walks the BIDS tree, reads `timestamps.csv` and `configuration.csv`,

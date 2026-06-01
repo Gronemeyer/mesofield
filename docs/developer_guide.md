@@ -294,7 +294,7 @@ file traces are easy to grep.
 Sessions acquired before manifests landed can be retrofitted:
 
 ```bash
-mesofield retrofit-manifest /path/to/experiment
+mesofield process retrofit-manifest /path/to/experiment
 ```
 
 This walks the BIDS tree, reads `timestamps.csv` / `configuration.csv`,

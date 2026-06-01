@@ -89,7 +89,7 @@ docs = [
 ]
 
 [project.scripts]
-mesofield = "mesofield.__main__:cli"
+mesofield = "mesofield.cli:cli"
 
 [project.urls]
 Homepage = "https://github.com/Gronemeyer/mesofield/"

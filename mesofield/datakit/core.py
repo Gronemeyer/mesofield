@@ -661,6 +661,43 @@ def load(
     return ds.materialize(strict=strict, progress=progress, return_errors=return_errors)
 
 
+def load_dataset(
+    path: PathLike,
+    *,
+    hdf_key: str = "dataset",
+) -> pd.DataFrame:
+    """Load a previously materialized dataset back into a DataFrame.
+
+    The consumer-side inverse of :meth:`Dataset.save`. Reads a ``.pkl`` /
+    ``.pickle`` (pandas pickle) or ``.h5`` / ``.hdf5`` (HDF5) artefact and
+    returns the materialized ``pandas.DataFrame`` — including the
+    ``df.attrs`` provenance metadata embedded at save time.
+
+    Raises
+    ------
+    FileNotFoundError
+        If ``path`` does not exist.
+    ValueError
+        If the file extension is not a supported dataset format.
+    """
+    p = Path(path).expanduser().resolve()
+    if not p.is_file():
+        raise FileNotFoundError(f"Dataset file not found: {p}")
+    suffix = p.suffix.lower()
+    if suffix in (".pkl", ".pickle"):
+        df = pd.read_pickle(p)
+    elif suffix in (".h5", ".hdf5"):
+        df = pd.read_hdf(p, key=hdf_key)
+    else:
+        raise ValueError(
+            f"Unsupported dataset file type: {suffix!r} "
+            "(expected .pkl, .pickle, .h5, or .hdf5)"
+        )
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError(f"Expected a DataFrame, got {type(df).__name__}")
+    return df
+
+
 def load_path(tag: str, path: PathLike) -> LoadedStream:
     """Ad-hoc single-file load via the registered source for ``tag``.
 
@@ -740,6 +777,7 @@ __all__ = [
     "LoadContext",
     "LoadedStream",
     "load",
+    "load_dataset",
     "load_path",
     "inspect_sources",
 ]
