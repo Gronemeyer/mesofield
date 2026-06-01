@@ -1,28 +1,34 @@
-"""Tiny CLI: open an IPython shell with a Dataset for an experiment root."""
+"""``python -m mesofield.datakit`` — open an interactive datakit shell.
+
+Thin wrapper around :func:`mesofield.datakit.shell.open_shell`; the same
+behaviour is exposed as ``mesofield datakit shell``.
+"""
 
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
 
-from mesofield.datakit.core import Dataset
+from .shell import open_shell
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(prog="datakit")
-    parser.add_argument("root", type=Path, help="Experiment directory")
+    parser = argparse.ArgumentParser(prog="python -m mesofield.datakit")
+    parser.add_argument(
+        "target",
+        type=Path,
+        nargs="?",
+        default=None,
+        help="Experiment directory, or a materialized .pkl/.h5 dataset file. "
+        "Omit to open a bare datakit shell.",
+    )
+    parser.add_argument(
+        "--hdf-key",
+        default="dataset",
+        help="HDF5 key to read when target is an .h5/.hdf5 file (default: dataset).",
+    )
     args = parser.parse_args()
-
-    dataset = Dataset.from_directory(args.root)
-    namespace = {"dataset": dataset, "inventory": dataset.inventory}
-    header = "Embedded datakit shell. Available: dataset, inventory"
-    try:
-        from IPython import embed
-        embed(header=header, user_ns=namespace)
-    except ImportError:
-        from code import interact
-        interact(header, local=namespace)
-    return 0
+    return open_shell(args.target, hdf_key=args.hdf_key)
 
 
 if __name__ == "__main__":

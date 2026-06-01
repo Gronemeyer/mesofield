@@ -1,6 +1,6 @@
 """Scaffold a new experiment directory.
 
-The `mesofield init` CLI command (see :mod:`mesofield.__main__`) calls
+The `mesofield init` CLI command (see :mod:`mesofield.cli.acquire`) calls
 :func:`scaffold_experiment` to generate a working layout new lab users
 can run, edit, and extend without writing anything from scratch:
 

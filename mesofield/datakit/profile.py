@@ -1,8 +1,8 @@
 """Memory / storage profiler for materialized datakit datasets.
 
-Profiles a materialized ``pandas.DataFrame`` (or a pickle file containing
-one), with first-class support for the nested object payloads typical of
-datakit outputs:
+Profiles a materialized ``pandas.DataFrame`` (or a saved ``.pkl`` / ``.h5``
+file containing one), with first-class support for the nested object
+payloads typical of datakit outputs:
 
 - Object-dtype columns containing embedded ``pandas.DataFrame`` instances
   (recursed into, per inner column).
@@ -18,7 +18,8 @@ sizing for ``object`` payloads where pandas reports only the pointer cost.
 
 Output
 ------
-Returns a :class:`MaterializedMemoryReport` and can render:
+:func:`profile_materialized` returns a :class:`MaterializedMemoryReport`
+that can render:
 
 - ``summary()``    — concise human-readable summary string
 - ``verbose()``    — detailed human-readable breakdown
@@ -27,13 +28,11 @@ Returns a :class:`MaterializedMemoryReport` and can render:
 
 CLI usage::
 
-    python -m datakit._utils.memory_profiler path/to/materialized.pkl \\
-        --json report.json --verbose
+    mesofield datakit profile path/to/materialized.pkl --verbose
 """
 
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 from collections import Counter, defaultdict
@@ -357,7 +356,7 @@ def profile_materialized(
     top_n_cells: int = 20,
     source_path: str | None = None,
 ) -> MaterializedMemoryReport:
-    """Build a :class:`MaterializedMemoryReport` from a DataFrame or pickle path.
+    """Build a :class:`MaterializedMemoryReport` from a DataFrame or saved file.
 
     Parameters
     ----------
@@ -528,46 +527,9 @@ def profile_materialized(
     )
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
-
-def _build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        prog="python -m datakit._utils.memory_profiler",
-        description="Profile memory/storage usage of a materialized datakit dataset.",
-    )
-    p.add_argument("pickle", type=str, help="Path to a materialized .pkl file.")
-    p.add_argument(
-        "--json",
-        type=str,
-        default=None,
-        help="Write a JSON report to this path.",
-    )
-    p.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Print detailed per-column breakdown instead of just the summary.",
-    )
-    p.add_argument(
-        "--top-cells",
-        type=int,
-        default=20,
-        help="Number of largest individual cells to include (default: 20).",
-    )
-    return p
-
-
-def main(argv: list[str] | None = None) -> int:
-    args = _build_parser().parse_args(argv)
-    report = profile_materialized(args.pickle, top_n_cells=args.top_cells)
-    print(report.verbose(top_n_cells=args.top_cells) if args.verbose else report.summary())
-    if args.json:
-        out = report.to_json(args.json)
-        print(f"\nWrote JSON report to: {out}")
-    return 0
-
-
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
+__all__ = [
+    "CellMemory",
+    "ColumnMemory",
+    "MaterializedMemoryReport",
+    "profile_materialized",
+]

@@ -15,9 +15,11 @@ logger = get_logger("datakit")
 
 from ._version import __version__, build_meta, get_version  # noqa: E402
 from .config import settings  # noqa: E402
-from .core import Dataset, inspect_sources, load, load_path  # noqa: E402
+from .core import Dataset, inspect_sources, load, load_dataset, load_path  # noqa: E402
 from .datamodel import LoadedStream  # noqa: E402
 from .explore import explore  # noqa: E402
+from .profile import MaterializedMemoryReport, profile_materialized  # noqa: E402
+from .shell import open_shell  # noqa: E402
 from .sources.register import DataSource, LoadContext  # noqa: E402
 
 __all__ = [
@@ -25,6 +27,7 @@ __all__ = [
     "DataSource",
     "LoadContext",
     "LoadedStream",
+    "MaterializedMemoryReport",
     "__version__",
     "build_meta",
     "explore",
@@ -32,7 +35,10 @@ __all__ = [
     "get_version",
     "inspect_sources",
     "load",
+    "load_dataset",
     "load_path",
     "logger",
+    "open_shell",
+    "profile_materialized",
     "settings",
 ]
