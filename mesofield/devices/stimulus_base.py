@@ -52,6 +52,8 @@ class SubprocessStimulusDevice:
     default_device_id: ClassVar[str] = "stimulus"
 
     def __init__(self, cfg: Dict[str, Any]):
+        from psygnal import SignalInstance
+
         self.signals = DeviceSignals()
         self.cfg = dict(cfg)
         self.device_id: str = cfg.get("id", self.default_device_id)
@@ -65,11 +67,29 @@ class SubprocessStimulusDevice:
         self.python_exe: Optional[str] = cfg.get("python_exe")
         self.ready_timeout: float = float(cfg.get("ready_timeout", 30.0))
 
+        # GUI-facing lifecycle status: "loaded" -> "launching" -> "ready"
+        # (or "running"/"failed") -> "stopped". ``status_changed`` lets a GUI
+        # panel reflect the subprocess state instead of failing silently.
+        self._gui_status: str = "loaded"
+        self.status_changed: SignalInstance = SignalInstance((str,))
+
         # Per-run state.
         self._config: Any = None
         self._process: Optional[SubprocessSupervisor] = None
         self._started: Optional[datetime] = None
         self._stopped: Optional[datetime] = None
+
+    # -- GUI status -----------------------------------------------------
+    @property
+    def gui_status(self) -> str:
+        return self._gui_status
+
+    def _set_status(self, status: str) -> None:
+        self._gui_status = status
+        try:
+            self.status_changed.emit(status)
+        except Exception as exc:
+            self.logger.debug(f"status_changed emit failed: {exc}")
 
     # -- subclass hooks (override as needed) ----------------------------
     def prepare(self, config: Any) -> None:
@@ -122,6 +142,7 @@ class SubprocessStimulusDevice:
             self.logger.debug(f"on_stop failed: {exc}")
         if self._process is not None:
             self._process.terminate()
+        self._set_status("stopped")
         self.signals.finished.emit()
         return True
 
@@ -134,6 +155,7 @@ class SubprocessStimulusDevice:
         problem = self.preflight()
         if problem is not None:
             self.logger.error(problem)
+            self._set_status("failed")
             return False
 
         self._process = SubprocessSupervisor(
@@ -146,22 +168,26 @@ class SubprocessStimulusDevice:
             name=self.device_id,
         )
         self._started = datetime.now()
+        self._set_status("launching")
         self.logger.info(
             f"Launching {self.device_id}; waiting for '{self.ready_token}'..."
         )
         self._process.start()
         if self._wait_ready_pumping(self.ready_timeout):
             self.logger.info(f"{self.device_id} is ready.")
+            self._set_status("ready")
         elif self._process.is_running():
             self.logger.warning(
                 f"{self.device_id} not ready after {self.ready_timeout:.0f}s but "
                 f"still running; continuing."
             )
+            self._set_status("running")
         else:
             self.logger.error(
                 f"{self.device_id} exited before reporting '{self.ready_token}'; "
                 f"see the log lines above for the cause."
             )
+            self._set_status("failed")
         return True
 
     def _wait_ready_pumping(self, timeout: float) -> bool:
@@ -190,6 +216,10 @@ class SubprocessStimulusDevice:
         return self._process.wait_ready(timeout=0.0)
 
     def _on_finished(self, _code: int = 0) -> None:
+        # Subprocess exited. Reflect an unexpected mid-run exit without
+        # clobbering a "failed" set by the launch path.
+        if self._gui_status in ("launching", "running", "ready"):
+            self._set_status("stopped")
         self.signals.finished.emit()
 
     # -- introspection --------------------------------------------------

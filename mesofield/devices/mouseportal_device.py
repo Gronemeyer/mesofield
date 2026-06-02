@@ -39,9 +39,12 @@ from mesofield import DeviceRegistry
 from mesofield.devices.stimulus_base import SubprocessStimulusDevice
 
 
-# Keys under the device's YAML stanza that are forwarded verbatim as MousePortal
-# config sub-blocks when present (everything else is orchestration metadata).
-_PORTAL_PASSTHROUGH_SECTIONS = ("window", "corridor", "camera", "fog")
+# MousePortal application config sections (the experiment design + corridor
+# appearance). These live in the ExperimentConfig under the ``mouseportal`` key
+# (experiment.json), NOT in hardware.yaml -- the YAML stanza keeps only the
+# subprocess plumbing (type/app_dir/python_exe/udp_port/...). Legacy stanzas
+# that still carry these sections are honored as a fallback.
+_PORTAL_SECTIONS = ("window", "corridor", "camera", "fog", "experiment")
 
 
 @DeviceRegistry.register("mouseportal")
@@ -198,13 +201,34 @@ class MousePortalDevice(SubprocessStimulusDevice):
             self._sock = None
 
     # -- config generation ---------------------------------------------
+    def _mouseportal_params(self, config=None) -> Dict[str, Any]:
+        """MousePortal application parameters (corridor + gain-trial design).
+
+        Sourced from the ExperimentConfig ``mouseportal`` key (experiment.json)
+        so the experiment design lives in the ExperimentConfig, not
+        hardware.yaml. Falls back to per-section keys on the hardware.yaml
+        stanza for backward compatibility with older configs.
+        """
+        config = config or self._config or getattr(self, "config", None)
+        if config is not None and hasattr(config, "get"):
+            params = config.get("mouseportal")
+            if isinstance(params, dict) and params:
+                return params
+        # Legacy fallback: sections authored directly on the hardware stanza.
+        return {
+            section: self.cfg[section]
+            for section in _PORTAL_SECTIONS
+            if section in self.cfg
+        }
+
     def _build_portal_config(self, config) -> Dict[str, Any]:
         """Assemble the JSON config handed to the MousePortal subprocess."""
-        portal: Dict[str, Any] = {}
-        for section in _PORTAL_PASSTHROUGH_SECTIONS:
-            if isinstance(self.cfg.get(section), dict):
-                portal[section] = self.cfg[section]
-
+        params = self._mouseportal_params(config)
+        portal: Dict[str, Any] = {
+            section: params[section]
+            for section in _PORTAL_SECTIONS
+            if section in params
+        }
         portal["input"] = {
             "mode": "network",
             "host": self.host,
@@ -219,11 +243,6 @@ class MousePortalDevice(SubprocessStimulusDevice):
             "task": str(config.task),
             "output_path": self.output_path,
         }
-        # The gain-trial experiment block is authored in the YAML stanza and
-        # passed straight through to MousePortal's ExperimentConfig.
-        experiment = self.cfg.get("experiment")
-        if isinstance(experiment, dict):
-            portal["experiment"] = experiment
         return portal
 
     # -- duration coupling ---------------------------------------------
@@ -237,7 +256,7 @@ class MousePortalDevice(SubprocessStimulusDevice):
         default) is used as an estimate -- pair this coupling with
         duration-based trials for a precise camera preallocation.
         """
-        exp = self.cfg.get("experiment") or {}
+        exp = self._mouseportal_params().get("experiment") or {}
         num_blocks = int(exp.get("num_blocks", 1))
         trials_per_block = int(exp.get("trials_per_block", 1))
         iti = float(exp.get("iti_duration", 0.0))
@@ -276,7 +295,7 @@ class MousePortalDevice(SubprocessStimulusDevice):
     def calibration(self) -> Dict[str, Any]:
         """Record the corridor/experiment parameters with the session."""
         out: Dict[str, Any] = {"udp_port": self.udp_port}
-        for section in (*_PORTAL_PASSTHROUGH_SECTIONS, "experiment"):
-            if section in self.cfg:
-                out[section] = self.cfg[section]
+        params = self._mouseportal_params()
+        if params:
+            out.update(params)
         return out
