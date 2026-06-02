@@ -107,6 +107,54 @@ class MousePortalDevice(SubprocessStimulusDevice):
         python_exe = self.python_exe or sys.executable
         return [python_exe, "-m", "mouseportal", "-c", self._cfg_path, "--autostart"]
 
+    def launch_env(self) -> Optional[Dict[str, str]]:
+        """Environment for the MousePortal subprocess.
+
+        Ensures Panda3D can find its ``Config.prc`` (which carries
+        ``load-display pandagl``). conda-forge's panda3d on Windows installs the
+        config under ``<env>\\Library\\etc\\panda3d`` and the GL plugin under
+        ``<env>\\Library\\bin``, but Panda3D's runtime auto-locator does not look
+        there -- so no display module loads and ShowBase aborts with
+        "No graphics pipe is available!". Setting ``PANDA_PRC_DIR`` points it at
+        the right directory. Respects an existing ``PANDA_PRC_DIR`` and is a
+        no-op when the directory cannot be found (e.g. macOS/pip layouts that
+        already auto-locate correctly).
+        """
+        env = dict(os.environ)
+        prc_dir = self.cfg.get("panda_prc_dir") or env.get("PANDA_PRC_DIR")
+        if not prc_dir:
+            prc_dir = self._find_panda_prc_dir()
+        if prc_dir:
+            env["PANDA_PRC_DIR"] = prc_dir
+            self.logger.info(f"PANDA_PRC_DIR -> {prc_dir}")
+        else:
+            self.logger.debug(
+                "Could not locate a Panda3D Config.prc dir; relying on Panda3D's "
+                "own auto-location (PANDA_PRC_DIR unset)."
+            )
+        return env
+
+    def _find_panda_prc_dir(self) -> Optional[str]:
+        """Locate the panda3d ``etc`` dir for the interpreter we launch with.
+
+        Derived from ``python_exe`` so it matches the env that actually runs
+        MousePortal. Returns the first directory containing a ``Config.prc``,
+        else ``None``.
+        """
+        python_exe = self.python_exe or sys.executable
+        env_root = os.path.dirname(os.path.abspath(python_exe))
+        candidates = (
+            os.path.join(env_root, "Library", "etc", "panda3d"),  # conda-forge (Windows)
+            os.path.join(env_root, "etc", "panda3d"),
+            os.path.join(env_root, "..", "etc", "panda3d"),        # conda-forge (POSIX)
+            os.path.join(env_root, "..", "share", "panda3d", "etc"),
+        )
+        for cand in candidates:
+            cand = os.path.normpath(cand)
+            if os.path.isfile(os.path.join(cand, "Config.prc")):
+                return cand
+        return None
+
     def preflight(self) -> Optional[str]:
         """Return an actionable error string if MousePortal cannot launch."""
         python_exe = self.python_exe or sys.executable
