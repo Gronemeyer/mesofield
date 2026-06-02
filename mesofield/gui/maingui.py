@@ -84,6 +84,7 @@ class MainWindow(QMainWindow):
         # Tracking for widgets that get built after config is loaded
         self._acquisition_gui: MDA | None = None
         self._config_controller: ConfigController | None = None
+        self._mouseportal_controller: QWidget | None = None
         self._encoder_widget: SerialWidget | None = None
         # Widgets built from `procedure.processors` -- one SerialWidget per
         # FrameProcessor whose `plot_enabled` is True. Tracked here so we
@@ -254,6 +255,20 @@ class MainWindow(QMainWindow):
         # [Setup] [ExperimentConfig] [Terminal]
         self.right_tabs.insertTab(1, self._config_controller, "ExperimentConfig")
         self.right_tabs.setCurrentWidget(self._config_controller)
+
+        # MousePortal tab (only when a mouseportal device is loaded). Editable
+        # corridor + gain-trial parameters, persisted via update_mouseportal().
+        if self._mouseportal_controller is not None:
+            idx = self.right_tabs.indexOf(self._mouseportal_controller)
+            if idx >= 0:
+                self.right_tabs.removeTab(idx)
+            self._mouseportal_controller.deleteLater()
+            self._mouseportal_controller = None
+        if self.procedure.config.hardware.devices.get("mouseportal") is not None:
+            from mesofield.gui.mouseportal_controller import MousePortalController
+            self._mouseportal_controller = MousePortalController(self.procedure)
+            # Insert right after ExperimentConfig: [Setup][ExperimentConfig][MousePortal][Terminal]
+            self.right_tabs.insertTab(2, self._mouseportal_controller, "MousePortal")
 
         # Pin the right column width to the ConfigController's fixed width
         # (plus a small allowance for tab frame/margins) so the tab area is

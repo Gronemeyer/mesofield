@@ -8,7 +8,6 @@ class DynamicController(QWidget):
     SNAP_BTN = 'snap_btn'
     PSYCHOPY_BTN = 'psychopy_btn'
     NIDAQ_BTN = 'nidaq_btn'
-    MOUSEPORTAL_PANEL = 'mouseportal_panel'
     """
     A dynamic controller that loads and arranges GUI components based on hardware features.
     """
@@ -24,7 +23,8 @@ class DynamicController(QWidget):
             'camera_snap': (self._create_snap_control, 'buttons'),
             'psychopy': (self._create_psychopy_controls, 'buttons'),
             'nidaq_test': (self._create_nidaq_controls, 'buttons'),
-            'mouseportal': (self._create_mouseportal_panel, 'panels'),
+            # MousePortal has its own dedicated MainWindow tab
+            # (mesofield.gui.mouseportal_controller), not a DynamicController panel.
             # more mappings as needed are added here
         }
 
@@ -80,13 +80,4 @@ class DynamicController(QWidget):
         setattr(self, self.NIDAQ_BTN, nidaq_btn)
         layout.addWidget(nidaq_btn)
 
-    def _create_mouseportal_panel(self, layout):
-        """Create the MousePortal load/readiness status panel."""
-        device = self.config.hardware.devices.get('mouseportal')
-        if device is None:
-            return
-        from mesofield.gui.mouseportal_panel import MousePortalPanel
-        panel = MousePortalPanel(self.config, device, parent=self)
-        setattr(self, self.MOUSEPORTAL_PANEL, panel)
-        layout.addWidget(panel)
     # Additional factory methods can be added here

@@ -66,7 +66,7 @@ class MousePortalPanel(QGroupBox):
             pass
         layout.addWidget(self._summary_label, 1, 0, 1, 2)
 
-        self._summary_label.setText(self._experiment_summary())
+        self.refresh_summary()
         self._apply_status(getattr(device, "gui_status", "loaded"))
 
         # Device status -> GUI. psygnal (may fire from the subprocess reader
@@ -85,24 +85,9 @@ class MousePortalPanel(QGroupBox):
         self._status_label.setText(f"<b>{label}</b>")
         self.setToolTip(f"MousePortal status: {status}")
 
-    def _experiment_summary(self) -> str:
-        exp = self._mouseportal_experiment()
-        if not exp:
-            return "No experiment configured (Configuration.mouseportal.experiment)."
-        num_blocks = exp.get("num_blocks", 1)
-        trials = exp.get("trials_per_block", 0)
-        end = exp.get("trial_end_condition", "duration")
-        dur = exp.get("trial_duration")
-        conds = exp.get("conditions", []) or []
-        labels = ", ".join(str(c.get("label", "?")) for c in conds) or "—"
-        line1 = f"{num_blocks} block(s) × {trials} trials  ·  end: {end}"
-        if end == "duration" and dur is not None:
-            line1 += f" {dur}s"
-        return f"{line1}\nconditions: {labels}"
-
-    def _mouseportal_experiment(self) -> Dict[str, Any]:
+    def refresh_summary(self) -> None:
+        """Re-render the experiment summary from the current config block."""
+        from mesofield.gui.mouseportal_config import summarize_experiment
         getter = getattr(self._config, "get", None)
-        params = getter("mouseportal") if callable(getter) else None
-        if isinstance(params, dict):
-            return params.get("experiment", {}) or {}
-        return {}
+        block = getter("mouseportal") if callable(getter) else None
+        self._summary_label.setText(summarize_experiment(block if isinstance(block, dict) else {}))
