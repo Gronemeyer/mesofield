@@ -1,0 +1,70 @@
+# Widefield + pupil cameras + treadmill + MousePortal corridor (gain trials).
+#
+# mesofield is the orchestrator: it owns the treadmill serial port, logs every
+# sample to the central dataqueue (sync), and launches MousePortal as a
+# subprocess stimulus device. Live treadmill velocity is forwarded to
+# MousePortal over a localhost UDP socket; MousePortal runs the gain-trial
+# block defined below.
+#
+# DEV / mock setup — runs end to end with no real hardware. Swap notes inline.
+memory_buffer_size: 4000
+
+# --- Widefield (primary; drives session timing) ---------------------------
+# Real swap: `type: camera` (Micro-Manager, e.g. Dhyana) or `type: opencv_camera`
+# with `device_index: 0`. Naming the device "widefield" is fine; the alignment
+# Source falls back to the full dataqueue span when the camera id doesn't match
+# the master-clock patterns (dhyana/mesoscope).
+widefield:
+  type: mock_camera
+  primary: true
+  width: 128
+  height: 128
+  frame_interval_ms: 100        # 10 fps
+  output:
+    suffix: widefield
+    file_type: ome.tiff
+    bids_type: func
+
+# --- Pupil camera ----------------------------------------------------------
+pupil:
+  type: mock_camera
+  width: 64
+  height: 64
+  frame_interval_ms: 50         # 20 fps
+  output:
+    suffix: pupil
+    file_type: ome.tiff
+    bids_type: behav
+
+# --- Treadmill -------------------------------------------------------------
+# Real swap: `type: encoder` with `port:`/`baudrate:` for the Teensy. The mock
+# emits the same {distance, speed, device_us} payload so the device_us master
+# clock alignment is exercised identically.
+treadmill:
+  type: mock_treadmill
+  sample_interval_ms: 20        # 50 Hz
+  speed_mm_s: 8.0
+  output:
+    suffix: treadmill
+    file_type: csv
+    bids_type: beh
+
+# --- MousePortal corridor stimulus ----------------------------------------
+# Subprocess plumbing only. The corridor + gain-trial DESIGN lives in the
+# ExperimentConfig (experiment.json -> Configuration.mouseportal), so it is part
+# of the experiment record, not the rig file.
+mouseportal:
+  type: mouseportal
+  app_dir: /Users/jakegronemeyer/dev/Panda3D/MousePortal
+  # Interpreter used to launch MousePortal. Pin this to a Python that has
+  # MousePortal + panda3d installed; otherwise mesofield falls back to its own
+  # interpreter, which may be a conda env without mouseportal (the subprocess
+  # would then die with "No module named mouseportal"). Omit to use mesofield's
+  # interpreter when MousePortal is installed in the same environment.
+  python_exe: /Users/anaconda3/bin/python
+  udp_port: 8765
+  treadmill_id: treadmill
+  ready_timeout: 30.0
+  # mesofield runs this many seconds past the last MousePortal trial so the
+  # cameras finish their preallocated frames cleanly.
+  tail_seconds: 5.0

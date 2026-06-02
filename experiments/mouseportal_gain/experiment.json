@@ -1,0 +1,88 @@
+{
+    "Configuration": {
+        "experimenter": "demo",
+        "protocol": "MOUSEPORTAL_GAIN",
+        "start_on_trigger": false
+    },
+    "MousePortal": {
+        "window": {
+            "width": 1280,
+            "height": 720
+        },
+        "fog": {
+            "density": 0.06,
+            "color": [
+                0.5,
+                0.5,
+                0.5
+            ]
+        },
+        "experiment": {
+            "num_blocks": 1,
+            "trials_per_block": 5,
+            "iti_duration": 2.0,
+            "trial_end_condition": "duration",
+            "trial_duration": 8.0,
+            "conditions": [
+                {
+                    "label": "gain_0p5",
+                    "transform_type": "gain",
+                    "transform_params": {
+                        "gain": 0.5
+                    }
+                },
+                {
+                    "label": "normal",
+                    "transform_type": "identity"
+                },
+                {
+                    "label": "gain_1p5",
+                    "transform_type": "gain",
+                    "transform_params": {
+                        "gain": 1.5
+                    }
+                },
+                {
+                    "label": "gain_2x",
+                    "transform_type": "gain",
+                    "transform_params": {
+                        "gain": 2.0
+                    }
+                },
+                {
+                    "label": "gain_3x",
+                    "transform_type": "gain",
+                    "transform_params": {
+                        "gain": 3.0
+                    }
+                }
+            ],
+            "block_conditions": [
+                {
+                    "condition_sequence": [
+                        "gain_0p5",
+                        "normal",
+                        "gain_1p5",
+                        "gain_2x",
+                        "gain_3x"
+                    ]
+                }
+            ]
+        }
+    },
+    "procedure_file": "procedure.py",
+    "procedure_class": "MousePortalGainProcedure",
+    "Subjects": {
+        "DEMO": {
+            "session": "01",
+            "task": "corridor"
+        }
+    },
+    "DisplayKeys": [
+        "subject",
+        "session",
+        "task",
+        "experimenter",
+        "protocol"
+    ]
+}
