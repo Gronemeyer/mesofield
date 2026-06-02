@@ -221,7 +221,7 @@ class BaseDataProducer(BaseDevice):
         try:
             self.signals.data.emit(payload, ts)
         except Exception as exc:
-            self.logger.warning("signals.data emit failed: %s", exc)
+            self.logger.warning(f"signals.data emit failed: {exc}")
         return ts
 
     def clear_buffer(self) -> None:
@@ -243,7 +243,7 @@ class BaseDataProducer(BaseDevice):
                     self.device_id, self.file_type, self.bids_type
                 )
             except Exception as exc:
-                self.logger.debug("make_path failed for %s: %s", self.device_id, exc)
+                self.logger.debug(f"make_path failed for {self.device_id}: {exc}")
 
     def start(self) -> bool:
         self.is_active = True
@@ -261,7 +261,7 @@ class BaseDataProducer(BaseDevice):
     def save_data(self, path: Optional[str] = None) -> Optional[str]:
         target = path or self.output_path
         if not target:
-            self.logger.debug("save_data: no path provided for %s", self.device_id)
+            self.logger.debug(f"save_data: no path provided for {self.device_id}")
             return None
 
         snapshot = self.get_data()
@@ -290,7 +290,7 @@ class BaseDataProducer(BaseDevice):
                 writer.writerow(["timestamp", "payload"])
                 for ts, payload in snapshot:
                     writer.writerow([ts, payload])
-        self.logger.info("Saved %d samples to %s", len(snapshot), target)
+            self.logger.info(f"Saved {len(snapshot)} samples to {target}")
         return target
 
 
@@ -368,7 +368,7 @@ class BaseSerialDevice(BaseDataProducer):
             data += newline
 
         if self.development_mode:
-            self.logger.debug("send_line (dev_mode, no-op): %r", data)
+            self.logger.debug(f"send_line (dev_mode, no-op): {data!r}")
             return data
         if self._serial is None:
             raise RuntimeError(
@@ -414,7 +414,7 @@ class BaseSerialDevice(BaseDataProducer):
         except Exception as exc:
             raise RuntimeError(f"Failed to open serial port {self.port}: {exc}") from exc
 
-        self.logger.info("Opened serial %s @ %d baud", self.port, self.baudrate)
+        self.logger.info(f"Opened serial {self.port} @ {self.baudrate} baud")
         try:
             self.setup_serial()
         except Exception:
@@ -429,7 +429,7 @@ class BaseSerialDevice(BaseDataProducer):
             try:
                 self._serial.close()
             except Exception as exc:
-                self.logger.debug("serial close failed: %s", exc)
+                self.logger.debug(f"serial close failed: {exc}")
             self._serial = None
 
     def start(self) -> bool:
@@ -454,9 +454,7 @@ class BaseSerialDevice(BaseDataProducer):
             thread.join(timeout=self.join_timeout)
             if thread.is_alive():
                 self.logger.warning(
-                    "read thread for %s did not exit within %.1fs",
-                    self.device_id,
-                    self.join_timeout,
+                    f"read thread for {self.device_id} did not exit within {self.join_timeout:.1f}s"
                 )
         self._thread = None
         return super().stop()
@@ -468,7 +466,7 @@ class BaseSerialDevice(BaseDataProducer):
                 try:
                     sample = self._read_once()
                 except Exception as exc:
-                    self.logger.exception("read raised: %s", exc)
+                    self.logger.exception(f"read raised: {exc}")
                     sample = None
 
                 if sample is not None:
@@ -486,12 +484,12 @@ class BaseSerialDevice(BaseDataProducer):
             with self._serial_lock:
                 line = self._serial.readline()
         except Exception as exc:
-            self.logger.exception("serial read failed: %s", exc)
+            self.logger.exception(f"serial read failed: {exc}")
             return None
         if not line:
             return None
         try:
             return self.parse_line(line)
         except Exception as exc:
-            self.logger.exception("parse_line raised on %r: %s", line, exc)
+            self.logger.exception(f"parse_line raised on {line!r}: {exc}")
             return None

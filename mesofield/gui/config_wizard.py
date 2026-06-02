@@ -11,6 +11,8 @@ Provides a unified widget for selecting and applying:
 from __future__ import annotations
 
 import os
+import json
+import inspect
 import shutil
 from typing import TYPE_CHECKING, Optional, List
 
@@ -644,8 +646,34 @@ class ConfigWizard(QWidget):
             from mesofield.base import load_procedure_from_config
 
             if json_path and os.path.isfile(json_path):
-                candidate = load_procedure_from_config(json_path)
-                if type(candidate) is not type(self.procedure):
+                with open(json_path, "r", encoding="utf-8") as fh:
+                    cfg = json.load(fh)
+
+                proc_file = cfg.get("procedure_file") if isinstance(cfg, dict) else None
+                proc_class = cfg.get("procedure_class") if isinstance(cfg, dict) else None
+
+                should_switch_procedure = False
+                if proc_file and proc_class:
+                    json_dir = os.path.dirname(os.path.abspath(json_path))
+                    declared_file = proc_file
+                    if not os.path.isabs(declared_file):
+                        declared_file = os.path.join(json_dir, declared_file)
+                    declared_file = os.path.abspath(declared_file)
+
+                    current_cls = type(self.procedure)
+                    current_file = inspect.getsourcefile(current_cls) or inspect.getfile(current_cls) or ""
+                    current_file = os.path.abspath(current_file) if current_file else ""
+
+                    same_class_name = current_cls.__name__ == proc_class
+                    same_file = (
+                        bool(current_file)
+                        and os.path.normcase(os.path.normpath(current_file))
+                        == os.path.normcase(os.path.normpath(declared_file))
+                    )
+                    should_switch_procedure = not (same_class_name and same_file)
+
+                if should_switch_procedure:
+                    candidate = load_procedure_from_config(json_path)
                     # The candidate's __init__ already loaded the JSON and
                     # initialized hardware from <json_dir>/hardware.yaml. Only
                     # reload if the user explicitly picked a *different* YAML;

@@ -103,10 +103,6 @@ def synthesize_manifests(session_dir: Path) -> dict[str, AcquisitionManifest]:
 
     files = [p for p in session_dir.rglob("*") if p.is_file()]
     sidecars = _index_sidecars(files)
-    timestamps_path = _find_session_file(files, "timestamps")
-    started_at, ended_at = _read_timestamps(timestamps_path) if timestamps_path else (None, None)
-    config_path = _find_session_file(files, "configuration")
-    config = _read_configuration(config_path) if config_path else {}
 
     # Partition producer files by task.
     by_task: dict[str, list[tuple[Path, re.Match[str]]]] = defaultdict(list)
@@ -124,9 +120,20 @@ def synthesize_manifests(session_dir: Path) -> dict[str, AcquisitionManifest]:
     if not by_task:
         return {}
 
-    fallback_started_at = started_at or _earliest_mtime(files)
     out: dict[str, AcquisitionManifest] = {}
     for task, entries in by_task.items():
+        # Session-level files are written per-task too (``..._task-<T>_timestamps.csv``),
+        # so resolve them against *this* task rather than grabbing the first match --
+        # otherwise every task's manifest inherits one arbitrary task's timing/config.
+        timestamps_path = _find_session_file(files, "timestamps", task)
+        started_at, ended_at = (
+            _read_timestamps(timestamps_path) if timestamps_path else (None, None)
+        )
+        config_path = _find_session_file(files, "configuration", task)
+        config = _read_configuration(config_path) if config_path else {}
+        fallback_started_at = started_at or _earliest_mtime(
+            [path for path, _ in entries]
+        )
         producers = [
             _producer_for(path, match, session_dir, sidecars)
             for path, match in sorted(entries, key=lambda pair: pair[0].name)
@@ -158,7 +165,15 @@ def manifest_filename(task: str, multi_task: bool) -> str:
 
 
 def _index_sidecars(files: list[Path]) -> dict[Path, Path]:
-    """Map each data file to its sibling `_frame_metadata.json` sidecar, if any."""
+    """Map each data file to its sibling `_frame_metadata.json` sidecar, if any.
+
+    Writers name the sidecar by appending ``_frame_metadata.json`` to the data
+    file's *full* name including extension (see ``writer.FRAME_MD_FILENAME``),
+    so stripping the tail yields the data file's exact name -- e.g.
+    ``foo.ome.tiff_frame_metadata.json`` -> ``foo.ome.tiff``. Match that name
+    directly; the previous ``base + "."`` prefix test required a trailing dot
+    that never exists and so attached no sidecars at all.
+    """
     index: dict[Path, Path] = {}
     for path in files:
         if not path.name.endswith(_SIDECAR_TAIL):
@@ -167,21 +182,42 @@ def _index_sidecars(files: list[Path]) -> dict[Path, Path]:
         for candidate in path.parent.iterdir():
             if (
                 candidate.is_file()
-                and candidate is not path
-                and candidate.name.startswith(base + ".")
+                and candidate != path
+                and (
+                    candidate.name == base
+                    or candidate.name.startswith(base + ".")
+                )
             ):
                 index[candidate] = path
                 break
     return index
 
 
-def _find_session_file(files: list[Path], suffix: str) -> Optional[Path]:
-    """Locate a session-level file by its BIDS suffix (e.g. 'timestamps')."""
+def _find_session_file(
+    files: list[Path], suffix: str, task: Optional[str] = None
+) -> Optional[Path]:
+    """Locate a session-level file by its BIDS suffix (e.g. 'timestamps').
+
+    Session-level files carry a ``_task-<T>_`` token like everything else, so
+    when *task* is given prefer the file written for that task. Fall back to a
+    lone file of that suffix only when there is exactly one (covers sessions
+    whose task token differs slightly from the producer files).
+    """
+    matches: list[tuple[Path, re.Match[str]]] = []
     for path in files:
         m = _BIDS_FILE_RE.match(path.name)
         if m and m.group("suffix") == suffix:
-            return path
-    return None
+            matches.append((path, m))
+    if not matches:
+        return None
+    if task is not None:
+        for path, m in matches:
+            if m.group("task") == task:
+                return path
+        if len(matches) == 1:
+            return matches[0][0]
+        return None
+    return matches[0][0]
 
 
 def _read_timestamps(path: Path) -> tuple[Optional[datetime], Optional[datetime]]:

@@ -34,7 +34,7 @@ import pandas as pd
 from mesofield import DeviceRegistry
 from mesofield.devices.base import BaseSerialDevice
 from mesofield.datakit.config import settings
-from mesofield.datakit.sources.register import SourceContext, TimeseriesSource
+from mesofield.datakit.sources.register import TimeseriesSource
 
 
 @DeviceRegistry.register("encoder")
@@ -49,7 +49,7 @@ class EncoderSerialInterface(BaseSerialDevice):
     device_type: ClassVar[str] = "encoder"
     file_type: ClassVar[str] = "csv"
     bids_type: ClassVar[Optional[str]] = "beh"
-    default_baudrate: ClassVar[int] = 192_000
+    default_baudrate: ClassVar[int] = 192000
 
     # Typed contract for the parser's dataqueue lookup. parse_line returns a
     # dict {distance, speed, device_us}, so the dataqueue payload column holds

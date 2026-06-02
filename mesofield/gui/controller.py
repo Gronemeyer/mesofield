@@ -62,7 +62,21 @@ class ConfigFormWidget(QWidget):
             type_hint = self._registry.get_metadata(key).get("type")
             value = self._registry.get(key)
             choices = self._registry.get_choices(key)
-            if choices and key != "led_pattern":
+            if key == "session" and not choices:
+                # Session is a zero-padded BIDS string (e.g. "02"). Edit it as
+                # a stepper while preserving the "%02d" string format on commit.
+                # When choices are registered (playback mode lists the recorded
+                # sessions on disk) fall through to the dropdown branch below.
+                editor = QSpinBox()
+                editor.setRange(0, 999)
+                try:
+                    editor.setValue(int(value))
+                except (TypeError, ValueError):
+                    editor.setValue(0)
+                editor.valueChanged.connect(
+                    lambda val, k=key: self._registry.set(k, f"{val:02d}")
+                )
+            elif choices and key != "led_pattern":
                 # Key has registered choices — render a dropdown
                 editor = QComboBox()
                 editor.addItems([str(c) for c in choices])
