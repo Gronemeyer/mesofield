@@ -275,8 +275,16 @@ class ExperimentConfig(ConfigRegister):
 
     @property
     def session(self) -> str:
-        """Get the session ID."""
-        return self.get("session")
+        """Get the session ID as a zero-padded BIDS string (e.g. "01").
+
+        Formatting is enforced here so paths/filenames are always padded
+        regardless of how the raw value was entered (GUI, JSON, etc.).
+        """
+        raw = self.get("session")
+        try:
+            return f"{int(raw):02d}"
+        except (TypeError, ValueError):
+            return "" if raw is None else str(raw)
 
     @property
     def task(self) -> str:
