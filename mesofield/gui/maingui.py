@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
     QLayout,
     QToolBar,
     QSizePolicy,
+    QFileDialog,
 )
 
 from PyQt6.QtGui import QAction
@@ -53,6 +54,14 @@ class MainWindow(QMainWindow):
         self._act_tiff_viewer.triggered.connect(self._open_tiff_viewer)
         self._toolbar.addAction(self._act_tiff_viewer)
         self._tiff_viewer = None  # keep a reference so the window isn't GC'd
+
+        self._act_playback = QAction("Playback…", self)
+        self._act_playback.setToolTip(
+            "Open the session playback viewer (read-only; select subject/session/task)."
+        )
+        self._act_playback.triggered.connect(self._open_playback_viewer)
+        self._toolbar.addAction(self._act_playback)
+        self._playback_viewer = None  # keep a reference so the window isn't GC'd
         #--------------------------------------------------------------------#
 
         #============================== Layout ==============================#
@@ -134,8 +143,37 @@ class MainWindow(QMainWindow):
         viewer.resize(1100, 800)
         viewer.show()
         self._tiff_viewer = viewer
-    
-                
+
+    def _open_playback_viewer(self):
+        """Launch the read-only playback viewer on a chosen experiment directory."""
+        from mesofield.gui.playback_window import PlaybackWindow
+
+        # Re-use the existing window if still open.
+        if self._playback_viewer is not None and self._playback_viewer.isVisible():
+            self._playback_viewer.raise_()
+            self._playback_viewer.activateWindow()
+            return
+
+        cfg = self.procedure.config
+        start_dir = (
+            getattr(cfg, "experiment_dir", None)
+            or getattr(cfg, "save_dir", None)
+            or getattr(cfg, "bids_dir", None)
+            or ""
+        )
+        directory = QFileDialog.getExistingDirectory(
+            self, "Select experiment directory", str(start_dir)
+        )
+        if not directory:
+            return
+
+        viewer = PlaybackWindow(experiment_dir=directory)
+        viewer.setWindowFlag(Qt.WindowType.Window, True)
+        viewer.resize(1200, 900)
+        viewer.show()
+        self._playback_viewer = viewer
+
+
     def initialize_console(self, procedure):
         """Initialize the IPython console and embed it into the application."""
         import mesofield.data as data

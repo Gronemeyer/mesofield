@@ -183,20 +183,31 @@ def init(directory, name, force, rig, hardware):
 
 @click.command()
 @click.argument('experiment_dir')
-@click.option('--speed', default=1.0, show_default=True, help='Playback speed multiplier')
+@click.option('--speed', default=1.0, show_default=True, help='Initial playback speed multiplier')
 @click.option('--loop/--no-loop', default=False, show_default=True, help='Loop playback when finished')
 def playback(experiment_dir: str, speed: float, loop: bool):
-    """Launch Mesofield in playback mode for a recorded experiment."""
+    """Launch the Mesofield playback viewer for a recorded experiment.
 
-    from mesofield.playback import (
-        discover_playback_context,
-        discover_playback_sessions,
-        launch_playback_app,
-    )
+    EXPERIMENT_DIR is an experiment root (containing ``data/sub-*/ses-*``) or a
+    session directory. The viewer is read-only: pick a subject / session / task,
+    then play, pause and scrub the recorded camera streams. Treadmill data, when
+    present in the session's ``*_dataqueue.csv``, is plotted beneath the cameras.
+    """
+    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtGui import QIcon
 
-    sessions = discover_playback_sessions(Path(experiment_dir))
-    context = discover_playback_context(Path(experiment_dir), speed=speed, loop=loop)
-    launch_playback_app(context, browser_sessions=sessions)
+    from mesofield.gui.playback_window import PlaybackWindow
+    from mesofield.gui import theme
+
+    app = QApplication.instance() or QApplication([])
+    theme.apply_theme(app)
+    icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "gui", "Mesofield_icon.png")
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+    window = PlaybackWindow(experiment_dir=experiment_dir, speed=speed, loop=loop)
+    window.resize(1200, 900)
+    window.show()
+    app.exec()
 
 
 # ---------------------------------------------------------------------------

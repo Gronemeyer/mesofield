@@ -65,8 +65,8 @@ class ConfigFormWidget(QWidget):
             if key == "session" and not choices:
                 # Session is a zero-padded BIDS string (e.g. "02"). Edit it as
                 # a stepper while preserving the "%02d" string format on commit.
-                # When choices are registered (playback mode lists the recorded
-                # sessions on disk) fall through to the dropdown branch below.
+                # When choices are registered for "session" the dropdown branch
+                # below is used instead.
                 editor = QSpinBox()
                 editor.setRange(0, 999)
                 try:
