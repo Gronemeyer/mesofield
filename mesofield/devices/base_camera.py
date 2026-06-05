@@ -156,6 +156,12 @@ class BaseCamera:
             return CustomWriter(filename=filename)
         if name == "CV2Writer":
             fps = int(self.sampling_rate) if self.sampling_rate else 30
+            fourcc = None
+            if isinstance(getattr(self, "cfg", None), dict):
+                fourcc = self.cfg.get("fourcc")
+            fourcc = getattr(self, "fourcc", fourcc)
+            if fourcc:
+                return CV2Writer(filename=filename, fps=fps, fourcc=str(fourcc))
             return CV2Writer(filename=filename, fps=fps)
         raise ValueError(f"Unknown writer class name {name!r}")
 

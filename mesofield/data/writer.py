@@ -178,6 +178,10 @@ class CV2Writer(_5DWriterBase[Any]):
             raise ValueError("filename must end with '.mp4' or '.avi'")
         self._fps = fps
         self._fourcc = fourcc
+        # FFmpeg expects H.264-in-MP4 with the 'avc1' tag; OpenCV often gets
+        # 'H264' from callers, which triggers a noisy fallback warning.
+        if self._filename.endswith(".mp4") and self._fourcc.upper() == "H264":
+            self._fourcc = "avc1"
         self._frame_metadata_filename = self._filename + FRAME_MD_FILENAME
         # Direct-use (non-MDA) capture-loop writer; opened by `begin`.
         self._direct_writer: Any = None
