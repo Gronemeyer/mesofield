@@ -126,7 +126,7 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         """Build the MDA sequence (Micro-Manager backend only)."""
         if self.backend == "micromanager":
             self.sequence = build_mda(self)
-            self.logger.info("MDA sequence set for Micromanager backend.")
+            self.logger.debug("MDA sequence set for Micromanager backend.")
         else:
             self.logger.warning("Setting sequence is not supported for OpenCV backend.")
 
@@ -210,7 +210,7 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         the original ``Arduino-Switch.State.loadSequence/startSequence`` path.
         """
         led = self._led_serial_cfg()
-        self.logger.info(
+        self.logger.debug(
             f"start_led_sequence: led_serial={'present' if led else 'absent'} "
             f"pattern={pattern}"
         )
@@ -227,7 +227,7 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
     def stop_led_sequence(self) -> None:
         """Stop the LED pattern (mirror of :meth:`start_led_sequence`)."""
         led = self._led_serial_cfg()
-        self.logger.info(
+        self.logger.debug(
             f"stop_led_sequence: led_serial={'present' if led else 'absent'}"
         )
         if led is not None:

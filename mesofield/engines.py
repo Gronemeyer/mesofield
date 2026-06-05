@@ -80,7 +80,7 @@ class MesoEngine(MDAEngine):
             raise ValueError('Missing led_sequence in MDASequence metadata and ExperimentConfig')
 
         camera = getattr(self, 'camera', None)
-        self.logger.info(
+        self.logger.debug(
             f"setup_sequence: engine.camera={'set' if camera is not None else 'None'} "
             f"has_start_led={hasattr(camera, 'start_led_sequence') if camera else False}"
         )
@@ -91,7 +91,7 @@ class MesoEngine(MDAEngine):
             self._mmc.getPropertyObject('Arduino-Switch', 'State').setValue(4) # seems essential to initiate serial communication
             self._mmc.getPropertyObject('Arduino-Switch', 'State').startSequence()
 
-        self.logger.info(f'setup_sequence loaded LED sequence at time: {time.time()}')
+        self.logger.debug(f'setup_sequence loaded LED sequence at time: {time.time()}')
 
         return super().setup_sequence(sequence)
     
@@ -117,7 +117,7 @@ class MesoEngine(MDAEngine):
             0,  # intervalMS  
             True,  # stopOnOverflow
         )
-        self.logger.info(f'exec_sequenced_event with {n_events} events at t0 {t0}')
+        self.logger.debug(f'exec_sequenced_event with {n_events} events at t0 {t0}')
         self.post_sequence_started(event)
 
         n_channels = self._mmc.getNumberOfCameraChannels()
@@ -154,7 +154,7 @@ class MesoEngine(MDAEngine):
     
     def teardown_sequence(self, sequence: useq.MDASequence) -> None:
         """Perform any teardown required after the sequence has been executed."""
-        self.logger.info(f'teardown_sequence at time: {time.time()}')
+        self.logger.debug(f'teardown_sequence at time: {time.time()}')
 
         # Stop the Arduino LED Sequence
         camera = getattr(self, 'camera', None)
@@ -199,7 +199,7 @@ class PupilEngine(MDAEngine):
         self.nidaq = sequence.metadata.get("nidaq")
         if self.nidaq is not None:
             self.nidaq.reset()
-        self.logger.info(f'setup_sequence loaded Nidaq: {self.nidaq}')
+        self.logger.debug(f'setup_sequence loaded Nidaq: {self.nidaq}')
         return super().setup_sequence(sequence)
         
     def exec_sequenced_event(self, event: 'SequencedEvent') -> Iterable['PImagePayload']:
@@ -228,7 +228,7 @@ class PupilEngine(MDAEngine):
             0,  # intervalMS  # TODO: add support for this
             True,  # stopOnOverflow
         )
-        self.logger.info(f'exec_sequenced_event with {n_events} events at t0 {t0}')
+        self.logger.debug(f'exec_sequenced_event with {n_events} events at t0 {t0}')
         self.post_sequence_started(event)
 
         n_channels = self._mmc.getNumberOfCameraChannels()
@@ -270,7 +270,7 @@ class PupilEngine(MDAEngine):
     
     def teardown_sequence(self, sequence: useq.MDASequence) -> None:
         """Perform any teardown required after the sequence has been executed."""
-        self.logger.info(f'teardown_sequence at time: {time.time()}')
+        self.logger.debug(f'teardown_sequence at time: {time.time()}')
         # self.nidaq.stop()
         # # Save exposure times from nidaq
         # times = self.nidaq.get_exposure_times()

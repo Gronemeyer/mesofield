@@ -49,7 +49,7 @@ except Exception:  # pragma: no cover
     _MESOFIELD_VERSION = "0.0.0+unknown"
 from mesofield.hardware import HardwareManager
 from mesofield.protocols import Configurator
-from mesofield.utils._logger import get_logger
+from mesofield.utils._logger import get_logger, hyperlink
 
 
 def processor(*, camera: str, plot: bool = False, **plot_kwargs: Any):
@@ -607,7 +607,7 @@ class Procedure:
         )
         out = session_root / "manifest.json"
         manifest.write(out)
-        self.logger.info(f"Wrote AcquisitionManifest -> {out}")
+        self.logger.info(f"Wrote AcquisitionManifest {hyperlink(out, "AcquisitionManifest")}")
 
     # ------------------------------------------------------------------
 

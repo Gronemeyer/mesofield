@@ -36,7 +36,7 @@ from useq import TIntervalLoops
 
 from mesofield.hardware import HardwareManager
 from mesofield.protocols import DataProducer
-from mesofield.utils._logger import get_logger
+from mesofield.utils._logger import get_logger, hyperlink
 
 T = TypeVar('T')
 
@@ -156,7 +156,13 @@ class ExperimentConfig(ConfigRegister):
         super().__init__()
         # Initialize logging first
         self.logger = get_logger(__name__)
-        self.logger.info(f"Initializing ExperimentConfig with hardware path: {path}")
+        if path:
+            self.logger.info(
+                "Initializing ExperimentConfig with hardware path: "
+                f"{hyperlink(path, os.path.basename(os.path.normpath(path)))}"
+            )
+        else:
+            self.logger.info("Initializing ExperimentConfig with hardware path: None")
         
         # Initialize the configuration registry
         self._json_file_path = ''
@@ -233,7 +239,10 @@ class ExperimentConfig(ConfigRegister):
         self._hardware_yaml_path = abs_path
         self._hardware_path_locked = True
         self.hardware = HardwareManager(abs_path)
-        self.logger.info(f"Loaded hardware config from: {abs_path}")
+        self.logger.info(
+            "Loaded hardware config from: "
+            f"{hyperlink(abs_path, os.path.basename(abs_path))}"
+        )
 
     @property
     def _cores(self):# -> tuple[CMMCorePlus, ...]:
@@ -478,20 +487,25 @@ class ExperimentConfig(ConfigRegister):
     def load_json(self, file_path) -> None:
         """ Load parameters from a JSON configuration file into the config object. 
         """
-        self.logger.info(f"Loading configuration from: {file_path}")
+        file_path_str = os.fspath(file_path)
+        file_link = hyperlink(
+            file_path_str,
+            os.path.basename(os.path.normpath(file_path_str)),
+        )
+        self.logger.info(f"Loading configuration from: {file_link}")
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path_str, 'r') as f:
                 loaded_config = json.load(f)
             self.logger.info("Successfully loaded configuration JSON")
         except FileNotFoundError:
-            self.logger.error(f"Configuration file not found: {file_path}")
+            self.logger.error(f"Configuration file not found: {file_link}")
             return
         except json.JSONDecodeError as e:
-            self.logger.error(f"Error decoding JSON from {file_path}: {e}")
+            self.logger.error(f"Error decoding JSON from {file_link}: {e}")
             return
 
-        self._json_file_path = file_path #store the json filepath
-        json_dir = os.path.dirname(os.path.abspath(file_path))
+        self._json_file_path = file_path_str #store the json filepath
+        json_dir = os.path.dirname(os.path.abspath(file_path_str))
         if json_dir:
             self.experiment_dir = json_dir
             if not self._hardware_path_locked:

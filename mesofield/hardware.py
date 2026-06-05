@@ -6,7 +6,7 @@ import yaml
 
 from mesofield.protocols import HardwareDevice, DataProducer
 from mesofield.devices import Nidaq, MMCamera, SerialWorker, EncoderSerialInterface
-from mesofield.utils._logger import get_logger, log_this_fr
+from mesofield.utils._logger import get_logger, log_this_fr, hyperlink
 from mesofield import DeviceRegistry
 
 class HardwareManager():
@@ -22,7 +22,13 @@ class HardwareManager():
 
     def __init__(self, config_file: Optional[str] = None, devices=None):
         self.logger = get_logger(f'{__name__}.{self.__class__.__name__}')
-        self.logger.info(f"Initializing HardwareManager with config: {config_file}")
+        if config_file:
+            self.logger.info(
+                "Initializing HardwareManager with config: "
+                f"{hyperlink(config_file, os.path.basename(os.path.normpath(config_file)))}"
+            )
+        else:
+            self.logger.info("Initializing HardwareManager with config: None")
 
         self.config_file = config_file
         self.devices: Dict[str, DataProducer] = {}
@@ -51,7 +57,8 @@ class HardwareManager():
             self.yaml = {}
             if config_file:
                 self.logger.debug(
-                    f"Hardware config not found: {config_file}. "
+                    "Hardware config not found: "
+                    f"{hyperlink(config_file, os.path.basename(os.path.normpath(config_file)))}. "
                     "Starting in unconfigured state."
                 )
             else:
@@ -79,7 +86,10 @@ class HardwareManager():
         self._configured = True
         self.widgets = self._aggregate_widgets()
         self._viewer = self.yaml.get('viewer_type', 'static')
-        self.logger.info(f"Loaded hardware config: {config_file}")
+        self.logger.info(
+            "Loaded hardware config: "
+            f"{hyperlink(config_file, os.path.basename(os.path.normpath(config_file)))}"
+        )
 
     def __repr__(self):
         # Compact, IPython-friendly summary. Devices are introspected

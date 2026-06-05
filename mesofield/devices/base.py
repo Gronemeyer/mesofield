@@ -290,7 +290,7 @@ class BaseDataProducer(BaseDevice):
                 writer.writerow(["timestamp", "payload"])
                 for ts, payload in snapshot:
                     writer.writerow([ts, payload])
-            self.logger.info(f"Saved {len(snapshot)} samples to {target}")
+            self.logger.debug(f"Saved {len(snapshot)} samples to {target}")
         return target
 
 

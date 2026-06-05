@@ -26,7 +26,7 @@ import pandas as pd
 
 from mesofield.config import ExperimentConfig
 from mesofield.data.writer import CustomWriter, CV2Writer
-from mesofield.utils._logger import get_logger, log_this_fr
+from mesofield.utils._logger import get_logger, log_this_fr, hyperlink
 
 
 @dataclass
@@ -133,7 +133,7 @@ class DataSaver:
 
     def __post_init__(self) -> None:
         self.paths = DataPaths.build(self.cfg)
-        self.logger.info(f"Prepared output paths: {self.paths}")
+        self.logger.debug(f"Prepared output paths: {self.paths}")
 
     def configuration(self) -> None:
         path = self.paths.configuration
@@ -142,7 +142,9 @@ class DataSaver:
             df = pd.DataFrame(params.items(), columns=["Parameter", "Value"])
             os.makedirs(os.path.dirname(path), exist_ok=True)
             df.to_csv(path, index=False)
-            self.logger.info(f"Configuration saved to {path}")
+            self.logger.info(
+                f"Configuration {hyperlink(path, os.path.basename(path))} [saved]"
+            )
         except Exception as e:
             self.logger.error(f"Error saving configuration: {e}")
 
@@ -156,7 +158,9 @@ class DataSaver:
                 device.output_path = path
                 if hasattr(device, "save_data"):
                     device.save_data(path)
-                self.logger.info(f"Device {dev_id} data saved to {path}")
+                self.logger.info(
+                    f"Device {dev_id} data {hyperlink(path, os.path.basename(path))} [saved]"
+                )
             except Exception as e:
                 self.logger.error(f"Error saving device {dev_id}: {e}")
 
@@ -168,7 +172,7 @@ class DataSaver:
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "w") as f:
                 f.write("\n".join(self.cfg.notes))
-            self.logger.info(f"Notes saved to {path}")
+            self.logger.info(f"Notes {hyperlink(path, os.path.basename(path))} [saved]")
         except Exception as e:
             self.logger.error(f"Error saving notes: {e}")
 
@@ -184,7 +188,9 @@ class DataSaver:
                     started = getattr(device, "_started", "")
                     stopped = getattr(device, "_stopped", "")
                     writer.writerow([dev_id, started, stopped])
-            self.logger.info(f"Timestamps saved to {path}")
+            self.logger.info(
+                f"Timestamps {hyperlink(path, os.path.basename(path))} [saved]"
+            )
         except Exception as e:
             self.logger.error(f"Error saving timestamps: {e}")
 
@@ -232,7 +238,9 @@ class DataSaver:
                 else:
                     writer.writerow([*base_cols, "payload"])
                     writer.writerows(rows)
-            self.logger.info(f"Queue log saved to {path}")
+            self.logger.info(
+                f"Queue log {hyperlink(path, os.path.basename(path))} [saved]"
+            )
         except Exception as e:
             self.logger.error(f"Error saving queue log: {e}")
 

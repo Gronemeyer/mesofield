@@ -10,6 +10,7 @@ Usage:
 import functools
 import logging
 import sys
+from os import PathLike
 from pathlib import Path
 from typing import Optional
 
@@ -132,3 +133,24 @@ def get_logger(name: str):
     if not _configured:
         setup_logging()
     return logger.bind(logger_name=name)
+
+
+def hyperlink(path: str | PathLike[str], text: str) -> str:
+    """Return an OSC-8 terminal hyperlink with custom display text.
+
+    Args:
+        path: Local filesystem path or URI target.
+        text: Link label shown in the log message.
+    """
+    target = str(path)
+    if not target:
+        return text
+
+    try:
+        if target.startswith(("file://", "http://", "https://")):
+            uri = target
+        else:
+            uri = Path(target).expanduser().resolve(strict=False).as_uri()
+        return f"\033]8;;{uri}\033\\{text}\033]8;;\033\\"
+    except Exception:
+        return text
