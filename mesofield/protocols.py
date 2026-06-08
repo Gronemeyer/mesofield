@@ -41,6 +41,7 @@ from typing import Dict, List, Any, Optional, Protocol, TypeVar, Generic, runtim
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from mesofield.hardware import HardwareManager
+    from mesofield.config import ExperimentConfig
 
 T = TypeVar('T')
 
@@ -49,38 +50,12 @@ T = TypeVar('T')
 # already have a metaclass (like QThread)
 
 
-# Define configuration interface
-class Configurator(Protocol):
-    """Protocol defining the interface for configuration providers."""
-
-    hardware: "HardwareManager"
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Retrieve a configuration value for the given key."""
-        ...
-
-    def set(self, key: str, value: Any) -> None:
-        """Set a configuration value for the given key."""
-        ...
-
-    def has(self, key: str) -> bool:
-        """Check if the configuration contains the given key."""
-        ...
-
-    def keys(self) -> List[str]:
-        """Get all configuration keys."""
-        ...
-
-    def items(self) -> Dict[str, Any]:
-        """Get all configuration key-value pairs."""
-        ...
-
 class Procedure(Protocol):
     """Protocol defining the standard interface for experiment procedures."""
 
     protocol: str
     experimenter: str
-    config: Configurator
+    config: "ExperimentConfig"
     data_dir: str
 
     def initialize_hardware(self) -> None:
@@ -126,7 +101,7 @@ class HardwareDevice(Protocol):
         """One-time setup (open ports, load configs).  Idempotent."""
         ...
 
-    def arm(self, config: Any) -> None:
+    def arm(self, config: "ExperimentConfig") -> None:
         """Per-run preparation (writers, output paths, sequence build).
 
         Called by ``HardwareManager.arm_all`` immediately before

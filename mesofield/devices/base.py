@@ -33,10 +33,13 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional, Tuple
 
 from mesofield.signals import DeviceSignals
 from mesofield.utils._logger import get_logger
+
+if TYPE_CHECKING:
+    from mesofield.config import ExperimentConfig
 
 
 __all__ = [
@@ -78,7 +81,7 @@ class BaseDevice:
 
         # Injected once by HardwareManager.initialize() so producers can reach
         # `make_path` and experiment state outside the per-run `arm(config)`.
-        self.config: Any = None
+        self.config: Optional["ExperimentConfig"] = None
 
         self.signals = DeviceSignals()
 
@@ -94,7 +97,7 @@ class BaseDevice:
     def initialize(self) -> bool:
         return True
 
-    def arm(self, config: Any) -> None:  # noqa: D401 - default no-op
+    def arm(self, config: "ExperimentConfig") -> None:  # noqa: D401 - default no-op
         """Per-run preparation.  No-op by default."""
         return None
 
@@ -229,7 +232,7 @@ class BaseDataProducer(BaseDevice):
             self._buffer.clear()
 
     # -- lifecycle overrides --------------------------------------------
-    def arm(self, config: Any) -> None:
+    def arm(self, config: "ExperimentConfig") -> None:
         """Default ``arm``: clear buffer and resolve ``output_path``.
 
         ``config`` is expected to expose ``make_path(name, ext, bids)``

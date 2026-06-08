@@ -36,10 +36,13 @@ Design notes:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Callable, ClassVar, Dict, Optional, Type
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, Optional, Type
 
 from mesofield.signals import DeviceSignals
 from mesofield.utils._logger import get_logger
+
+if TYPE_CHECKING:
+    from mesofield.config import ExperimentConfig
 
 
 class BaseCamera:
@@ -87,7 +90,7 @@ class BaseCamera:
         self.writer: Any = None
         # Injected once by HardwareManager.initialize() so the camera can
         # resolve paths (`config.make_path`) outside the per-run `arm()`.
-        self.config: Any = None
+        self.config: Optional["ExperimentConfig"] = None
         # MDA gui reads `cam.core` (None for non-mmcore cameras). MMCamera
         # overrides during backend setup; others leave it None.
         self.core: Any = None
@@ -112,7 +115,7 @@ class BaseCamera:
         )
 
     # --- per-run prep ---------------------------------------------------
-    def arm(self, config: Any) -> None:
+    def arm(self, config: "ExperimentConfig") -> None:
         """Per-run prep: set up the writer + (optionally) an MDA sequence.
 
         The default body fits both MMCamera (which needs a sequence) and

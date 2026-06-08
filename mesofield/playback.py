@@ -30,7 +30,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -43,6 +43,9 @@ from mesofield.base import Procedure
 from mesofield.devices.base import BaseDataProducer
 from mesofield.devices.base_camera import BaseCamera
 from mesofield.utils._logger import get_logger
+
+if TYPE_CHECKING:
+    from mesofield.config import ExperimentConfig
 
 
 __all__ = [
@@ -342,7 +345,7 @@ class PlaybackCamera(BaseCamera, BaseDataProducer):
             self._timestamps = []
         return True
 
-    def arm(self, config: Any) -> None:
+    def arm(self, config: "ExperimentConfig") -> None:
         # Read-only: clear the buffer but skip writer / output_path setup.
         self.clear_buffer()
 
@@ -526,7 +529,7 @@ class PlaybackEncoder(BaseDataProducer):
         self._payload_columns, self._rows = _load_encoder_rows(self._csv_path)
         return True
 
-    def arm(self, config: Any) -> None:
+    def arm(self, config: "ExperimentConfig") -> None:
         # Read-only: clear buffer, skip make_path.
         self.clear_buffer()
 

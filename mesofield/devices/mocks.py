@@ -49,12 +49,15 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, ClassVar, Dict, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional
 
 import numpy as np
 
 from mesofield.devices.base import BaseDataProducer
 from mesofield.devices.base_camera import BaseCamera
+
+if TYPE_CHECKING:
+    from mesofield.config import ExperimentConfig
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +153,7 @@ class MockFrameProducer(BaseCamera, BaseDataProducer):
             self.logger.debug("QtImageAdapter unavailable; running headless.")
 
     # ---- lifecycle ------------------------------------------------------
-    def arm(self, config: Any) -> None:
+    def arm(self, config: "ExperimentConfig") -> None:
         BaseDataProducer.arm(self, config)
         self.set_sequence(config.build_sequence)
         self._frames.clear()

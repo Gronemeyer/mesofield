@@ -9,7 +9,7 @@ class SerialWidget(QWidget):
     
     Parameters
     ----------
-    cfg : Configurator
+    cfg : ExperimentConfig
         The experiment configuration object.  The device is resolved from
         ``cfg.hardware.<device_attr>``.  If that attribute is ``None`` or
         missing the widget renders in a safe *disconnected* state.

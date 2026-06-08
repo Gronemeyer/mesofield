@@ -48,7 +48,6 @@ try:
 except Exception:  # pragma: no cover
     _MESOFIELD_VERSION = "0.0.0+unknown"
 from mesofield.hardware import HardwareManager
-from mesofield.protocols import Configurator
 from mesofield.utils._logger import get_logger, hyperlink
 
 
@@ -122,7 +121,7 @@ class Procedure:
         self.events.procedure_finished.connect(self._finished_event.set)
         self.events.procedure_error.connect(lambda _msg: self._finished_event.set())
 
-        self.config: Configurator
+        self.config: ExperimentConfig
         self._config_path = config_path
         experiment_dir = os.path.dirname(os.path.abspath(config_path)) if config_path else None
         self.config = ExperimentConfig(experiment_dir)
@@ -607,7 +606,7 @@ class Procedure:
         )
         out = session_root / "manifest.json"
         manifest.write(out)
-        self.logger.info(f"Wrote AcquisitionManifest {hyperlink(out, "AcquisitionManifest")}")
+        self.logger.info(f"Wrote AcquisitionManifest {hyperlink(out, 'AcquisitionManifest')}")
 
     # ------------------------------------------------------------------
 
