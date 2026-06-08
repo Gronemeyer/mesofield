@@ -38,6 +38,9 @@ class MainWindow(QMainWindow):
         #============================== Toolbar ================================#
         self._toolbar = QToolBar("Hardware")
         self._toolbar.setMovable(False)
+        # Disable the toolbar's context menu so users cannot hide it via
+        # QMainWindow's default "Toolbars" toggle popup.
+        self._toolbar.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
         self._toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBar(self._toolbar)
         self._prop_browsers: list = []  # open PropertyBrowser dialogs
