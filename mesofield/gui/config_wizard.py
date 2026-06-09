@@ -13,7 +13,6 @@ from __future__ import annotations
 import os
 import json
 import inspect
-import shutil
 from typing import TYPE_CHECKING, Optional, List
 
 from PyQt6.QtCore import pyqtSignal, Qt, QSettings
@@ -25,6 +24,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QStyle,
     QVBoxLayout,
     QWidget,
     QMessageBox,
@@ -163,61 +163,6 @@ def _apply_dark_fix(wizard: QWidget) -> None:
     """
     if _is_dark_palette(wizard):
         wizard.setStyleSheet(_DARK_WIZARD_QSS)
-
-class _FilePickerRow(QWidget):
-    """A single row: [QLineEdit] [Browse…] [Load]."""
-
-    fileLoaded = pyqtSignal(str)  # emits the chosen path after Load is pressed
-
-    def __init__(
-        self,
-        label: str = "",
-        file_filter: str = "All Files (*)",
-        placeholder: str = "",
-        parent: QWidget | None = None,
-    ):
-        super().__init__(parent)
-        self._file_filter = file_filter
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        if label:
-            layout.addWidget(QLabel(label))
-
-        self.line_edit = QLineEdit()
-        self.line_edit.setPlaceholderText(placeholder)
-        layout.addWidget(self.line_edit)
-
-        browse_btn = QPushButton("Browse…")
-        browse_btn.setFixedWidth(80)
-        browse_btn.clicked.connect(self._browse)
-        layout.addWidget(browse_btn)
-
-        self.load_btn = QPushButton("Load")
-        self.load_btn.setFixedWidth(60)
-        self.load_btn.clicked.connect(self._load)
-        layout.addWidget(self.load_btn)
-
-    # -- helpers -------------------------------------------------------------
-
-    def _browse(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select file", "", self._file_filter
-        )
-        if path:
-            self.line_edit.setText(path)
-
-    def _load(self) -> None:
-        path = self.line_edit.text().strip()
-        if path and os.path.isfile(path):
-            self.fileLoaded.emit(path)
-        elif path:
-            QMessageBox.warning(self, "File not found", f"Cannot find:\n{path}")
-
-    def text(self) -> str:
-        return self.line_edit.text().strip()
-
 
 # ---------------------------------------------------------------------------
 # Per-camera config card
@@ -472,119 +417,166 @@ class ConfigWizard(QWidget):
 
     # -- UI ------------------------------------------------------------------
 
+    def _icon(self, sp: QStyle.StandardPixmap):
+        """Return a themed standard icon for buttons."""
+        return self.style().standardIcon(sp)
+
     def _build_ui(self) -> None:
+        # Pending selections (no raw path fields in the UI — kept here and shown
+        # as friendly status lines with the full path in a tooltip).
+        self._hardware_path: str = ""
+        self._experiment_json: str = ""
+
         layout = QVBoxLayout(self)
+        layout.setSpacing(10)
 
         # -- Title -----------------------------------------------------------
-        title = QLabel("<h3>⚙ Configuration Wizard</h3>")
+        title = QLabel("<h3>⚙ &nbsp;Configuration Wizard</h3>")
         layout.addWidget(title)
+        subtitle = QLabel("Pick a rig to launch. An experiment is optional.")
+        subtitle.setStyleSheet(f"color: {theme.TEXT_DIM};")
+        layout.addWidget(subtitle)
 
-        help_text = QLabel(
-            "Point at a hardware.yaml to bring up the rig — that's all you need.\n"
-            "An experiment.json is optional: load one, or author a new one from\n"
-            "the current parameters with “New experiment.json…”. Picking a JSON\n"
-            "auto-detects an adjacent hardware.yaml."
-        )
-        help_text.setWordWrap(True)
-        layout.addWidget(help_text)
+        # === ① Rig (required) ==============================================
+        rig_group = QGroupBox("①   Rig  ·  required")
+        rig_layout = QVBoxLayout(rig_group)
+        rig_layout.setSpacing(6)
+        rig_row = QHBoxLayout()
+        rig_lbl = QLabel("🔧")
+        rig_lbl.setToolTip("Hardware rig (hardware.yaml)")
+        rig_row.addWidget(rig_lbl)
+        self._rig_combo = QComboBox()
+        self._rig_combo.setToolTip("Bring up a canonical rig from this machine's rig store")
+        self._populate_rig_combo()
+        self._rig_combo.currentIndexChanged.connect(self._on_rig_selected)
+        rig_row.addWidget(self._rig_combo, 1)
+        rig_layout.addLayout(rig_row)
 
-        # -- Experiment JSON -------------------------------------------------
-        json_group = QGroupBox("Experiment Config (.json)")
-        json_layout = QVBoxLayout(json_group)
-        self._json_picker = _FilePickerRow(
-            file_filter="JSON Config (*.json)",
-            placeholder="devcfg.json",
-        )
-        json_layout.addWidget(self._json_picker)
-        layout.addWidget(json_group)
+        rig_btn_row = QHBoxLayout()
+        browse_yaml_btn = QPushButton(" Browse hardware.yaml…")
+        browse_yaml_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_DialogOpenButton))
+        browse_yaml_btn.clicked.connect(self._browse_yaml)
+        rig_btn_row.addWidget(browse_yaml_btn)
+        new_rig_btn = QPushButton(" New rig…")
+        new_rig_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_FileDialogNewFolder))
+        new_rig_btn.setToolTip("Build a new hardware.yaml from a guided device list")
+        new_rig_btn.clicked.connect(self._new_rig)
+        rig_btn_row.addWidget(new_rig_btn)
+        edit_rig_btn = QPushButton(" Edit rig…")
+        edit_rig_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_FileDialogDetailedView))
+        edit_rig_btn.setToolTip("Edit the selected rig's devices (e.g. fix a camera backend)")
+        edit_rig_btn.clicked.connect(self._edit_rig)
+        rig_btn_row.addWidget(edit_rig_btn)
+        rig_layout.addLayout(rig_btn_row)
 
-        # -- Output directory + author-a-new-JSON ----------------------------
-        out_group = QGroupBox("Output Directory (where data is written)")
-        out_layout = QVBoxLayout(out_group)
+        self._yaml_status = QLabel("• no rig selected")
+        self._yaml_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
+        rig_layout.addWidget(self._yaml_status)
+        layout.addWidget(rig_group)
+
+        # === ② Experiment (optional) =======================================
+        exp_group = QGroupBox("②   Experiment  ·  optional")
+        exp_layout = QVBoxLayout(exp_group)
+        exp_layout.setSpacing(6)
         out_row = QHBoxLayout()
+        dir_lbl = QLabel("📁")
+        dir_lbl.setToolTip("Experiment / output directory (where data is written)")
+        out_row.addWidget(dir_lbl)
         self._outdir_edit = QLineEdit()
-        self._outdir_edit.setPlaceholderText(
-            "defaults to the experiment.json's folder, else the working directory"
-        )
+        self._outdir_edit.setPlaceholderText("experiment / output directory")
         self._outdir_edit.setText(self.procedure.config.experiment_dir)
-        out_row.addWidget(self._outdir_edit)
-        outdir_browse = QPushButton("Browse…")
-        outdir_browse.setFixedWidth(80)
+        out_row.addWidget(self._outdir_edit, 1)
+        outdir_browse = QPushButton()
+        outdir_browse.setIcon(self._icon(QStyle.StandardPixmap.SP_DirOpenIcon))
+        outdir_browse.setToolTip("Choose the experiment / output directory")
+        outdir_browse.setFixedWidth(40)
         outdir_browse.clicked.connect(self._browse_outdir)
         out_row.addWidget(outdir_browse)
-        out_layout.addLayout(out_row)
-        new_json_btn = QPushButton("✚  New experiment.json…")
-        new_json_btn.setToolTip(
-            "Author a new experiment.json from the current parameters "
-            "(for a hardware-only session)"
-        )
-        new_json_btn.clicked.connect(self._new_experiment_json)
-        out_layout.addWidget(new_json_btn)
-        layout.addWidget(out_group)
+        exp_layout.addLayout(out_row)
 
-        # -- Hardware YAML ---------------------------------------------------
-        yaml_group = QGroupBox("Hardware Config (.yaml)")
-        yaml_layout = QVBoxLayout(yaml_group)
-        self._yaml_picker = _FilePickerRow(
-            file_filter="YAML Config (*.yaml *.yml)",
-            placeholder="hardware.yaml  (auto-detected from JSON directory)",
-        )
-        yaml_layout.addWidget(self._yaml_picker)
+        self._json_status = QLabel("")
+        self._json_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
+        exp_layout.addWidget(self._json_status)
 
-        # -- Rig picker: copy a canonical hardware.yaml from the rig store ---
-        rig_row = QHBoxLayout()
-        rig_row.addWidget(QLabel("Rig:"))
-        self._rig_combo = QComboBox()
-        self._rig_combo.setToolTip(
-            "Copy a canonical hardware.yaml from this machine's rig store "
-            "into the experiment directory"
-        )
-        self._populate_rig_combo()
-        self._rig_combo.currentTextChanged.connect(self._on_rig_selected)
-        rig_row.addWidget(self._rig_combo, 1)
-        yaml_layout.addLayout(rig_row)
+        json_btn_row = QHBoxLayout()
+        self._create_json_btn = QPushButton(" Create experiment.json…")
+        self._create_json_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_FileDialogNewFolder))
+        self._create_json_btn.setToolTip("Author a new experiment.json (subjects, tasks, variables)")
+        self._create_json_btn.clicked.connect(self._create_experiment_json)
+        json_btn_row.addWidget(self._create_json_btn)
+        browse_json_btn = QPushButton(" Load .json…")
+        browse_json_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_DialogOpenButton))
+        browse_json_btn.clicked.connect(self._browse_json)
+        json_btn_row.addWidget(browse_json_btn)
+        exp_layout.addLayout(json_btn_row)
+        layout.addWidget(exp_group)
 
-        self._yaml_status = QLabel("")
-        yaml_layout.addWidget(self._yaml_status)
-        layout.addWidget(yaml_group)
+        self._outdir_edit.textChanged.connect(self._on_outdir_changed)
+        self._on_outdir_changed(self._outdir_edit.text())
 
-        # -- Apply button ----------------------------------------------------
-        self._apply_btn = QPushButton("▶  Apply Configuration")
+        # === Apply (primary CTA) ===========================================
+        self._apply_btn = QPushButton("  Apply Configuration")
+        self._apply_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_MediaPlay))
         self._apply_btn.setStyleSheet(
-            "QPushButton { padding: 8px 16px; font-weight: bold; }"
+            f"QPushButton {{ padding: 10px 16px; font-weight: bold; "
+            f"border: 1px solid {theme.ACCENT}; color: {theme.ACCENT}; }}"
+            f"QPushButton:hover {{ background-color: {theme.PANEL_HI}; }}"
         )
         self._apply_btn.clicked.connect(self._apply)
         layout.addWidget(self._apply_btn)
 
-        # -- MicroManager .cfg -----------------------------------------------
-        self._mm_section = _MMConfigSection()
-        layout.addWidget(self._mm_section)
-
         # -- Spacer ----------------------------------------------------------
         layout.addStretch()
 
-        # -- Auto-populate YAML when JSON is picked --------------------------
-        self._json_picker.line_edit.textChanged.connect(self._on_json_path_changed)
+        # === MicroManager .cfg (secondary; populated once MM cameras exist) =
+        self._mm_section = _MMConfigSection()
+        layout.addWidget(self._mm_section)
 
     # -- Recent paths persistence ---------------------------------------------
 
     def _restore_recent_paths(self) -> None:
         """Fill pickers from QSettings if the files still exist."""
-        last_json = self._settings.value(self._SETTINGS_KEY_JSON, "", type=str)
         last_yaml = self._settings.value(self._SETTINGS_KEY_YAML, "", type=str)
-        if last_json and os.path.isfile(last_json):
-            self._json_picker.line_edit.setText(last_json)
         if last_yaml and os.path.isfile(last_yaml):
-            self._yaml_picker.line_edit.setText(last_yaml)
+            self._set_hardware_path(last_yaml, status="rig restored")
+            self._select_rig_in_combo(last_yaml)
 
     def _save_recent_paths(self) -> None:
         """Persist current picker values to QSettings."""
-        json_path = self._json_picker.text()
-        yaml_path = self._yaml_picker.text()
-        if json_path:
-            self._settings.setValue(self._SETTINGS_KEY_JSON, json_path)
-        if yaml_path:
-            self._settings.setValue(self._SETTINGS_KEY_YAML, yaml_path)
+        if self._experiment_json:
+            self._settings.setValue(self._SETTINGS_KEY_JSON, self._experiment_json)
+        if self._hardware_path:
+            self._settings.setValue(self._SETTINGS_KEY_YAML, self._hardware_path)
+
+    # -- Helpers -------------------------------------------------------------
+
+    def _set_hardware_path(self, path: str, status: str = "") -> None:
+        """Adopt *path* as the pending hardware.yaml and update the status line."""
+        self._hardware_path = path
+        if status:
+            self._yaml_status.setText(f"✔ {status}")
+            self._yaml_status.setStyleSheet(f"color: {theme.ACCENT};")
+            self._yaml_status.setToolTip(path)
+
+    def _set_experiment_json(self, path: str, status: str) -> None:
+        """Adopt *path* as the pending experiment.json and update the status line."""
+        self._experiment_json = path
+        self._json_status.setText(f"✔ {status}")
+        self._json_status.setStyleSheet(f"color: {theme.ACCENT};")
+        self._json_status.setToolTip(path)
+
+    def _select_rig_in_combo(self, yaml_path: str) -> None:
+        """Highlight the rig-store entry matching *yaml_path*, if any."""
+        from mesofield.scaffold import rigs
+
+        for name in rigs.list_rigs():
+            if os.path.abspath(str(rigs.rig_path(name))) == os.path.abspath(yaml_path):
+                idx = self._rig_combo.findText(name)
+                if idx >= 0:
+                    self._rig_combo.blockSignals(True)
+                    self._rig_combo.setCurrentIndex(idx)
+                    self._rig_combo.blockSignals(False)
+                return
 
     # -- Slots ---------------------------------------------------------------
 
@@ -598,90 +590,148 @@ class ConfigWizard(QWidget):
         for name in rigs.list_rigs():
             self._rig_combo.addItem(name)
         self._rig_combo.addItem("dev (mock devices)")
-        # Needs a JSON destination dir before it can copy anything.
-        self._rig_combo.setEnabled(bool(self._json_picker.text()))
         self._rig_combo.blockSignals(False)
 
-    def _on_rig_selected(self, label: str) -> None:
-        """Copy the chosen canonical rig into the experiment's directory."""
-        if not label or label.startswith("—"):
+    def _on_rig_selected(self, index: int) -> None:
+        """Resolve the chosen rig to a hardware.yaml path (no copy needed)."""
+        if index <= 0:
             return
-        json_path = self._json_picker.text()
-        if not json_path:
-            self._yaml_status.setText("⚠ pick an experiment JSON first")
-            self._yaml_status.setStyleSheet(f"color: {theme.WARN};")
+        label = self._rig_combo.currentText()
+        if label.startswith("dev"):
+            import tempfile
+            from mesofield.scaffold.experiment import _hardware_yaml_mock
+
+            fd, tmp = tempfile.mkstemp(prefix="mesofield_dev_", suffix=".yaml")
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(_hardware_yaml_mock())
+            self._set_hardware_path(tmp, status="dev (mock devices) selected")
             return
-        dest = os.path.join(os.path.dirname(os.path.abspath(json_path)), "hardware.yaml")
-        if os.path.exists(dest):
-            reply = QMessageBox.question(
-                self, "Overwrite hardware.yaml?",
-                f"{dest}\nalready exists. Overwrite it with rig '{label}'?",
-            )
-            if reply != QMessageBox.StandardButton.Yes:
-                self._rig_combo.setCurrentIndex(0)
-                return
         from mesofield.scaffold import rigs
-        from mesofield.scaffold.experiment import _hardware_yaml_mock
 
         try:
-            if label.startswith("dev"):
-                with open(dest, "w", encoding="utf-8") as fh:
-                    fh.write(_hardware_yaml_mock())
-            else:
-                shutil.copyfile(rigs.rig_path(label), dest)
-        except Exception as exc:
-            QMessageBox.warning(self, "Rig copy failed", str(exc))
-            return
-        self._yaml_picker.line_edit.setText(dest)
-        self._yaml_status.setText(f"✔ copied rig '{label}' → hardware.yaml")
-        self._yaml_status.setStyleSheet(f"color: {theme.ACCENT};")
-
-    def _on_json_path_changed(self, text: str) -> None:
-        """When the JSON line-edit changes, try to auto-detect hardware.yaml."""
-        self._rig_combo.setEnabled(bool(text))
-        if not text:
-            return
-        candidate = os.path.join(os.path.dirname(text), "hardware.yaml")
-        if os.path.isfile(candidate):
-            self._yaml_picker.line_edit.setText(candidate)
-            self._yaml_status.setText("✔ hardware.yaml auto-detected")
-            self._yaml_status.setStyleSheet(f"color: {theme.ACCENT};")
-        else:
-            self._yaml_status.setText("⚠ hardware.yaml not found in JSON directory")
+            path = str(rigs._resolve_existing(label))
+        except FileNotFoundError as exc:
+            self._yaml_status.setText(f"⚠ {exc}")
             self._yaml_status.setStyleSheet(f"color: {theme.WARN};")
+            return
+        self._set_hardware_path(path, status=f"rig '{label}' selected")
 
-    def _browse_outdir(self) -> None:
-        """Pick the directory data will be written into."""
-        path = QFileDialog.getExistingDirectory(self, "Select output directory")
-        if path:
-            self._outdir_edit.setText(path)
-
-    def _new_experiment_json(self) -> None:
-        """Author a fresh experiment.json from the live config registry.
-
-        Lets a hardware-only session generate an experiment.json on demand; the
-        new file is adopted so later edits save back to it.
-        """
-        start = self._outdir_edit.text().strip() or self.procedure.config.experiment_dir
-        path, _ = QFileDialog.getSaveFileName(
-            self, "New experiment.json",
-            os.path.join(start, "experiment.json"),
-            "JSON Config (*.json)",
+    def _browse_yaml(self) -> None:
+        """Pick an explicit hardware.yaml outside the rig store."""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select hardware.yaml", "", "YAML Config (*.yaml *.yml);;All Files (*)"
         )
         if not path:
             return
-        try:
-            self.procedure.config.save_json_as(path)
-        except Exception as exc:
-            QMessageBox.critical(self, "Save failed", f"Could not write JSON:\n\n{exc}")
+        self._rig_combo.blockSignals(True)
+        self._rig_combo.setCurrentIndex(0)
+        self._rig_combo.blockSignals(False)
+        self._set_hardware_path(path, status="hardware.yaml selected")
+
+    def _new_rig(self) -> None:
+        """Build a new rig via the guided hardware builder and select it."""
+        from mesofield.gui.config_builder import HardwareBuilderDialog
+
+        dialog = HardwareBuilderDialog(self)
+        if dialog.exec() and dialog.rig_name:
+            self._populate_rig_combo()
+            idx = self._rig_combo.findText(dialog.rig_name)
+            if idx >= 0:
+                self._rig_combo.setCurrentIndex(idx)  # fires _on_rig_selected
+
+    def _edit_rig(self) -> None:
+        """Open the selected hardware.yaml in the builder to tweak it in place.
+
+        The common case is a wrong camera backend: fix it here instead of
+        hunting through the YAML by hand.
+        """
+        import yaml
+        from mesofield.gui.config_builder import HardwareBuilderDialog
+        from mesofield.scaffold import rigs
+
+        if not self._hardware_path or not os.path.isfile(self._hardware_path):
+            QMessageBox.information(
+                self, "No rig to edit",
+                "Select a rig (or browse a hardware.yaml) first.",
+            )
             return
-        self._json_picker.line_edit.setText(path)
-        QMessageBox.information(self, "Saved", f"Wrote experiment config:\n{path}")
+        try:
+            with open(self._hardware_path, "r", encoding="utf-8") as fh:
+                doc = yaml.safe_load(fh) or {}
+        except Exception as exc:
+            QMessageBox.warning(self, "Could not read rig", str(exc))
+            return
+
+        # Prefill the save name if the current selection is a stored rig.
+        name = None
+        for rname in rigs.list_rigs():
+            if os.path.abspath(str(rigs.rig_path(rname))) == os.path.abspath(self._hardware_path):
+                name = rname
+                break
+
+        dialog = HardwareBuilderDialog(self, doc=doc, rig_name=name)
+        if dialog.exec() and dialog.rig_name:
+            self._populate_rig_combo()
+            idx = self._rig_combo.findText(dialog.rig_name)
+            if idx >= 0:
+                self._rig_combo.blockSignals(True)
+                self._rig_combo.setCurrentIndex(idx)
+                self._rig_combo.blockSignals(False)
+                self._on_rig_selected(idx)  # re-resolve path + refresh status
+
+    def _browse_outdir(self) -> None:
+        """Pick the directory data will be written into."""
+        path = QFileDialog.getExistingDirectory(self, "Select experiment directory")
+        if path:
+            self._outdir_edit.setText(path)
+
+    def _on_outdir_changed(self, text: str) -> None:
+        """Auto-detect an experiment.json in the chosen directory."""
+        text = text.strip()
+        candidate = os.path.join(text, "experiment.json") if text else ""
+        if candidate and os.path.isfile(candidate):
+            self._set_experiment_json(candidate, "experiment.json found — will load")
+            self._create_json_btn.setText(" Replace experiment.json…")
+        else:
+            # Drop an auto-detected JSON if we navigated away from its dir;
+            # keep one the user explicitly browsed from elsewhere.
+            if self._experiment_json and \
+                    os.path.dirname(self._experiment_json) == os.path.abspath(text):
+                self._experiment_json = ""
+            if not self._experiment_json:
+                self._json_status.setText(
+                    "• no experiment.json here — create one, or run hardware-only"
+                )
+                self._json_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
+                self._json_status.setToolTip("")
+            self._create_json_btn.setText(" Create experiment.json…")
+
+    def _create_experiment_json(self) -> None:
+        """Author a fresh experiment.json via the guided experiment builder."""
+        from mesofield.gui.config_builder import ExperimentBuilderDialog
+
+        start = self._outdir_edit.text().strip() or self.procedure.config.experiment_dir
+        dialog = ExperimentBuilderDialog(default_dir=start, parent=self)
+        if dialog.exec() and dialog.json_path:
+            if not self._outdir_edit.text().strip():
+                self._outdir_edit.setText(os.path.dirname(dialog.json_path))
+            self._set_experiment_json(dialog.json_path, "experiment.json created — will load")
+
+    def _browse_json(self) -> None:
+        """Select an experiment.json from anywhere on disk."""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select experiment.json", "", "JSON Config (*.json);;All Files (*)"
+        )
+        if not path:
+            return
+        if not self._outdir_edit.text().strip():
+            self._outdir_edit.setText(os.path.dirname(path))
+        self._set_experiment_json(path, "experiment.json selected — will load")
 
     def _apply(self) -> None:
         """Apply the selected configuration files to the Procedure."""
-        json_path = self._json_picker.text() or None
-        yaml_path = self._yaml_picker.text() or None
+        json_path = self._experiment_json or None
+        yaml_path = self._hardware_path or None
 
         if not json_path and not yaml_path:
             QMessageBox.information(

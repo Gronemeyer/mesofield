@@ -53,6 +53,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional
 
 import numpy as np
 
+from mesofield import DeviceRegistry
 from mesofield.devices.base import BaseDataProducer
 from mesofield.devices.base_camera import BaseCamera
 
@@ -65,6 +66,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
+@DeviceRegistry.register("mock_wheel")
 class MockEncoderDevice(BaseDataProducer):
     """Synthetic encoder that records random click counts."""
 
@@ -88,16 +90,33 @@ class MockEncoderDevice(BaseDataProducer):
         ) / 1000.0
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        self._t0: float = 0.0
+
+        # Expose the same Qt live-plot signals a real SerialWorker does, so the
+        # GUI builds a live SerialWidget for a mock wheel exactly like a real one.
+        self._qt_adapter = None
+        self.serialDataReceived = None
+        self.serialSpeedUpdated = None
+        try:
+            from mesofield.gui.qt_device_adapter import QtDeviceAdapter
+
+            self._qt_adapter = QtDeviceAdapter(self)
+            self.serialDataReceived = self._qt_adapter.serialDataReceived
+            self.serialSpeedUpdated = self._qt_adapter.serialSpeedUpdated
+        except Exception:
+            self.logger.debug("Qt adapter unavailable; running headless.")
 
     def _run_loop(self) -> None:
         while not self._stop_event.is_set():
-            self.record(random.randint(1, 10))
+            # Pass an elapsed-seconds timestamp so the live trace advances in x.
+            self.record(random.randint(1, 10), ts=time.monotonic() - self._t0)
             self._stop_event.wait(self.sample_interval_s)
 
     def start(self) -> bool:
         if self._thread is not None and self._thread.is_alive():
             return False
         self._stop_event.clear()
+        self._t0 = time.monotonic()
         self._thread = threading.Thread(
             target=self._run_loop,
             name=f"MockEncoder-{self.device_id}",
@@ -120,6 +139,7 @@ class MockEncoderDevice(BaseDataProducer):
 # ---------------------------------------------------------------------------
 
 
+@DeviceRegistry.register("mock_camera")
 class MockFrameProducer(BaseCamera, BaseDataProducer):
     """Synthetic camera producing real OME-TIFF + frame metadata JSON."""
 

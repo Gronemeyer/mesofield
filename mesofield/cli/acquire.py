@@ -17,12 +17,58 @@ import click
 # ---------------------------------------------------------------------------
 
 
+def _resolve_launch_target(arg):
+    """Resolve a ``launch`` argument to a filesystem path (or ``None``).
+
+    Resolution order, so the common cases just work and a typo can't silently
+    boot the wrong thing:
+
+    1. an existing path (``hardware.yaml`` / ``experiment.json`` / ``procedure.py``
+       / a directory) is used verbatim;
+    2. a canonical **rig name** from this machine's store
+       (``mesofield rig list``) resolves to its ``hardware.yaml``;
+    3. the literal ``dev`` boots a throwaway mock rig (runs without hardware);
+    4. anything else prints the known rigs and returns ``None`` so Mesofield
+       opens in its default state with the Configuration Wizard.
+    """
+    if not arg:
+        return None
+    if os.path.exists(arg):
+        return arg
+
+    from mesofield.scaffold import rigs
+
+    try:
+        return str(rigs._resolve_existing(arg))
+    except FileNotFoundError:
+        pass
+
+    if arg == "dev":
+        import tempfile
+        from mesofield.scaffold.experiment import _hardware_yaml_mock
+
+        fd, tmp = tempfile.mkstemp(prefix="mesofield_dev_", suffix=".yaml")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(_hardware_yaml_mock())
+        return tmp
+
+    click.secho(
+        f"No path or rig named {arg!r}. Known rigs: "
+        f"{', '.join(rigs.list_rigs()) or '(none)'}.\n"
+        "Opening in default state -- pick a rig in the Configuration Wizard.",
+        fg="yellow",
+    )
+    return None
+
+
 @click.command()
 @click.argument('config', type=click.Path(), required=False, default=None)
 def launch(config):
     """Launch the Mesofield acquisition interface.
 
-    CONFIG is an optional path to a ``hardware.yaml`` (the rig to bring up), an
+    CONFIG is optional and may be a canonical **rig name** (see
+    ``mesofield rig list``), the literal ``dev`` (a mock rig that runs without
+    hardware), or a path to a ``hardware.yaml`` (the rig to bring up), an
     ``experiment.json``, a scripted ``procedure.py``, or an experiment directory
     containing them. The rig is the only thing needed to launch; experiment
     parameters can be sideloaded or generated from the Configuration Wizard.
@@ -87,7 +133,7 @@ def launch(config):
     app.processEvents()  # ensure the splash appears
 
     time.sleep(0.5)  # give the splash screen a moment to show :)
-    procedure = load_procedure_from_config(config)
+    procedure = load_procedure_from_config(_resolve_launch_target(config))
 
     mesofield = MainWindow(procedure)
     mesofield.show()

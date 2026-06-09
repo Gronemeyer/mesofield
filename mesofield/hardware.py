@@ -237,6 +237,11 @@ class HardwareManager():
             # stanza) and never touch this branch.
             if getattr(device, "device_type", None) == "camera" and device not in self.cameras:
                 self.cameras = self.cameras + (device,)
+            # Encoder-typed extras (e.g. ``mock_wheel``) fill the dedicated
+            # ``encoder`` slot when no real encoder was declared, so the GUI
+            # builds a live SerialWidget for them just like a real wheel.
+            if getattr(device, "device_type", None) == "encoder" and self.encoder is None:
+                self.encoder = device
             self.logger.info(f"Registered extra device '{dev_id}' (type={type_key}).")
 
     # ---- Pre-built device path (scripted procedures) ----------------------

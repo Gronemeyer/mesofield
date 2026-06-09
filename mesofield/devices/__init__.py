@@ -29,6 +29,16 @@ try:
 except ImportError:
     PsychoPyDevice = None  # type: ignore[assignment,misc]
 
+# Mocks have no rig-only dependencies; import them so their
+# ``@DeviceRegistry.register`` decorators (``mock_wheel`` / ``mock_camera``)
+# run, letting the ``dev`` rig and the GUI builder produce runnable configs
+# without any custom procedure.py registration.
+try:
+    from .mocks import MockEncoderDevice, MockFrameProducer
+except ImportError:
+    MockEncoderDevice = None  # type: ignore[assignment,misc]
+    MockFrameProducer = None  # type: ignore[assignment,misc]
+
 __all__ = [
     "BaseDevice",
     "BaseDataProducer",
@@ -39,4 +49,6 @@ __all__ = [
     "SerialWorker",
     "EncoderSerialInterface",
     "PsychoPyDevice",
+    "MockEncoderDevice",
+    "MockFrameProducer",
 ]
