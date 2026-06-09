@@ -19,10 +19,10 @@
         },
         "experiment": {
             "num_blocks": 1,
-            "trials_per_block": 5,
-            "iti_duration": 2.0,
+            "trials_per_block": 2,
+            "iti_duration": 1.0,
             "trial_end_condition": "duration",
-            "trial_duration": 8.0,
+            "trial_duration": 2.0,
             "conditions": [
                 {
                     "label": "gain_0p5",
@@ -67,7 +67,8 @@
                         "gain_3x"
                     ]
                 }
-            ]
+            ],
+            "trial_distance": 0.0
         }
     },
     "procedure_file": "procedure.py",
