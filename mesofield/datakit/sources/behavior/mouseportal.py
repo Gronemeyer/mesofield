@@ -26,7 +26,11 @@ import numpy as np
 import pandas as pd
 
 from mesofield.datakit.config import settings
-from mesofield.datakit.sources.register import LoadContext, TimeseriesSource
+from mesofield.datakit.sources.register import (
+    IntervalSeriesSource,
+    LoadContext,
+    TimeseriesSource,
+)
 
 
 class MousePortalSource(TimeseriesSource):
@@ -166,3 +170,72 @@ class MousePortalSource(TimeseriesSource):
         if not (np.isfinite(a) and np.isfinite(b)):
             raise ValueError("Alignment fit returned non-finite coefficients")
         return a, b
+
+
+class MousePortalTrials(IntervalSeriesSource):
+    """Per-trial intervals from the MousePortal log, on the camera clock.
+
+    Collapses the per-frame ``state == "TRIAL_RUNNING"`` runs into one row per
+    ``(block, trial)`` with ``start_s``/``stop_s`` already aligned to the master
+    (camera) timeline via :class:`MousePortalSource`. This makes
+    event-triggered analyses trivial: each row's ``start_s`` is a trial onset on
+    the same clock as the widefield/pupil frames, so a peri-event window is a
+    direct time slice (see ``mesofield.datakit.epoch.event_triggered_average``).
+
+    Emits the inter-trial intervals too (``phase`` column: ``trial`` | ``iti``)
+    so stops/ITIs are available as events as well.
+    """
+
+    tag = "mouseportal_trials"
+    patterns = ("**/*_mouseportal.csv",)
+    camera_tag = None
+    requires = ("dataqueue",)
+
+    # Map MousePortal state names -> the interval "phase" we expose.
+    _phase_states = {"TRIAL_RUNNING": "trial", "INTER_TRIAL_INTERVAL": "iti"}
+
+    def build_intervals(
+        self,
+        path: Path,
+        *,
+        context: LoadContext | None = None,
+    ) -> tuple[pd.DataFrame, dict]:
+        context = self._require_context(context)
+        # Reuse the corridor source's device_us -> camera-time alignment.
+        _t, aligned, src_meta = MousePortalSource().build_timeseries(path, context=context)
+
+        rows: list[dict] = []
+        for state, phase in self._phase_states.items():
+            sub = aligned[aligned.get("state") == state]
+            if sub.empty:
+                continue
+            for (block, trial), grp in sub.groupby(["block", "trial"], sort=True):
+                te = pd.to_numeric(grp["time_elapsed_s"], errors="coerce").dropna()
+                if te.empty:
+                    continue
+                start, stop = float(te.min()), float(te.max())
+                cond = grp["condition"].iloc[0] if "condition" in grp.columns else ""
+                rows.append({
+                    "phase": phase,
+                    "block": int(block),
+                    "trial": int(trial),
+                    "condition": cond,
+                    "start_s": start,
+                    "stop_s": stop,
+                    "duration_s": stop - start,
+                })
+
+        intervals = pd.DataFrame(
+            rows,
+            columns=["phase", "block", "trial", "condition", "start_s", "stop_s", "duration_s"],
+        )
+        if not intervals.empty:
+            intervals = intervals.sort_values("start_s").reset_index(drop=True)
+
+        meta = {
+            "source_file": str(path),
+            "n_trials": int((intervals["phase"] == "trial").sum()) if not intervals.empty else 0,
+            "alignment": src_meta.get("alignment"),
+            "experiment_window": src_meta.get("experiment_window"),
+        }
+        return intervals, meta
