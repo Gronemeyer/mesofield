@@ -891,7 +891,7 @@ def _make_playback_procedure(
             }
 
         _PlaybackWrapper.define_config = _define_config  # type: ignore[assignment]
-        proc = _PlaybackWrapper(config_path=None)
+        proc = _PlaybackWrapper()
         try:
             proc.config.experiment_dir = str(session_dir.parent.parent.parent)
         except Exception:
@@ -907,7 +907,7 @@ def _make_playback_procedure(
         candidate = experiment_root / "experiment.json"
         if candidate.is_file():
             config_path = str(candidate)
-    proc = _PlaybackWrapper(config_path)
+    proc = _PlaybackWrapper(experiment=config_path)
     return proc
 
 

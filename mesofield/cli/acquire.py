@@ -22,9 +22,11 @@ import click
 def launch(config):
     """Launch the Mesofield acquisition interface.
 
-    CONFIG is an optional path to an experiment JSON config file.
-    When omitted, Mesofield opens in a default state and the
-    Configuration Wizard is shown for hot-loading configs.
+    CONFIG is an optional path to a ``hardware.yaml`` (the rig to bring up), an
+    ``experiment.json``, a scripted ``procedure.py``, or an experiment directory
+    containing them. The rig is the only thing needed to launch; experiment
+    parameters can be sideloaded or generated from the Configuration Wizard.
+    When omitted, Mesofield opens in a default state and the wizard is shown.
     """
     import time
 
@@ -36,7 +38,7 @@ def launch(config):
 
     from mesofield.gui.maingui import MainWindow
     from mesofield.gui import theme
-    from mesofield.base import Procedure, load_procedure_from_config
+    from mesofield.base import load_procedure_from_config
 
     app = QApplication([])
     theme.apply_theme(app)
@@ -85,7 +87,7 @@ def launch(config):
     app.processEvents()  # ensure the splash appears
 
     time.sleep(0.5)  # give the splash screen a moment to show :)
-    procedure = load_procedure_from_config(config) if config else Procedure(config)
+    procedure = load_procedure_from_config(config)
 
     mesofield = MainWindow(procedure)
     mesofield.show()

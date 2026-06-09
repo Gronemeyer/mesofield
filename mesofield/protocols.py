@@ -64,14 +64,6 @@ class Procedure(Protocol):
         """
         ...
 
-    def setup_configuration(self, json_config: Optional[str]) -> None:
-        """Set up the configuration for the experiment procedure.
-
-        Args:
-            json_config: Path to a JSON configuration file (.json)
-        """
-        ...
-
     def run(self) -> None:
         """Run the experiment procedure."""
         ...

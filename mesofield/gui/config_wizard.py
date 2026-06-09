@@ -480,9 +480,10 @@ class ConfigWizard(QWidget):
         layout.addWidget(title)
 
         help_text = QLabel(
-            "Select your experiment config (.json) to get started.\n"
-            "The adjacent hardware.yaml will be discovered automatically.\n"
-            "You can also specify a hardware YAML or MicroManager .cfg manually."
+            "Point at a hardware.yaml to bring up the rig — that's all you need.\n"
+            "An experiment.json is optional: load one, or author a new one from\n"
+            "the current parameters with “New experiment.json…”. Picking a JSON\n"
+            "auto-detects an adjacent hardware.yaml."
         )
         help_text.setWordWrap(True)
         layout.addWidget(help_text)
@@ -496,6 +497,30 @@ class ConfigWizard(QWidget):
         )
         json_layout.addWidget(self._json_picker)
         layout.addWidget(json_group)
+
+        # -- Output directory + author-a-new-JSON ----------------------------
+        out_group = QGroupBox("Output Directory (where data is written)")
+        out_layout = QVBoxLayout(out_group)
+        out_row = QHBoxLayout()
+        self._outdir_edit = QLineEdit()
+        self._outdir_edit.setPlaceholderText(
+            "defaults to the experiment.json's folder, else the working directory"
+        )
+        self._outdir_edit.setText(self.procedure.config.experiment_dir)
+        out_row.addWidget(self._outdir_edit)
+        outdir_browse = QPushButton("Browse…")
+        outdir_browse.setFixedWidth(80)
+        outdir_browse.clicked.connect(self._browse_outdir)
+        out_row.addWidget(outdir_browse)
+        out_layout.addLayout(out_row)
+        new_json_btn = QPushButton("✚  New experiment.json…")
+        new_json_btn.setToolTip(
+            "Author a new experiment.json from the current parameters "
+            "(for a hardware-only session)"
+        )
+        new_json_btn.clicked.connect(self._new_experiment_json)
+        out_layout.addWidget(new_json_btn)
+        layout.addWidget(out_group)
 
         # -- Hardware YAML ---------------------------------------------------
         yaml_group = QGroupBox("Hardware Config (.yaml)")
@@ -625,6 +650,34 @@ class ConfigWizard(QWidget):
             self._yaml_status.setText("⚠ hardware.yaml not found in JSON directory")
             self._yaml_status.setStyleSheet(f"color: {theme.WARN};")
 
+    def _browse_outdir(self) -> None:
+        """Pick the directory data will be written into."""
+        path = QFileDialog.getExistingDirectory(self, "Select output directory")
+        if path:
+            self._outdir_edit.setText(path)
+
+    def _new_experiment_json(self) -> None:
+        """Author a fresh experiment.json from the live config registry.
+
+        Lets a hardware-only session generate an experiment.json on demand; the
+        new file is adopted so later edits save back to it.
+        """
+        start = self._outdir_edit.text().strip() or self.procedure.config.experiment_dir
+        path, _ = QFileDialog.getSaveFileName(
+            self, "New experiment.json",
+            os.path.join(start, "experiment.json"),
+            "JSON Config (*.json)",
+        )
+        if not path:
+            return
+        try:
+            self.procedure.config.save_json_as(path)
+        except Exception as exc:
+            QMessageBox.critical(self, "Save failed", f"Could not write JSON:\n\n{exc}")
+            return
+        self._json_picker.line_edit.setText(path)
+        QMessageBox.information(self, "Saved", f"Wrote experiment config:\n{path}")
+
     def _apply(self) -> None:
         """Apply the selected configuration files to the Procedure."""
         json_path = self._json_picker.text() or None
@@ -674,29 +727,27 @@ class ConfigWizard(QWidget):
 
                 if should_switch_procedure:
                     candidate = load_procedure_from_config(json_path)
-                    # The candidate's __init__ already loaded the JSON and
-                    # initialized hardware from <json_dir>/hardware.yaml. Only
-                    # reload if the user explicitly picked a *different* YAML;
-                    # otherwise we'd orphan the live HardwareManager (devices
-                    # still hold the cameras) and loop on re-initialization.
+                    # The candidate's __init__ already loaded the JSON and the
+                    # sibling hardware.yaml. Only reload if the user explicitly
+                    # picked a *different* YAML; otherwise we'd orphan the live
+                    # HardwareManager (devices still hold the cameras) and loop
+                    # on re-initialization.
                     if yaml_path:
-                        existing_yaml = getattr(
-                            candidate.config, "_hardware_yaml_path", None
-                        )
+                        existing_yaml = candidate.config.hardware.config_file
                         picked_yaml = os.path.abspath(yaml_path)
                         if not existing_yaml or picked_yaml != os.path.abspath(existing_yaml):
-                            candidate.load_config(hardware_yaml_path=yaml_path)
+                            candidate.load_config(hardware=yaml_path)
                     self.procedure = candidate
                     self.procedureChanged.emit(candidate)
                 else:
                     self.procedure.load_config(
-                        json_path=json_path,
-                        hardware_yaml_path=yaml_path,
+                        hardware=yaml_path,
+                        experiment=json_path,
                     )
             else:
                 self.procedure.load_config(
-                    json_path=json_path,
-                    hardware_yaml_path=yaml_path,
+                    hardware=yaml_path,
+                    experiment=json_path,
                 )
         except Exception as exc:
             QMessageBox.critical(
@@ -705,6 +756,12 @@ class ConfigWizard(QWidget):
                 f"Failed to apply configuration:\n\n{exc}",
             )
             return
+
+        # An explicit output directory overrides the JSON/cwd default.
+        out_dir = self._outdir_edit.text().strip()
+        if out_dir:
+            self.procedure.config.experiment_dir = out_dir
+            self.procedure.data_dir = self.procedure.config.data_dir
 
         # Persist the selected paths for next launch
         self._save_recent_paths()

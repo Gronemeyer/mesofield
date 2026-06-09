@@ -46,10 +46,12 @@ conda activate mesofield
 pip install -e .
 ```
 
-Launch an acquisition:
+Launch an acquisition by pointing at your rig — `experiment.json` is optional:
 
 ```bash
-mesofield launch path/to/experiment.json
+mesofield launch path/to/hardware.yaml      # rig only (author params in the GUI)
+mesofield launch path/to/experiment.json    # rig + params (sibling hardware.yaml auto-detected)
+mesofield launch path/to/experiment/        # a directory containing either
 ```
 
 Scaffold a new experiment:

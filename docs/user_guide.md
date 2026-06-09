@@ -6,29 +6,32 @@ configured rig. If you're writing a new device class or subclassing
 
 ## Overview
 
-A mesofield experiment is described by two files:
+A mesofield experiment is described by up to two files:
 
-| File | Owns | Usually edited by |
-|------|------|-------------------|
-| `hardware.yaml` | What devices exist on this rig and how to talk to them | Rig maintainer (one-time per machine) |
-| `experiment.json` | Subjects, sessions, protocol, duration | Experimenter (per study / per day) |
+| File | Owns | Usually edited by | Required? |
+|------|------|-------------------|-----------|
+| `hardware.yaml` | What devices exist on this rig and how to talk to them | Rig maintainer (one-time per machine) | Yes — the rig you launch |
+| `experiment.json` | Subjects, sessions, protocol, duration | Experimenter (per study / per day) | Optional — load it, author it in the GUI, or script it |
 
-The `mesofield` CLI loads both, brings up the GUI, and orchestrates the
-acquisition.
+The `hardware.yaml` is all you need to launch. The `mesofield` CLI brings up
+the GUI and orchestrates the acquisition; experiment parameters can be loaded,
+authored in the Configuration Wizard, or supplied by a scripted `Procedure`.
 
 ## Launching an acquisition
 
-The CLI installs as both a console script and a Python module entry
-point; either form works:
+Point the CLI at your rig. The argument can be a `hardware.yaml` (rig only),
+an `experiment.json` (its adjacent `hardware.yaml` is auto-detected), a
+scripted `procedure.py`, or a directory containing them:
 
 ```bash
-mesofield launch path/to/experiment.json
-# equivalent
-python -m mesofield launch path/to/experiment.json
+mesofield launch path/to/hardware.yaml       # rig only — author params in the GUI
+mesofield launch path/to/experiment.json     # rig + params
+python -m mesofield launch path/to/hardware.yaml   # module entry point, equivalent
 ```
 
-Either form opens the main acquisition window with hardware initialised
-and the parameters from `experiment.json` populated in the form.
+This opens the main acquisition window with hardware initialised. When an
+`experiment.json` is supplied its parameters populate the form; otherwise use
+the Configuration Wizard to load or author one.
 
 ## Experiment configuration (`experiment.json`)
 
@@ -38,7 +41,6 @@ and the parameters from `experiment.json` populated in the form.
         "experimenter": "you",
         "protocol": "HFSA",
         "experiment_directory": "/where/mesofield/writes_outputs",
-        "hardware_config_file": "path/to/hardware.yaml",
         "duration": 1000
     },
     "Subjects": {
