@@ -15,8 +15,13 @@ broader goal (tracked separately) is to push the same fields into the OME-XML
 embedded in the TIFF itself so the JSON becomes supplementary and redundant;
 see the TODO in :meth:`OMETiffWriter._sequence_metadata` upstream.
 
-`CV2Writer` still subclasses :class:`_5DWriterBase` directly because there is
-no public MP4 handler in pymmcore-plus to inherit from.
+`CV2Writer` subclasses the public :class:`OMETiffWriter` purely to reuse its
+inherited ``frameReady`` plumbing (the machinery that turns MMCamera/MDA signals
+into ``new_array`` / ``write_frame`` / ``store_frame_metadata`` calls and
+accumulates pymmcore-plus metadata). It overrides every TIFF-specific method to
+emit MP4/AVI instead -- there is no public MP4 handler in pymmcore-plus to
+inherit from, and inheriting the public ``OMETiffWriter`` avoids depending on
+pymmcore-plus's private ``_5d_writer_base`` module.
 """
 
 from datetime import timedelta
@@ -26,7 +31,6 @@ if TYPE_CHECKING:
     from pymmcore_plus.mda.metadata import SummaryMetaV1  # type: ignore
 
 from pymmcore_plus.mda.handlers import OMETiffWriter
-from pymmcore_plus.mda.handlers._5d_writer_base import _5DWriterBase
 from useq import MDAEvent
 
 import numpy as np
@@ -99,7 +103,7 @@ class CustomWriter(OMETiffWriter):
     def finalize_metadata(self) -> None:
         """Write the per-frame metadata sidecar.
 
-        Called by ``_5DWriterBase.sequenceFinished`` after the last frame.
+        Called by ``OMETiffWriter.sequenceFinished`` after the last frame.
         Serialises ``self.frame_metadatas`` (the dict pymmcore-plus accumulates
         for us in ``frameReady``) to JSON at ``<filename>_frame_metadata.json``.
         """
@@ -159,8 +163,16 @@ def configure_opencv_codec() -> None:
             pass
 
 
-class CV2Writer(_5DWriterBase[Any]):
+class CV2Writer(OMETiffWriter):
     """Write frames to an mp4/avi video using OpenCV.
+
+    Subclasses the public :class:`OMETiffWriter` only to reuse its inherited
+    MDA-signal handling (``frameReady`` / ``sequenceStarted`` /
+    ``sequenceFinished`` / ``store_frame_metadata`` and the
+    ``frame_metadatas`` accumulation). Every TIFF-specific method
+    (``__init__`` / ``new_array`` / ``write_frame`` / ``finalize_metadata``) is
+    overridden below to emit video instead, so none of ``OMETiffWriter``'s
+    tifffile machinery is ever reached.
 
     Two usage modes share the same codec/fourcc/metadata logic:
 
@@ -186,7 +198,16 @@ class CV2Writer(_5DWriterBase[Any]):
         # Direct-use (non-MDA) capture-loop writer; opened by `begin`.
         self._direct_writer: Any = None
 
-        super().__init__()
+        # `OMETiffWriter.sequenceStarted` only reorders position_sizes into
+        # ImageJ axis order when `not self._is_ome`; setting it True makes that
+        # override a pass-through to the base `sequenceStarted` (axis order is
+        # irrelevant to video) and avoids an AttributeError.
+        self._is_ome = True
+
+        # Skip `OMETiffWriter.__init__` (it validates a .tif/.tiff filename and
+        # imports tifffile); go straight to the base initializer to set up the
+        # frameReady plumbing state (position_arrays, frame_metadatas, etc.).
+        super(OMETiffWriter, self).__init__()
 
     def new_array(self, position_key: str, dtype: np.dtype, sizes: dict[str, int]):
         import cv2
