@@ -9,5 +9,6 @@ Qt-compatible ``valueUpdated(time, value)`` signal (for the existing
 
 from .base import FrameProcessor
 from .frame_mean import FrameMean
+from .frequency_band import FrequencyBandDetector
 
-__all__ = ["FrameProcessor", "FrameMean"]
+__all__ = ["FrameProcessor", "FrameMean", "FrequencyBandDetector"]

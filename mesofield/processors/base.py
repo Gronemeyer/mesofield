@@ -5,7 +5,7 @@ from __future__ import annotations
 import queue
 import threading
 import time
-from typing import Any, ClassVar, Dict, Optional, TYPE_CHECKING
+from typing import Any, ClassVar, Dict, Optional, Tuple, TYPE_CHECKING, Union
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
@@ -16,11 +16,29 @@ if TYPE_CHECKING:
     from mesofield.protocols import DataProducer
 
 
-class _QtAdapter(QObject):
-    """QObject carrier so the processor can expose a pyqtSignal that
-    cross-thread emits are auto-queued to the GUI thread."""
+# Cache so each unique tuple of channels yields one QObject subclass —
+# pyqtSignal must be a class attribute, so we build per-channel-shape.
+_QT_ADAPTER_CACHE: Dict[Tuple[str, ...], type] = {}
 
-    valueUpdated = pyqtSignal(float, float)
+
+def _qt_adapter_for(channels: Tuple[str, ...]) -> type:
+    """Return a QObject subclass with one pyqtSignal(float, float) per channel.
+
+    The signal is named ``<channel>Updated`` so that, for the default
+    single-channel ``channels=("value",)``, the carrier exposes the
+    historical ``valueUpdated`` attribute and nothing about the
+    SerialWidget connection convention changes.
+    """
+    key = tuple(channels)
+    cls = _QT_ADAPTER_CACHE.get(key)
+    if cls is not None:
+        return cls
+    attrs: Dict[str, Any] = {}
+    for ch in key:
+        attrs[f"{ch}Updated"] = pyqtSignal(float, float)
+    cls = type(f"_QtAdapter_{'_'.join(key)}", (QObject,), attrs)
+    _QT_ADAPTER_CACHE[key] = cls
+    return cls
 
 
 class FrameProcessor:
@@ -50,6 +68,12 @@ class FrameProcessor:
     file_type: ClassVar[str] = "csv"
     bids_type: ClassVar[Optional[str]] = None
 
+    # Output channels emitted per frame. Subclasses can override to expose
+    # multiple synchronized outputs (e.g. ``("power", "detected")``). The
+    # default single-channel ``("value",)`` keeps backward compatibility
+    # with the original ``valueUpdated`` pyqtSignal convention.
+    channels: ClassVar[Tuple[str, ...]] = ("value",)
+
     # Recognized SerialWidget styling kwargs collected into ``plot_config``.
     _PLOT_KWARGS = (
         "label",
@@ -65,7 +89,7 @@ class FrameProcessor:
         name: Optional[str] = None,
         camera: Optional["DataProducer"] = None,
         sampling_rate: float = 0.0,
-        plot: bool = False,
+        plot: Union[bool, Dict[str, Dict[str, Any]]] = False,
         **kwargs: Any,
     ) -> None:
         # Default name = lowercased class name so ``FrameMean(camera=cam)`` works.
@@ -86,8 +110,12 @@ class FrameProcessor:
             f"{self.__class__.__module__}.{self.__class__.__name__}[{self.device_id}]"
         )
 
-        self._qt = _QtAdapter()
-        self.valueUpdated = self._qt.valueUpdated
+        # Build (or reuse) a QObject carrier carrying one pyqtSignal per
+        # output channel; expose each as ``self.<channel>Updated``.
+        adapter_cls = _qt_adapter_for(tuple(type(self).channels))
+        self._qt = adapter_cls()
+        for ch in type(self).channels:
+            setattr(self, f"{ch}Updated", getattr(self._qt, f"{ch}Updated"))
 
         self._queue: "queue.Queue[tuple]" = queue.Queue(maxsize=1)
         self._worker: Optional[threading.Thread] = None
@@ -105,17 +133,55 @@ class FrameProcessor:
         self.compute_ms_max: float = 0.0
         self._ewma_alpha: float = 0.1
 
-        # ---- GUI plot wiring (opt-in) ----------------------------------
-        self.plot_enabled: bool = bool(plot)
-        self.plot_config: Dict[str, Any] = {
+        # ---- GUI plot wiring (opt-in, per-channel) ----------------------
+        # Flat styling kwargs (label, y_range, ...) apply to the first
+        # channel — preserves the single-channel ``FrameMean(plot=True,
+        # label="...")`` ergonomics.
+        flat_style: Dict[str, Any] = {
             k: kwargs.pop(k) for k in list(kwargs) if k in self._PLOT_KWARGS
         }
         if kwargs:
             # Unknown kwargs are usually a typo (e.g. ``y_lim`` for ``y_range``).
             raise TypeError(
                 f"{type(self).__name__}: unexpected keyword argument(s) "
-                f"{sorted(kwargs)}. Recognized plot kwargs: {self._PLOT_KWARGS}"
+                f"{sorted(kwargs)}. Recognized plot kwargs: {self._PLOT_KWARGS} "
+                f"(or pass a per-channel dict via plot={{...}})."
             )
+        # Normalize ``plot=`` into ``{channel_name: styling_dict}``.
+        # Missing channels mean "no plot for this channel".
+        chans = type(self).channels
+        self.plot_config: Dict[str, Dict[str, Any]] = {}
+        if plot is True:
+            for ch in chans:
+                self.plot_config[ch] = {}
+        elif isinstance(plot, dict):
+            unknown = set(plot) - set(chans)
+            if unknown:
+                raise ValueError(
+                    f"{type(self).__name__}: plot=... has unknown channel(s) "
+                    f"{sorted(unknown)}. Declared channels: {list(chans)}"
+                )
+            for ch, cfg in plot.items():
+                if not isinstance(cfg, dict):
+                    raise TypeError(
+                        f"{type(self).__name__}: plot[{ch!r}] must be a dict "
+                        f"of styling kwargs, got {type(cfg).__name__}"
+                    )
+                self.plot_config[ch] = dict(cfg)
+        elif plot is not False:
+            raise TypeError(
+                f"{type(self).__name__}: plot= must be bool or dict, "
+                f"got {type(plot).__name__}"
+            )
+        # Apply flat styling to the first channel if it has an entry.
+        if flat_style:
+            head = chans[0]
+            entry = self.plot_config.setdefault(head, {})
+            # Don't clobber explicit per-channel overrides.
+            for k, v in flat_style.items():
+                entry.setdefault(k, v)
+        # Back-compat boolean view — useful for "any plot at all?" checks.
+        self.plot_enabled: bool = bool(self.plot_config)
 
         # ---- auto-attach if a camera was supplied ----------------------
         if camera is not None:
@@ -274,14 +340,41 @@ class FrameProcessor:
             )
             if value is None:
                 continue
+            self._emit(value, ts)
+
+    def _emit(self, value: Any, ts: Any) -> None:
+        """Fan a ``compute()`` return value out to signals.data and the
+        per-channel ``<channel>Updated`` pyqtSignals.
+
+        Accepts either:
+          - a scalar (assigned to the first declared channel), or
+          - a dict mapping channel-name -> scalar (missing channels skip
+            their pyqtSignal emission; ``None`` values likewise).
+        """
+        chans = type(self).channels
+        t = float(ts) if ts is not None else 0.0
+        if isinstance(value, dict):
+            payload: Dict[str, Any] = {}
+            for ch in chans:
+                v = value.get(ch)
+                if v is None:
+                    continue
+                payload[ch] = v
+                try:
+                    getattr(self._qt, f"{ch}Updated").emit(t, float(v))
+                except Exception:
+                    pass
             try:
-                self.signals.data.emit(value, ts)
+                self.signals.data.emit(payload, ts)
             except Exception:
                 pass
-            try:
-                self._qt.valueUpdated.emit(
-                    float(ts) if ts is not None else 0.0,
-                    float(value),
-                )
-            except Exception:
-                pass
+            return
+        # Scalar return -> first channel.
+        try:
+            self.signals.data.emit(value, ts)
+        except Exception:
+            pass
+        try:
+            getattr(self._qt, f"{chans[0]}Updated").emit(t, float(value))
+        except Exception:
+            pass
