@@ -41,9 +41,17 @@ def _camera_available() -> bool:
         cap.release()
 
 
-pytestmark = pytest.mark.skipif(
-    not _camera_available(), reason="No OpenCV camera available for integration test"
-)
+pytestmark = [
+    pytest.mark.hardware,
+    pytest.mark.skipif(
+        not os.environ.get("MESOFIELD_HARDWARE_TESTS"),
+        reason="hardware test; set MESOFIELD_HARDWARE_TESTS=1 to run",
+    ),
+    pytest.mark.skipif(
+        bool(os.environ.get("MESOFIELD_HARDWARE_TESTS")) and not _camera_available(),
+        reason="No OpenCV camera available for integration test",
+    ),
+]
 
 
 @pytest.fixture(scope="module")

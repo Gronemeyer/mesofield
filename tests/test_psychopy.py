@@ -1,6 +1,16 @@
 import sys
+
 import pytest
-#pytest.skip("Skipping GUI dependent tests", allow_module_level=True)
+
+# mesofield.devices.subprocesses.psychopy imports winreg (Windows-only), and
+# these tests drive a Qt GUI + PsychoPy subprocess.
+pytestmark = [pytest.mark.gui, pytest.mark.hardware]
+if sys.platform != "win32":
+    pytest.skip(
+        "PsychoPy subprocess tests are Windows-only (winreg)",
+        allow_module_level=True,
+    )
+
 from PyQt6.QtWidgets import (
     QWidget,
     QLineEdit,

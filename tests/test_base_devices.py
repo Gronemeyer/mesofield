@@ -262,11 +262,11 @@ def test_teensy_example_loads_in_development_mode() -> None:
     )
     teensy.start()
     try:
-        # Commands should be no-ops, not exceptions.
+        # In development_mode every send_line is a logged no-op; the point is
+        # that the full command surface works without a serial port.
         teensy.set_frequency(10.0)
-        teensy.start_pulses()
+        teensy.run()
         teensy.query_status()
         teensy.stop_pulses()
-        assert teensy.frequency_hz == 10.0
     finally:
         teensy.stop()

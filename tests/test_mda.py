@@ -1,5 +1,16 @@
+import os
+
 import pytest
-#pytest.skip("Skipping hardware-dependent MDA tests", allow_module_level=True)
+
+# Needs a real MicroManager install + system configuration. Opt in with
+# MESOFIELD_HARDWARE_TESTS=1 (see `make test-all`).
+pytestmark = [
+    pytest.mark.hardware,
+    pytest.mark.skipif(
+        not os.environ.get("MESOFIELD_HARDWARE_TESTS"),
+        reason="hardware test; set MESOFIELD_HARDWARE_TESTS=1 to run",
+    ),
+]
 
 from pymmcore_plus import CMMCorePlus
 import useq

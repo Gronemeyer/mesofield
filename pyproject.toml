@@ -104,3 +104,13 @@ exclude = ["tests*", ".github*"]
 write_to = "mesofield/_version.py"
 version_scheme = "guess-next-dev"
 local_scheme = "no-local-version"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+    "hardware: requires physical hardware (cameras, MicroManager, serial ports); gated by MESOFIELD_HARDWARE_TESTS=1",
+    "gui: requires a display / Qt platform plugin",
+    "integration: multi-component end-to-end tests (mock rig, full Procedure runs)",
+    "slow: takes more than a couple of seconds",
+]
