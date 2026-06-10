@@ -28,7 +28,7 @@ import pandas as pd
 from mesofield import DeviceRegistry
 from mesofield.devices.base import BaseSerialDevice
 from mesofield.utils._logger import get_logger
-from mesofield.datakit.sources.register import SourceContext, TimeseriesSource
+from mesofield.datakit.sources.register import LoadContext, TimeseriesSource
 from mesofield.datakit.timeline import DataqueueIndex
 
 _logger = get_logger(__name__)
@@ -174,7 +174,7 @@ class WheelEncoder(TimeseriesSource):
         self,
         path: Path,
         *,
-        context: SourceContext | None = None,
+        context: LoadContext | None = None,
     ) -> tuple[np.ndarray, pd.DataFrame, dict]:
         context = self._require_context(context)
         raw = pd.read_csv(path)
@@ -270,7 +270,7 @@ class WheelEncoder(TimeseriesSource):
     # ------------------------------------------------------------------
     # Alignment helpers
     # ------------------------------------------------------------------
-    def _align_to_dataqueue(self, frame: pd.DataFrame, context: SourceContext) -> tuple[pd.DataFrame, dict]:
+    def _align_to_dataqueue(self, frame: pd.DataFrame, context: LoadContext) -> tuple[pd.DataFrame, dict]:
         """Map wheel timestamps onto the nidaq master clock via dataqueue anchors."""
         dq_path = context.path_for("dataqueue")
         dataqueue_file = str(dq_path) if dq_path is not None else None

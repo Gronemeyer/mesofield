@@ -161,7 +161,7 @@ class TreadmillSource(TimeseriesSource):
         self,
         path: Path,
         *,
-        context: SourceContext | None = None,
+        context: LoadContext | None = None,
     ) -> tuple[np.ndarray, pd.DataFrame, dict]:
         context = self._require_context(context)
         df = pd.read_csv(path)
