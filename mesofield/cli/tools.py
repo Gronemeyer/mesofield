@@ -20,6 +20,96 @@ def tools():
 
 
 # ---------------------------------------------------------------------------
+# serial-ports
+# ---------------------------------------------------------------------------
+
+
+@tools.command('serial-ports')
+@click.option('--all', 'include_all', is_flag=True,
+              help='Include non-USB serial ports such as Bluetooth or virtual debug ports.')
+@click.option('--verbose', is_flag=True,
+              help='Show extra metadata such as VID:PID, serial number, and HWID.')
+def serial_ports(include_all, verbose):
+    """List detected USB serial ports on macOS, Linux, and Windows."""
+    from serial.tools import list_ports
+
+    ports = sorted(list_ports.comports(), key=lambda port: port.device)
+    if not include_all:
+        ports = [port for port in ports if _is_usb_serial_port(port)]
+
+    if not ports:
+        message = "No USB serial ports detected."
+        if include_all:
+            message = "No serial ports detected."
+        click.echo(message)
+        return
+
+    rows = []
+    for port in ports:
+        rows.append({
+            "device": port.device,
+            "description": port.description or "-",
+            "hwid": port.hwid or "-",
+            "manufacturer": port.manufacturer or "-",
+            "product": port.product or "-",
+            "vid_pid": _format_vid_pid(port.vid, port.pid),
+            "serial_number": port.serial_number or "-",
+        })
+
+    device_width = max(len("PySerial Port"), *(len(row["device"]) for row in rows))
+    description_width = max(len("Description"), *(len(row["description"]) for row in rows))
+
+    if verbose:
+        click.echo(
+            f"{'PySerial Port':<{device_width}}  {'Description':<{description_width}}  Details"
+        )
+        click.echo(
+            f"{'-' * device_width}  {'-' * description_width}  {'-' * 7}"
+        )
+    else:
+        click.echo(
+            f"{'PySerial Port':<{device_width}}  {'Description':<{description_width}}"
+        )
+        click.echo(
+            f"{'-' * device_width}  {'-' * description_width}"
+        )
+
+    for row in rows:
+        if verbose:
+            details = ", ".join([
+                f"vid:pid={row['vid_pid']}",
+                f"manufacturer={row['manufacturer']}",
+                f"product={row['product']}",
+                f"serial={row['serial_number']}",
+                f"hwid={row['hwid']}",
+            ])
+            click.echo(
+                f"{row['device']:<{device_width}}  "
+                f"{row['description']:<{description_width}}  "
+                f"{details}"
+            )
+        else:
+            click.echo(
+                f"{row['device']:<{device_width}}  "
+                f"{row['description']:<{description_width}}"
+            )
+
+
+def _format_vid_pid(vid: int | None, pid: int | None) -> str:
+    if vid is None or pid is None:
+        return "-"
+    return f"{vid:04X}:{pid:04X}"
+
+
+def _is_usb_serial_port(port) -> bool:
+    if port.vid is not None and port.pid is not None:
+        return True
+
+    hwid = (port.hwid or "").upper()
+    return "USB" in hwid
+
+
+# ---------------------------------------------------------------------------
 # install-drivers
 # ---------------------------------------------------------------------------
 
