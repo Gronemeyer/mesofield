@@ -145,9 +145,84 @@ thermal:
     bids_type: beh
 ```
 
-`@DeviceRegistry.register("thermal")` is what binds the YAML `type:`
-string to the class. The decorator also stamps `registry_key` onto the
-class so any instance can report its YAML type for hardware export.
+### Binding a class to a YAML `type:`
+
+The YAML `type:` string has to resolve to your class. There are three
+equivalent ways — pick whichever fits where your class lives. **You do not
+have to put your code inside the mesofield package.**
+
+**1. Decorator** — for modules that mesofield already imports, or a module
+you arrange to import yourself:
+
+```python
+@DeviceRegistry.register("lick_detector")
+class LickDetector(BaseSerialDevice): ...
+```
+
+**2. Programmatic** — house the class anywhere and register it from your own
+launch script *before* the hardware YAML is materialised:
+
+```python
+from mesofield import register_device
+from my_lab.devices.lick import LickDetector
+
+register_device(LickDetector, "lick_detector")   # now usable as type: lick_detector
+```
+
+**3. Import string in the YAML** — no registration call at all; the class
+only has to be importable (installed package or on `PYTHONPATH`):
+
+```yaml
+lick:
+  type: my_lab.devices.lick:LickDetector   # 'module:Class' (or dotted 'module.Class')
+```
+
+If a `type:` can't be resolved, the `HardwareManager` logs an error naming
+all three fixes and skips that stanza — it does not fail silently.
+
+### End-to-end: a lick detector
+
+Suppose an Arduino prints one line per lick over USB (`LICK,<millis>`). The
+entire device adapter is:
+
+```python
+from mesofield import register_device
+from mesofield.devices.base import BaseSerialDevice
+
+
+class LickDetector(BaseSerialDevice):
+    device_type = "lick"     # groups it in status / manifest
+    file_type = "csv"
+    bids_type = "beh"
+
+    def parse_line(self, line: bytes):
+        text = line.decode().strip()
+        if text.startswith("LICK"):
+            return int(text.split(",")[1]), None   # (payload, ts=None -> host-stamped)
+        return None
+
+
+register_device(LickDetector, "lick_detector")
+```
+
+You override **one method**. From `BaseSerialDevice` you inherit the read
+thread, the `started`/`finished`/`error` lifecycle, exactly-once
+finalisation, a dead-port failure budget, buffering, and a default CSV
+`save_data`. Add the stanza:
+
+```yaml
+lick:
+  type: lick_detector
+  port: /dev/ttyACM0
+  baudrate: 115200
+```
+
+and on the next run you get a `*_beh.csv`, a manifest entry, **and** a live
+plot in the GUI — the desktop app auto-builds a `SerialWidget` for every
+streaming (non-camera) data producer, bridging `signals.data` to Qt for you.
+To refine the plot's labels/units, declare an optional `gui_plot_config`
+class attribute (see `WheelEncoder` for an example); a scalar payload like a
+lick count plots with sensible defaults out of the box.
 
 ### Camera-shaped devices
 
