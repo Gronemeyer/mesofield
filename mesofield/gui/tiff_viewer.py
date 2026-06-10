@@ -492,7 +492,7 @@ class TiffViewer(QWidget):
         except Exception:
             return False
         for cam in cams or ():
-            if getattr(cam, "is_running", False):
+            if getattr(cam, "is_active", False):
                 return True
         return False
 

@@ -3,6 +3,7 @@ from qtconsole.rich_jupyter_widget import RichJupyterWidget
 from qtconsole.inprocess import QtInProcessKernelManager
 
 from PyQt6.QtWidgets import (
+    QApplication,
     QMainWindow,
     QWidget,
     QHBoxLayout,
@@ -17,6 +18,7 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtCore import QCoreApplication, Qt
 
 from mesofield.gui.mdagui import MDA
+from mesofield.gui import theme
 from mesofield.gui.controller import ConfigController
 from mesofield.gui.speedplotter import SerialWidget
 from mesofield.gui.config_wizard import ConfigWizard
@@ -26,6 +28,10 @@ from mesofield.protocols import Procedure
 class MainWindow(QMainWindow):
     def __init__(self, procedure: Procedure):
         super().__init__()
+        app = QApplication.instance()
+        if app is not None:
+            theme.apply_theme(app)
+
         self.procedure = procedure
         self.display_keys = self.procedure.config.display_keys       
         self.setWindowTitle("Mesofield")
@@ -87,7 +93,9 @@ class MainWindow(QMainWindow):
         # Tracking for widgets that get built after config is loaded
         self._acquisition_gui: MDA | None = None
         self._config_controller: ConfigController | None = None
-        self._encoder_widget: SerialWidget | None = None
+        # One live SerialWidget per streaming (non-camera) data producer,
+        # keyed by device_id. Tracked so we can tear them down on rebuild.
+        self._device_widgets: dict[str, SerialWidget] = {}
         # Widgets built from `procedure.processors` -- one SerialWidget per
         # FrameProcessor whose `plot_enabled` is True. Tracked here so we
         # can tear them down on a `_build_acquisition_ui` rebuild.
@@ -270,25 +278,19 @@ class MainWindow(QMainWindow):
         if self._acquisition_gui is not None:
             self._mda_layout.removeWidget(self._acquisition_gui)
             self._acquisition_gui.deleteLater()
+            self._acquisition_gui = None
 
-        self._acquisition_gui = MDA(self.procedure)
-        self._mda_layout.insertWidget(0, self._acquisition_gui)
+        cameras = tuple(getattr(self.procedure.config.hardware, "cameras", ()) or ())
+        if cameras:
+            self._acquisition_gui = MDA(self.procedure)
+            self._mda_layout.insertWidget(0, self._acquisition_gui)
+            self._top_row.setStretch(0, 1)
+        else:
+            # No cameras: keep the left column truly collapsed.
+            self._top_row.setStretch(0, 0)
 
-        # -- Encoder widget ---------------------------------------------------
-        if self.procedure.config.hardware.encoder is not None:
-            if self._encoder_widget is not None:
-                self.main_layout.removeWidget(self._encoder_widget)
-                self._encoder_widget.deleteLater()
-
-            self._encoder_widget = SerialWidget(
-                cfg=self.procedure.config,
-                device_attr="encoder",
-                signal_name="serialSpeedUpdated",
-                label="Encoder",
-                value_label="Speed",
-                value_units="mm/s",
-            )
-            self.main_layout.addWidget(self._encoder_widget)
+        # -- Live plots for every streaming (non-camera) data producer -------
+        self._build_device_plots()
 
         # -- Plots for procedure-authored FrameProcessors --------------------
         self._build_processor_plots()
@@ -298,6 +300,80 @@ class MainWindow(QMainWindow):
 
         # -- Property browser toolbar buttons --------------------------------
         self._build_property_browsers()
+
+    def _build_device_plots(self) -> None:
+        """Add a live :class:`SerialWidget` for every streaming data producer.
+
+        A device qualifies when it (a) exposes the standard ``signals.data``
+        bundle, (b) is not a camera (cameras get the MDA viewer instead), and
+        (c) is not a frame *processor* (those are handled by
+        :meth:`_build_processor_plots`). This is what makes a freshly authored
+        device — e.g. a lick detector subclassing ``BaseSerialDevice`` — show
+        up in the GUI with zero GUI code: the bridge to Qt is attached here,
+        lazily, rather than hand-wired in each device's ``__init__``.
+        """
+        from mesofield.gui.qt_device_adapter import QtDeviceAdapter
+
+        # Tear down the previous pass.
+        for widget in self._device_widgets.values():
+            try:
+                self.main_layout.removeWidget(widget)
+                widget.deleteLater()
+            except Exception:
+                pass
+        self._device_widgets.clear()
+
+        cfg = self.procedure.config
+        hardware = cfg.hardware
+        cameras = set(getattr(hardware, "cameras", ()) or ())
+
+        for dev_id, device in getattr(hardware, "devices", {}).items():
+            if device in cameras or getattr(device, "device_type", None) == "camera":
+                continue
+            # Must speak the standard signal contract to be plottable.
+            signals = getattr(device, "signals", None)
+            if signals is None or not hasattr(signals, "data"):
+                continue
+
+            # Lazily attach the psygnal->Qt bridge if the device didn't build
+            # one itself, then expose the live signal under the conventional
+            # attribute name SerialWidget looks for.
+            if getattr(device, "serialSpeedUpdated", None) is None:
+                try:
+                    adapter = QtDeviceAdapter(device)
+                except Exception as exc:
+                    self._log_exception(f"attach Qt adapter to {dev_id}", exc)
+                    continue
+                # Keep a ref on the device so the adapter (a QObject) outlives
+                # this method and the psygnal connection stays alive.
+                device._gui_qt_adapter = adapter
+                device.serialDataReceived = adapter.serialDataReceived
+                device.serialSpeedUpdated = adapter.serialSpeedUpdated
+
+            # Styling defaults give a usable plot with zero device config; a
+            # device may refine them by declaring a `gui_plot_config` dict
+            # (e.g. the wheel encoder labels its axis "Speed / mm/s").
+            styling = {
+                "label": str(dev_id).replace("_", " ").title(),
+                "value_label": "Value",
+                "value_units": "",
+                "value_scale": 1.0,
+            }
+            override = getattr(device, "gui_plot_config", None)
+            if isinstance(override, dict):
+                styling.update(override)
+            try:
+                widget = SerialWidget(
+                    cfg=cfg,
+                    device_attr=dev_id,
+                    signal_name="serialSpeedUpdated",
+                    **styling,
+                )
+            except Exception as exc:
+                self._log_exception(f"build SerialWidget for {dev_id}", exc)
+                continue
+            self.main_layout.addWidget(widget)
+            self._device_widgets[dev_id] = widget
 
     def _build_processor_plots(self) -> None:
         """Add one SerialWidget per (processor, channel) where the channel

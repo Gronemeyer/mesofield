@@ -191,7 +191,7 @@ class _CameraConfigCard(QFrame):
 
         # Header
         header = QLabel(f"<b>Camera {index + 1}:</b> {cam.name}  "
-                        f"<span style='color:gray'>({cam.id} / {cam.backend})</span>")
+                        f"<span style='color:gray'>({cam.device_id} / {cam.backend})</span>")
         layout.addWidget(header)
 
         # Status label showing which .cfg is loaded

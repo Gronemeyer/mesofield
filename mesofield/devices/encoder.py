@@ -42,6 +42,15 @@ class SerialWorker(BaseSerialDevice):
     file_type: ClassVar[str] = "csv"
     bids_type: ClassVar[Optional[str]] = "beh"
 
+    # Optional styling the GUI applies when it auto-builds this device's live
+    # plot (see MainWindow._build_device_plots). Any device may declare one.
+    gui_plot_config: ClassVar[dict] = {
+        "label": "Encoder",
+        "value_label": "Speed",
+        "value_units": "mm/s",
+        "value_scale": 0.01,
+    }
+
     # Typed contract for the parser's dataqueue lookup. The parser today
     # hardcodes `anchor_filter_pattern = "encoder"` and matches against the
     # device_id column; this declaration is what it'll read off the manifest
