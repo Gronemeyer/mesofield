@@ -6,14 +6,24 @@ system (e.g. :class:`~mesofield.data.manager.DataManager`,
 :class:`~mesofield.base.Procedure`) can connect uniformly without caring
 which backend the device uses.
 
-Four signals form the standard contract:
+Five signals form the standard contract:
 
 ``started()``
     Emitted once the device is actively acquiring / running.
 ``finished()``
-    Emitted when the device has stopped on its own (e.g. an MDA sequence
-    completed) *or* in response to ``stop()``.  The ``primary`` device's
+    Emitted exactly once when the device reaches a terminal state — on
+    its own (e.g. an MDA sequence completed), in response to ``stop()``,
+    or after an unrecoverable error.  The ``primary`` device's
     ``finished`` is what triggers :meth:`Procedure._cleanup_procedure`.
+    Devices built on :class:`mesofield.devices.base.BaseDevice` route
+    every exit path through ``BaseDevice._finalize`` which guarantees
+    the exactly-once emission.
+``error(exc)``
+    Emitted (before ``finished``) when the device reaches its terminal
+    state because of an unrecoverable failure.  ``exc`` is the exception
+    instance.  The :class:`~mesofield.base.Procedure` subscribes on every
+    device so mid-run failures of *non-primary* producers are surfaced
+    instead of silently yielding empty data files.
 ``data(payload, device_ts)``
     Emitted for every datum that should land on
     :class:`~mesofield.data.manager.DataQueue`.  ``payload`` is the raw
@@ -49,7 +59,7 @@ class DeviceSignals:
     behave as plain emitters on the bundle.
     """
 
-    __slots__ = ("started", "finished", "data", "frame")
+    __slots__ = ("started", "finished", "error", "data", "frame")
 
     def __init__(self) -> None:
         from psygnal import SignalInstance
@@ -58,11 +68,12 @@ class DeviceSignals:
         # bundle is independent of any owning class.
         self.started: SignalInstance = SignalInstance(())
         self.finished: SignalInstance = SignalInstance(())
+        self.error: SignalInstance = SignalInstance((object,))
         self.data: SignalInstance = SignalInstance((object, object))
         self.frame: SignalInstance = SignalInstance((object, object, object))
 
     def disconnect_all(self) -> None:
-        for sig in (self.started, self.finished, self.data, self.frame):
+        for sig in (self.started, self.finished, self.error, self.data, self.frame):
             try:
                 sig.disconnect()
             except Exception:

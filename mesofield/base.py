@@ -120,6 +120,10 @@ class Procedure:
         self._finished_event = threading.Event()
         self.events.procedure_finished.connect(self._finished_event.set)
         self.events.procedure_error.connect(lambda _msg: self._finished_event.set())
+        # (device_id, exception) pairs collected from `signals.error` during
+        # the run; recorded into the acquisition manifest by cleanup so a
+        # producer dying mid-run is documented.
+        self.device_errors: list[tuple[str, BaseException]] = []
 
         # The rig (hardware.yaml) is the anchor; experiment params are optional
         # and never touch hardware state.
@@ -143,12 +147,12 @@ class Procedure:
         self.protocol = self.config.get("protocol", "default_experiment")
         self.experimenter = self.config.get("experimenter", "researcher")
 
-        self.data_dir = self.config.data_dir
-
         self.start_time: Optional[datetime] = None
         self.stopped_time: Optional[datetime] = None
 
         self.logger = get_logger(f"PROCEDURE.{self.protocol}")
+        self._apply_experiment_directory_override()
+        self.data_dir = self.config.data_dir
         self.logger.info(f"Initialized procedure: {self.protocol}")
 
         if self.config.hardware.is_configured:
@@ -206,6 +210,7 @@ class Procedure:
 
         self.protocol = self.config.get("protocol", "default_experiment")
         self.experimenter = self.config.get("experimenter", "researcher")
+        self._apply_experiment_directory_override()
         self.data_dir = self.config.data_dir
 
         if self.config.hardware.is_configured:
@@ -338,6 +343,28 @@ class Procedure:
     # ------------------------------------------------------------------
     # Subclass extension hooks (no-op defaults)
 
+    def set_experiment_directory(self) -> Optional[str]:
+        """Optional subclass hook to override ``config.experiment_dir``.
+
+        Return a path string (absolute or relative) to redirect where run
+        outputs are written, or ``None`` to keep the default behavior.
+        """
+        return None
+
+    def _apply_experiment_directory_override(self) -> None:
+        """Apply ``set_experiment_directory`` when a subclass provides one."""
+        directory = self.set_experiment_directory()
+        if directory in (None, ""):
+            return
+        try:
+            resolved = os.path.abspath(os.path.expanduser(os.fspath(directory)))
+        except TypeError as exc:
+            raise TypeError(
+                f"{type(self).__name__}.set_experiment_directory() must return "
+                f"a path-like value or None, got {type(directory).__name__}."
+            ) from exc
+        self.config.experiment_dir = resolved
+
     def define_config(self) -> Any:
         """Subclass hook to declare experiment parameters in Python.
 
@@ -380,6 +407,10 @@ class Procedure:
         Subclasses may override, but the default body is generic and handles
         any combination of devices declared in ``hardware.yaml``.
         """
+        # Re-apply at run-start so scripted launch defaults do not override
+        # a subclass-provided output directory.
+        self._apply_experiment_directory_override()
+        self.data_dir = self.config.data_dir
         self.logger.info("================= Starting experiment ===================")
 
         # 1. DataManager / queue logger setup
@@ -394,10 +425,22 @@ class Procedure:
 
         try:
             # 3. Per-run device prep
+            self._cleanup_done = False
             self.hardware.arm_all(self.config)
 
-            # 4. Wire termination: primary device's finished signal triggers cleanup
-            self.hardware.primary.signals.finished.connect(self._cleanup_procedure)
+            # 4. Wire termination: primary device's finished signal triggers
+            # cleanup. Routed through _schedule_cleanup so that when a device
+            # emits `finished` from its own acquisition thread, the heavy
+            # teardown (stop_all, saving, manifest) is marshalled onto the Qt
+            # main thread instead of running inside the device thread.
+            self.hardware.primary.signals.finished.connect(self._schedule_cleanup)
+            self.device_errors.clear()
+            for dev_id, device in self.hardware.devices.items():
+                signals = getattr(device, "signals", None)
+                if signals is not None and hasattr(signals, "error"):
+                    signals.error.connect(
+                        lambda exc, _id=dev_id: self._on_device_error(_id, exc)
+                    )
 
             # 5. Start everything
             self.start_time = datetime.now(timezone.utc)
@@ -468,11 +511,48 @@ class Procedure:
                 self.cleanup()
         return self._finished_event.is_set()
 
+    def _on_device_error(self, device_id: str, exc: BaseException) -> None:
+        """Record and surface a device's mid-run failure.
+
+        Policy: the run continues (other producers keep acquiring); the
+        failure is logged loudly and recorded so :meth:`save_data` /
+        the manifest can annotate the partial stream.
+        """
+        self.logger.error(f"DEVICE FAILURE during run: {device_id}: {exc}")
+        self.device_errors.append((device_id, exc))
+
+    def _schedule_cleanup(self):
+        """Marshal `_cleanup_procedure` onto the Qt main thread when a GUI
+        event loop exists; run inline otherwise (headless / tests).
+
+        Devices emit ``finished`` synchronously (psygnal) from their own
+        acquisition threads; without this hop, all of cleanup — stop_all,
+        save_data, manifest writing — would execute inside the device
+        thread that happened to finish first.
+        """
+        app = None
+        try:
+            from PyQt6.QtCore import QCoreApplication, QTimer
+
+            app = QCoreApplication.instance()
+        except Exception:
+            pass
+        if app is not None:
+            QTimer.singleShot(0, self._cleanup_procedure)
+        else:
+            self._cleanup_procedure()
+
     def _cleanup_procedure(self):
+        # Exactly-once per run: reachable from the queued primary-finished
+        # dispatch AND from a manual Abort (`cleanup()`); whichever arrives
+        # second must be a no-op.
+        if getattr(self, "_cleanup_done", False):
+            return
+        self._cleanup_done = True
         self.logger.info("Cleanup Procedure")
         try:
             try:
-                self.hardware.primary.signals.finished.disconnect(self._cleanup_procedure)
+                self.hardware.primary.signals.finished.disconnect(self._schedule_cleanup)
             except Exception:
                 pass
             # Detach any procedure-authored FrameProcessors so their worker
@@ -581,9 +661,18 @@ class Procedure:
                 )
             )
 
+        extra = self.manifest_extra()
+        if self.device_errors:
+            extra = dict(extra)
+            extra["device_errors"] = [
+                {"device_id": dev_id, "error": str(exc)}
+                for dev_id, exc in self.device_errors
+            ]
         manifest = AcquisitionManifest(
             mesofield_version=str(_MESOFIELD_VERSION),
-            acquisition_complete=True,
+            # A device that died mid-run means the session's streams are
+            # partial even though the run ended normally.
+            acquisition_complete=not self.device_errors,
             started_at=self.start_time,
             ended_at=self.stopped_time,
             session=SessionIdentity(
@@ -594,7 +683,7 @@ class Procedure:
                 protocol=self.protocol,
             ),
             producers=producers,
-            extra=self.manifest_extra(),
+            extra=extra,
         )
         out = session_root / "manifest.json"
         manifest.write(out)

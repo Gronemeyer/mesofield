@@ -5,8 +5,15 @@ boilerplate as possible:
 
 ``BaseDevice``
     Lifecycle skeleton, ``self.signals`` (DeviceSignals), logger, cfg
-    storage, ``is_primary`` / ``is_running`` tracking, default
+    storage, ``is_primary`` / ``is_active`` tracking, default
     ``status``/``metadata``.
+
+    Every exit path — natural completion, ``stop()``, or an unrecoverable
+    error — funnels through :meth:`BaseDevice._finalize`, the only code
+    that flips the device inactive, stamps ``_stopped``, runs subclass
+    teardown (:meth:`BaseDevice._on_finalize`) and emits ``signals.error``
+    / ``signals.finished``.  ``_finalize`` is idempotent, so ``finished``
+    fires exactly once per run no matter how many paths race into it.
 
 ``BaseDataProducer(BaseDevice)``
     Adds the DataProducer surface: ``output_path``/``metadata_path``,
@@ -21,9 +28,10 @@ boilerplate as possible:
     skips opening the port so authors can iterate without hardware
     connected.
 
-Qt devices (``QThread`` subclasses) cannot inherit from these due to
-metaclass conflicts; they continue to duck-type the contract by
-instantiating ``self.signals = DeviceSignals()`` directly.
+Qt devices (``QThread`` subclasses) inherit :class:`BaseDevice` through
+:class:`mesofield.devices.base_camera.BaseCamera` (BaseDevice never calls
+``super().__init__``, so it composes cleanly with QThread's sip metaclass);
+see ``OpenCVCamera`` for the pattern.
 """
 
 from __future__ import annotations
@@ -87,31 +95,91 @@ class BaseDevice:
 
         self._started: Optional[datetime] = None
         self._stopped: Optional[datetime] = None
-        self.is_running: bool = False
+        self.is_active: bool = False
+        # Set by `_finalize` when the run ended in failure; None otherwise.
+        self.error: Optional[BaseException] = None
+        # Recording length in seconds for this run (None = unbounded).
+        # Captured by `arm(config)`; primary loop-based devices use it to
+        # self-terminate (which is what ends the whole Procedure).
+        self._planned_duration: Optional[float] = None
+        # `_finalize` exactly-once guard.
+        self._finalize_lock = threading.Lock()
+        self._finalized = False
 
         self.logger = get_logger(
             f"{self.__class__.__module__}.{self.__class__.__name__}[{self.device_id}]"
         )
 
-    # -- lifecycle (subclasses override as needed) -----------------------
+    # -- lifecycle (subclasses override the _do_* / _on_* hooks) ----------
     def initialize(self) -> bool:
         return True
 
-    def arm(self, config: "ExperimentConfig") -> None:  # noqa: D401 - default no-op
-        """Per-run preparation.  No-op by default."""
-        return None
+    def arm(self, config: "ExperimentConfig") -> None:
+        """Per-run preparation: capture the planned recording duration and
+        reset the terminal state.  Subclasses extend (writer setup, buffer
+        clearing) and call ``super().arm(config)`` — or
+        ``BaseDevice.arm(self, config)`` when multiple inheritance makes
+        ``super()`` ambiguous.
+        """
+        try:
+            duration = getattr(config, "sequence_duration", None)
+            self._planned_duration = float(duration) if duration else None
+        except (TypeError, ValueError):
+            self._planned_duration = None
+        with self._finalize_lock:
+            self._finalized = False
+        self.error = None
 
     def start(self) -> bool:
+        """Mark the device running and emit ``signals.started``.
+
+        Subclasses that spawn worker threads should do so via the
+        acquisition-loop scaffold (see :class:`BaseDataProducer`) or call
+        ``super().start()`` after their backend-specific launch succeeds.
+        """
+        with self._finalize_lock:
+            self._finalized = False
+        self.error = None
         self._started = datetime.now()
-        self.is_running = True
+        self.is_active = True
         self.signals.started.emit()
         return True
 
     def stop(self) -> bool:
-        self._stopped = datetime.now()
-        self.is_running = False
-        self.signals.finished.emit()
+        """Stop the device.  Idempotent; safe to call from any thread."""
+        self._finalize()
         return True
+
+    def _finalize(self, error: Optional[BaseException] = None) -> None:
+        """Single terminal transition for the run.
+
+        Exactly-once: the first caller wins (natural loop exit, ``stop()``,
+        or a crashed acquisition thread); later calls are no-ops.  Runs the
+        subclass :meth:`_on_finalize` teardown, then emits ``signals.error``
+        (when failing) and ``signals.finished``.
+        """
+        with self._finalize_lock:
+            if self._finalized:
+                return
+            self._finalized = True
+        self._stopped = datetime.now()
+        self.is_active = False
+        self.error = error
+        try:
+            self._on_finalize(error)
+        except Exception as exc:
+            self.logger.error(f"_on_finalize failed for {self.device_id}: {exc}")
+        if error is not None:
+            self.logger.error(f"{self.device_id} terminated with error: {error}")
+            self.signals.error.emit(error)
+        self.signals.finished.emit()
+
+    def _on_finalize(self, error: Optional[BaseException]) -> None:
+        """Subclass teardown hook (close writers, flush buffers, release
+        handles).  Runs exactly once per run, on every exit path, before
+        ``finished`` is emitted.  Default: no-op.
+        """
+        return None
 
     def shutdown(self) -> None:
         return None
@@ -122,7 +190,8 @@ class BaseDevice:
             "device_id": self.device_id,
             "device_type": self.device_type,
             "is_primary": self.is_primary,
-            "is_running": self.is_running,
+            "is_active": self.is_active,
+            "error": str(self.error) if self.error else None,
             "started": self._started.isoformat() if self._started else None,
             "stopped": self._stopped.isoformat() if self._stopped else None,
         }
@@ -206,10 +275,15 @@ class BaseDataProducer(BaseDevice):
 
         self.output_path: Optional[str] = None
         self.metadata_path: Optional[str] = None
-        self.is_active: bool = False
 
         self._buffer: list[Tuple[float, Any]] = []
         self._buffer_lock = threading.Lock()
+
+        # Acquisition-loop state (thread spawned by `start`).
+        self._stop_event = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+        self._loop_t0: float = 0.0
+        self.join_timeout: float = getattr(self, "join_timeout", 2.0)
 
     # -- helpers ---------------------------------------------------------
     def record(self, payload: Any, ts: Optional[float] = None) -> float:
@@ -238,6 +312,7 @@ class BaseDataProducer(BaseDevice):
         ``config`` is expected to expose ``make_path(name, ext, bids)``
         (see :class:`mesofield.config.ExperimentConfig`).
         """
+        super().arm(config)
         self.clear_buffer()
         make_path = getattr(config, "make_path", None)
         if make_path is not None:
@@ -248,13 +323,84 @@ class BaseDataProducer(BaseDevice):
             except Exception as exc:
                 self.logger.debug(f"make_path failed for {self.device_id}: {exc}")
 
+    # -- acquisition loop --------------------------------------------------
+    # Threaded producers implement `_acquire_loop`; `start`/`stop` own the
+    # thread, and `_run_acquisition` guarantees the terminal transition
+    # (exactly-once `finished`, `error` on a crash) on every exit path.
+
     def start(self) -> bool:
-        self.is_active = True
-        return super().start()
+        """Mark the device running and spawn the acquisition thread."""
+        if self._thread is not None and self._thread.is_alive():
+            self.logger.debug("start() called but acquisition thread already running")
+            return False
+        started = super().start()
+        self._stop_event.clear()
+        self._loop_t0 = time.monotonic()
+        self._thread = threading.Thread(
+            target=self._run_acquisition,
+            name=f"{self.__class__.__name__}-{self.device_id}",
+            daemon=True,
+        )
+        self._thread.start()
+        return started
 
     def stop(self) -> bool:
-        self.is_active = False
+        """Signal the loop to stop, join it (unless called *from* it), and
+        finalize."""
+        self._stop_event.set()
+        thread = self._thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=self.join_timeout)
+            if thread.is_alive():
+                self.logger.warning(
+                    f"acquisition thread for {self.device_id} did not exit "
+                    f"within {self.join_timeout:.1f}s"
+                )
+        self._thread = None
         return super().stop()
+
+    def _acquire_loop(self) -> None:
+        """Acquisition loop body (subclass hook).
+
+        Loop on ``while not self._loop_should_stop(): ...`` and call
+        :meth:`record` per sample.  Raising ends the run in failure
+        (``signals.error`` then ``finished``).
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement _acquire_loop() "
+            f"(or override start/stop for non-threaded producers)"
+        )
+
+    def _run_acquisition(self) -> None:
+        error: Optional[BaseException] = None
+        try:
+            self._acquire_loop()
+        except Exception as exc:
+            error = exc
+            self.logger.exception(f"acquisition loop crashed: {exc}")
+        finally:
+            # A natural end (planned duration reached, source exhausted) or a
+            # crash must finalize from here because nothing external will call
+            # stop(). When stop() initiated the exit it finalizes after the
+            # join; `_finalize` is a no-op for whichever caller arrives second.
+            if error is not None or not self._stop_event.is_set():
+                self._finalize(error)
+
+    def _loop_should_stop(self) -> bool:
+        """Loop-exit test: external stop, or — for the primary device of a
+        run with a known duration — planned duration reached."""
+        if self._stop_event.is_set():
+            return True
+        if (
+            self.is_primary
+            and self._planned_duration
+            and (time.monotonic() - self._loop_t0) >= self._planned_duration
+        ):
+            self.logger.info(
+                f"planned duration {self._planned_duration:.1f}s reached; stopping"
+            )
+            return True
+        return False
 
     # -- data access -----------------------------------------------------
     def get_data(self) -> list[Tuple[float, Any]]:
@@ -328,6 +474,8 @@ class BaseSerialDevice(BaseDataProducer):
     default_baudrate: ClassVar[int] = 115_200
     default_timeout: ClassVar[float] = 0.1
     poll_interval: float = 0.0
+    # Consecutive read failures tolerated before the run ends in failure.
+    max_consecutive_failures: ClassVar[int] = 25
     join_timeout: float = 2.0
 
     def __init__(self, cfg: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
@@ -341,8 +489,6 @@ class BaseSerialDevice(BaseDataProducer):
 
         self._serial: Any = None
         self._serial_lock = threading.Lock()
-        self._stop_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
 
     # -- subclass hooks -------------------------------------------------
     def parse_line(self, line: bytes) -> Optional[Tuple[Any, Optional[float]]]:
@@ -425,7 +571,7 @@ class BaseSerialDevice(BaseDataProducer):
         return True
 
     def shutdown(self) -> None:
-        if self.is_running:
+        if self.is_active:
             self.stop()
         super().shutdown()
         if self._serial is not None:
@@ -438,57 +584,38 @@ class BaseSerialDevice(BaseDataProducer):
     def start(self) -> bool:
         if self._serial is None and not self.development_mode:
             self.initialize()
-        if self._thread is not None and self._thread.is_alive():
-            self.logger.debug("start() called but thread already running")
-            return False
-        self._stop_event.clear()
-        self._thread = threading.Thread(
-            target=self._run_loop,
-            name=f"{self.__class__.__name__}-{self.device_id}",
-            daemon=True,
-        )
-        self._thread.start()
         return super().start()
 
-    def stop(self) -> bool:
-        self._stop_event.set()
-        thread = self._thread
-        if thread is not None:
-            thread.join(timeout=self.join_timeout)
-            if thread.is_alive():
-                self.logger.warning(
-                    f"read thread for {self.device_id} did not exit within {self.join_timeout:.1f}s"
-                )
-        self._thread = None
-        return super().stop()
+    # -- read loop --------------------------------------------------------
+    def _acquire_loop(self) -> None:
+        failures = 0
+        while not self._loop_should_stop():
+            try:
+                sample = self._read_once()
+                failures = 0
+            except Exception as exc:
+                self.logger.exception(f"read raised: {exc}")
+                failures += 1
+                # A genuinely dead port should end the run in failure, not
+                # spin logging exceptions forever.
+                if failures >= self.max_consecutive_failures:
+                    raise RuntimeError(
+                        f"{self.device_id}: {failures} consecutive read "
+                        f"failures (last: {exc})"
+                    ) from exc
+                sample = None
 
-    # -- read loop ------------------------------------------------------
-    def _run_loop(self) -> None:
-        try:
-            while not self._stop_event.is_set():
-                try:
-                    sample = self._read_once()
-                except Exception as exc:
-                    self.logger.exception(f"read raised: {exc}")
-                    sample = None
-
-                if sample is not None:
-                    payload, ts = sample
-                    self.record(payload, ts)
-                elif self.poll_interval > 0:
-                    self._stop_event.wait(self.poll_interval)
-        finally:
-            self.logger.debug("read loop exited")
+            if sample is not None:
+                payload, ts = sample
+                self.record(payload, ts)
+            elif self.poll_interval > 0:
+                self._stop_event.wait(self.poll_interval)
 
     def _read_once(self) -> Optional[Tuple[Any, Optional[float]]]:
         if self._serial is None:
             return None
-        try:
-            with self._serial_lock:
-                line = self._serial.readline()
-        except Exception as exc:
-            self.logger.exception(f"serial read failed: {exc}")
-            return None
+        with self._serial_lock:
+            line = self._serial.readline()
         if not line:
             return None
         try:

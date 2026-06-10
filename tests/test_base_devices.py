@@ -38,14 +38,14 @@ def test_base_device_lifecycle_and_signals() -> None:
 
     assert dev.device_id == "alpha"
     assert dev.is_primary is True
-    assert dev.is_running is False
+    assert dev.is_active is False
 
     dev.start()
-    assert dev.is_running is True
+    assert dev.is_active is True
     assert started == [True]
 
     dev.stop()
-    assert dev.is_running is False
+    assert dev.is_active is False
     assert finished == [True]
 
     status = dev.status()

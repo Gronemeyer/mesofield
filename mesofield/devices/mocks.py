@@ -80,7 +80,7 @@ class MockEncoderDevice(BaseDataProducer):
         "device_id": "wheel",
         "payload_format": "scalar",
         "payload_fields": {},
-        "description": "Mock click count pushed by _run_loop().",
+        "description": "Mock click count pushed by _acquire_loop().",
     }
 
     def __init__(self, cfg: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
@@ -88,8 +88,6 @@ class MockEncoderDevice(BaseDataProducer):
         self.sample_interval_s: float = float(
             self.cfg.get("sample_interval_ms", 100)
         ) / 1000.0
-        self._stop_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
         self._t0: float = 0.0
 
         # Expose the same Qt live-plot signals a real SerialWorker does, so the
@@ -106,32 +104,15 @@ class MockEncoderDevice(BaseDataProducer):
         except Exception:
             self.logger.debug("Qt adapter unavailable; running headless.")
 
-    def _run_loop(self) -> None:
-        while not self._stop_event.is_set():
+    def start(self) -> bool:
+        self._t0 = time.monotonic()
+        return super().start()
+
+    def _acquire_loop(self) -> None:
+        while not self._loop_should_stop():
             # Pass an elapsed-seconds timestamp so the live trace advances in x.
             self.record(random.randint(1, 10), ts=time.monotonic() - self._t0)
             self._stop_event.wait(self.sample_interval_s)
-
-    def start(self) -> bool:
-        if self._thread is not None and self._thread.is_alive():
-            return False
-        self._stop_event.clear()
-        self._t0 = time.monotonic()
-        self._thread = threading.Thread(
-            target=self._run_loop,
-            name=f"MockEncoder-{self.device_id}",
-            daemon=True,
-        )
-        self._thread.start()
-        return super().start()
-
-    def stop(self) -> bool:
-        self._stop_event.set()
-        thread = self._thread
-        if thread is not None:
-            thread.join(timeout=2.0)
-        self._thread = None
-        return super().stop()
 
 
 # ---------------------------------------------------------------------------
@@ -157,8 +138,6 @@ class MockFrameProducer(BaseCamera, BaseDataProducer):
         self.frame_interval_s: float = float(self.cfg.get("frame_interval_ms", 50)) / 1000.0
         if self.frame_interval_s:
             self.sampling_rate = 1.0 / self.frame_interval_s
-        self._stop_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
         self._frames: list[np.ndarray] = []
         self._frames_lock = threading.Lock()
         self._frame_records: list[dict[str, Any]] = []
@@ -179,29 +158,9 @@ class MockFrameProducer(BaseCamera, BaseDataProducer):
         self._frames.clear()
         self._frame_records.clear()
 
-    def start(self) -> bool:
-        if self._thread is not None and self._thread.is_alive():
-            return False
-        self._stop_event.clear()
-        self._thread = threading.Thread(
-            target=self._run_loop,
-            name=f"MockCamera-{self.device_id}",
-            daemon=True,
-        )
-        self._thread.start()
-        return BaseDataProducer.start(self)
-
-    def stop(self) -> bool:
-        self._stop_event.set()
-        thread = self._thread
-        if thread is not None:
-            thread.join(timeout=2.0)
-        self._thread = None
-        return BaseDataProducer.stop(self)
-
-    def _run_loop(self) -> None:
+    def _acquire_loop(self) -> None:
         rng = np.random.default_rng(seed=0)
-        while not self._stop_event.is_set():
+        while not self._loop_should_stop():
             ts = time.time()
             frame = self._synthesise_frame(rng, len(self._frames))
             with self._frames_lock:

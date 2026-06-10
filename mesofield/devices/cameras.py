@@ -14,6 +14,7 @@ from pymmcore_plus.core._device import CameraDevice
 from mesofield.protocols import HardwareDevice, DataProducer
 from mesofield.engines import DevEngine, MesoEngine, PupilEngine
 #from tests.arducam import VideoThread
+from mesofield.devices.base import BaseDevice
 from mesofield.devices.base_camera import BaseCamera
 from mesofield.data import CustomWriter, CV2Writer
 from mesofield.data.writer import configure_opencv_codec
@@ -68,10 +69,14 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         evt = self.core.mda.events  # type: ignore[union-attr]
 
         def _on_started(*_args, **_kw):
+            self.is_active = True
             self.signals.started.emit()
 
         def _on_finished(*_args, **_kw):
-            self.signals.finished.emit()
+            # Route the MDA's natural end through the shared terminal
+            # transition so `finished` is exactly-once and state/timestamps
+            # are consistent with every other device.
+            self._finalize()
 
         def _on_frame(_img, _event, metadata):
             idx = ts = None
@@ -107,7 +112,7 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         self.camera_device = core.getDeviceObject(core.getCameraDevice(),
                                                   DeviceType.Camera)
         Engine = {"ThorCam": PupilEngine,
-                  "Dhyana": MesoEngine}.get(self.id, DevEngine)
+                  "Dhyana": MesoEngine}.get(self.device_id, DevEngine)
         self._engine = Engine(core, use_hardware_sequencing=True)
         # Back-reference so engines can call camera helpers (e.g. LED control).
         try:
@@ -329,10 +334,10 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
     def __repr__(self):
         # Compact one-liner so HardwareManager listings stay readable.
         # Use ``cam.info()`` for the verbose dump.
-        cam_props = self.properties.get(self.id, {}) if isinstance(self.properties, dict) else {}
+        cam_props = self.properties.get(self.device_id, {}) if isinstance(self.properties, dict) else {}
         fps = cam_props.get("fps")
         out = self.cfg.get("output", {}) if isinstance(self.cfg, dict) else {}
-        bits = [f"id={self.id!r}", f"backend={self.backend!r}"]
+        bits = [f"id={self.device_id!r}", f"backend={self.backend!r}"]
         if fps is not None:
             bits.append(f"fps={fps}")
         if self.is_primary:
@@ -353,7 +358,7 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         mro = inspect.getmro(self.__class__)
         inheritance = " -> ".join(cls.__name__ for cls in reversed(mro))
         return (
-            f"<MMCamera.{self.id}>\n"
+            f"<MMCamera.{self.device_id}>\n"
             f"  backend     = {self.backend!r}\n"
             f"  module      = {module_name!r} ({module_file!r})\n"
             f"  properties  = {self.properties!r}\n"
@@ -494,10 +499,6 @@ class OpenCVCamera(BaseCamera, QThread):
         })
         return st
 
-    # Backwards-compat alias used elsewhere in the codebase
-    def get_status(self) -> Dict[str, Any]:
-        return self.status()
-
     @property
     def metadata(self) -> Dict[str, Any]:
         md = super().metadata
@@ -547,29 +548,46 @@ class OpenCVCamera(BaseCamera, QThread):
         self._stop = False
         self._frame_index = 0
         self._frame_timestamps = []
-        self._started = datetime.now()
-        self.is_active = True
-        self.signals.started.emit()
-        super().start()  # spawns QThread.run
+        # Lifecycle bookkeeping (RUNNING state, `started` emission) ...
+        BaseDevice.start(self)
+        # ... then the QThread spawn. Named explicitly because BaseDevice
+        # now sits before QThread in the MRO, so `super().start()` would
+        # re-enter the lifecycle instead of launching the thread.
+        QThread.start(self)
         return True
 
     def stop(self) -> bool:
-        """Signal the capture thread to stop and wait for it to join."""
+        """Stop the capture thread and finalize.  Idempotent; safe to call
+        from any thread, including (via Procedure cleanup after a natural
+        finish) the capture thread itself."""
         if not self.isRunning() and not self._stop:
             return True
         self._stop = True
         self.requestInterruption()
-        self.wait(5000)
-        self.is_active = False
-        self._stopped = datetime.now()
-        self.signals.finished.emit()
+        # Joining from inside run() would deadlock the thread on itself;
+        # in that case run()'s finally has already done the teardown.
+        if QThread.currentThread() is not self and self.isRunning():
+            self.wait(5000)
+        self._finalize()
         return True
+
+    def _on_finalize(self, error: Optional[BaseException]) -> None:
+        """Release the CV2Writer (writing the metadata sidecar) and clear the
+        progress bar.  Runs exactly once per recording, on every exit path."""
+        if self.writer is None:
+            return
+        try:
+            self.writer.finish(extra_metadata=self._frame_metadata())
+        except Exception as exc:
+            self.logger.error(f"CV2Writer.finish failed: {exc}")
+        # `-1` is the "recording done -- hide the progress bar" sentinel.
+        self.progress.emit(-1, 0)
 
     def shutdown(self) -> None:
         """Tear down the capture thread.
 
-        ``stop()`` joins the capture thread; its ``run()`` finally-block
-        releases the :class:`CV2Writer` and writes the sidecar JSON.
+        ``stop()`` joins the capture thread and finalizes, which releases
+        the :class:`CV2Writer` and writes the sidecar JSON.
         """
         self.stop()
 
@@ -615,7 +633,9 @@ class OpenCVCamera(BaseCamera, QThread):
         self._frame_index = 0
         self._frame_timestamps = []
         self.is_active = True
-        super().start()
+        # Preview is not a lifecycle run: spawn the thread without touching
+        # the state machine (no `started`/`finished` emissions).
+        QThread.start(self)
 
     def stop_live(self) -> None:
         """End preview capture started by start_live."""
@@ -669,16 +689,32 @@ class OpenCVCamera(BaseCamera, QThread):
 
         self._capture = cap
         # Open the CV2Writer for this recording (skipped for live preview,
-        # where `start_live()` clears `self.writer`).
+        # where `start_live()` clears `self.writer`). If `begin` fails (e.g. a
+        # missing codec on Linux), abort the recording instead of entering the
+        # loop — otherwise every `add_frame` would raise "called before
+        # begin()" once per frame.
         if self.writer is not None:
             try:
                 self.writer.begin(self._frame_width, self._frame_height, self.is_color)
             except Exception as exc:  # pragma: no cover - codec failure
-                self.logger.error(f"CV2Writer.begin failed: {exc}")
+                self.logger.error(f"CV2Writer.begin failed, aborting recording: {exc}")
+                cap.release()
+                self._capture = None
+                self._finalize(exc)
+                return
+        # A recording has no externally-driven sequence length (unlike an MDA
+        # sequence), so the loop self-terminates at the expected frame count.
+        # For the primary camera the resulting `finished` emission is what
+        # drives Procedure cleanup.
+        stop_at_expected = self.writer is not None and self._expected_frames > 0
         period = 1.0 / self.sampling_rate if self.sampling_rate > 0 else 0.0
         next_t = time.perf_counter()
+        error: Optional[BaseException] = None
+        write_failures = 0
         try:
             while not self.isInterruptionRequested() and not self._stop:
+                if stop_at_expected and self._frame_index >= self._expected_frames:
+                    break
                 ok, frame = cap.read()
                 if not ok or frame is None:
                     self.msleep(1)
@@ -697,8 +733,14 @@ class OpenCVCamera(BaseCamera, QThread):
                         frame_to_write = frame
                     try:
                         self.writer.add_frame(frame_to_write)
+                        write_failures = 0
                     except Exception as exc:  # pragma: no cover - codec failure
                         self.logger.error(f"CV2Writer.add_frame failed: {exc}")
+                        write_failures += 1
+                        if write_failures >= 25:
+                            raise RuntimeError(
+                                f"{write_failures} consecutive write failures"
+                            ) from exc
 
                 # GUI live-preview signals (Qt-native, decoupled from queue)
                 self.frame_ready.emit(frame)
@@ -722,19 +764,28 @@ class OpenCVCamera(BaseCamera, QThread):
                         self.msleep(int(delay * 1000))
                     else:
                         next_t = time.perf_counter()
+        except Exception as exc:
+            error = exc
+            self.logger.exception(f"capture loop crashed: {exc}")
         finally:
+            # Did the loop exit on its own (expected frame count reached or
+            # crash) rather than via stop()'s flag/interruption?
+            self_terminated = not self._stop and not self.isInterruptionRequested()
             try:
                 cap.release()
             except Exception:
                 pass
             self._capture = None
-            if self.writer is not None:
-                try:
-                    self.writer.finish(extra_metadata=self._frame_metadata())
-                except Exception as exc:
-                    self.logger.error(f"CV2Writer.finish failed: {exc}")
-                # `-1` is the "recording done -- hide the progress bar" sentinel.
-                self.progress.emit(-1, 0)
             self.logger.info(
                 f"OpenCV capture stopped: wrote {self._frame_index} frames"
             )
+            if self.writer is not None and (error is not None or self_terminated):
+                # Nothing external will call stop(): drive the terminal
+                # transition (writer release + sidecar + `error`/`finished`)
+                # from here. When stop() ended the loop it finalizes itself
+                # after the join, keeping writer teardown off the GUI thread's
+                # critical path; `_finalize` is exactly-once either way.
+                self._finalize(error)
+            elif self.writer is None:
+                # Preview (start_live) exit: no lifecycle transition.
+                self.is_active = False

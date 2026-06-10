@@ -23,14 +23,18 @@ Subclasses keep their backend-specific ``initialize``, ``start``, ``stop``,
 
 Design notes:
 
-- :class:`BaseCamera` is a *regular* class -- not a Protocol -- so subclasses
-  can multiply-inherit alongside Qt's :class:`QThread` (``OpenCVCamera``),
+- :class:`BaseCamera` extends :class:`mesofield.devices.base.BaseDevice`, so
+  cameras share the same lifecycle state machine, ``_finalize`` exactly-once
+  terminal transition, and ``DeviceSignals`` bundle as every other device.
+  It remains a *regular* class -- not a Protocol -- so subclasses can
+  multiply-inherit alongside Qt's :class:`QThread` (``OpenCVCamera``),
   pymmcore-plus's ``DataProducer``/``HardwareDevice`` Protocols
-  (``MMCamera``), and our pure-Python :class:`BaseDataProducer`
-  (``MockFrameProducer``).
+  (``MMCamera``), and :class:`BaseDataProducer` (``MockFrameProducer``).
 - We avoid ``BaseCamera.__init__`` to dodge multiple-inheritance ``super()``
   chains with QThread. Subclasses call :meth:`_init_camera_surface` after
-  whatever parent ``__init__`` they need.
+  whatever parent ``__init__`` they need; it runs ``BaseDevice.__init__``
+  exactly once (skipped when a cooperating parent such as
+  ``BaseDataProducer`` already did).
 """
 
 from __future__ import annotations
@@ -38,14 +42,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, Optional, Type
 
-from mesofield.signals import DeviceSignals
+from mesofield.devices.base import BaseDevice
 from mesofield.utils._logger import get_logger
 
 if TYPE_CHECKING:
     from mesofield.config import ExperimentConfig
 
 
-class BaseCamera:
+class BaseCamera(BaseDevice):
     """Common camera surface (no Qt, no acquisition loop).
 
     Subclasses call :meth:`_init_camera_surface` from their ``__init__``
@@ -70,13 +74,16 @@ class BaseCamera:
         and timing slots. Idempotent on ``signals`` if the subclass has
         already created it (e.g. :class:`BaseDataProducer` does).
         """
-        self.cfg: Dict[str, Any] = dict(cfg or {})
-        self.id: str = str(self.cfg.get("id", "camera"))
-        self.device_id: str = self.id
-        self.name: str = str(self.cfg.get("name", self.id))
+        # Lifecycle skeleton (signals, state machine, timestamps, cfg,
+        # is_primary, logger) comes from BaseDevice. A cooperating parent
+        # (BaseDataProducer in MockFrameProducer/PlaybackCamera) may have
+        # already run it -- `signals` is the witness; don't re-init.
+        if not hasattr(self, "signals"):
+            BaseDevice.__init__(self, cfg)
+        # Camera identity: cameras default their id to "camera".
+        self.device_id = str(self.cfg.get("id", "camera"))
+        self.name: str = str(self.cfg.get("name", self.device_id))
         self.backend: str = backend
-        self.is_primary: bool = bool(self.cfg.get("primary", False))
-        self.is_active: bool = False
         self.auto_contrast: Any = self.cfg.get("auto_contrast", True)
         self.viewer = self.cfg.get("viewer_type", self.viewer)
         # `sampling_rate` is the canonical fps for the camera. Subclasses
@@ -88,30 +95,20 @@ class BaseCamera:
         self.output_path: Optional[str] = None
         self.metadata_path: Optional[str] = None
         self.writer: Any = None
-        # Injected once by HardwareManager.initialize() so the camera can
-        # resolve paths (`config.make_path`) outside the per-run `arm()`.
-        self.config: Optional["ExperimentConfig"] = None
         # MDA gui reads `cam.core` (None for non-mmcore cameras). MMCamera
         # overrides during backend setup; others leave it None.
         self.core: Any = None
         self.camera_device: Any = None
         self._engine = None
-        # Lifecycle timestamps.
-        self._started: Optional[datetime] = None
-        self._stopped: Optional[datetime] = None
         # `image_ready` is a pyqtSignal (or psygnal wrapper) the MDA gui's
         # non-mmcore viewer subscribes to. Subclasses set this when they
         # have a Qt-friendly emitter (OpenCVCamera does directly via
         # `pyqtSignal`; MockFrameProducer composes a `QtImageAdapter`).
         if not hasattr(self, "image_ready"):
             self.image_ready = None
-        # `signals` may already be created by a parent class (e.g.
-        # BaseDataProducer.__init__). Don't clobber if so.
-        if not hasattr(self, "signals"):
-            self.signals = DeviceSignals()
         # Per-instance logger keyed on the actual subclass name + id.
         self.logger = get_logger(
-            f"{type(self).__module__}.{type(self).__name__}[{self.id}]"
+            f"{type(self).__module__}.{type(self).__name__}[{self.device_id}]"
         )
 
     # --- per-run prep ---------------------------------------------------
@@ -121,7 +118,12 @@ class BaseCamera:
         The default body fits both MMCamera (which needs a sequence) and
         OpenCV/Mock (where ``set_sequence`` is a no-op). Subclasses
         override only when they need additional prep.
+
+        ``BaseDevice.arm`` is invoked explicitly (rather than via
+        ``super()``) so the diamond with ``BaseDataProducer`` in mock /
+        playback cameras can't double-arm or skip the lifecycle reset.
         """
+        BaseDevice.arm(self, config)
         self.set_writer(config.make_path)
         self.set_sequence(config.build_sequence)
 
@@ -250,17 +252,13 @@ class BaseCamera:
 
     # --- standard introspection -----------------------------------------
     def status(self) -> Dict[str, Any]:
-        return {
-            "device_id": self.device_id,
-            "device_type": self.device_type,
+        st = BaseDevice.status(self)
+        st.update({
             "backend": self.backend,
-            "is_primary": self.is_primary,
-            "is_active": self.is_active,
             "output_path": self.output_path,
             "metadata_path": self.metadata_path,
-            "started": self._started.isoformat() if self._started else None,
-            "stopped": self._stopped.isoformat() if self._stopped else None,
-        }
+        })
+        return st
 
     @property
     def metadata(self) -> Dict[str, Any]:

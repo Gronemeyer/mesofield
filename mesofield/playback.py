@@ -40,7 +40,7 @@ import uuid
 
 from mesofield import DeviceRegistry
 from mesofield.base import Procedure
-from mesofield.devices.base import BaseDataProducer
+from mesofield.devices.base import BaseDataProducer, BaseDevice
 from mesofield.devices.base_camera import BaseCamera
 from mesofield.utils._logger import get_logger
 
@@ -156,7 +156,7 @@ class _FrameReader:
     """Uniform iterator over a recorded camera output.
 
     Hides the difference between ``tifffile``-readable stacks and
-    ``cv2.VideoCapture``-readable videos so :meth:`PlaybackCamera._run_loop`
+    ``cv2.VideoCapture``-readable videos so :meth:`PlaybackCamera._acquire_loop`
     only writes the timing logic once. Used as a context manager; supports
     ``rewind()`` for the ``loop=True`` mode.
     """
@@ -314,8 +314,6 @@ class PlaybackCamera(BaseCamera, BaseDataProducer):
             self.cfg.get("sampling_rate") or self.cfg.get("fps") or 0.0
         )
 
-        self._stop_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
         self._frame_count: Optional[int] = None
 
         self._qt_image_adapter = None
@@ -346,32 +344,14 @@ class PlaybackCamera(BaseCamera, BaseDataProducer):
         return True
 
     def arm(self, config: "ExperimentConfig") -> None:
-        # Read-only: clear the buffer but skip writer / output_path setup.
+        # Read-only: reset the lifecycle and clear the buffer, but skip
+        # writer / output_path setup.
+        BaseDevice.arm(self, config)
         self.clear_buffer()
 
     def set_writer(self, make_path: Any) -> None:  # noqa: D401
         """No-op: playback never allocates a writer."""
         return None
-
-    def start(self) -> bool:
-        if self._thread is not None and self._thread.is_alive():
-            return False
-        self._stop_event.clear()
-        self._thread = threading.Thread(
-            target=self._run_loop,
-            name=f"PlaybackCamera-{self.device_id}",
-            daemon=True,
-        )
-        self._thread.start()
-        return BaseDataProducer.start(self)
-
-    def stop(self) -> bool:
-        self._stop_event.set()
-        thread = self._thread
-        if thread is not None and thread is not threading.current_thread():
-            thread.join(timeout=2.0)
-        self._thread = None
-        return BaseDataProducer.stop(self)
 
     # ---- live preview contract (abstract on BaseCamera) ----------------
     def snap(self) -> Optional[np.ndarray]:
@@ -393,8 +373,12 @@ class PlaybackCamera(BaseCamera, BaseDataProducer):
     def stop_live(self) -> None:
         self.stop()
 
-    # ---- run loop ------------------------------------------------------
-    def _run_loop(self) -> None:
+    # ---- run loop (BaseDataProducer acquisition scaffold) ---------------
+    # Natural exhaustion of the frames file ends the loop; the scaffold's
+    # wrapper then drives `_finalize`, so `signals.finished` fires (exactly
+    # once) and the Procedure's primary-finished hook works without the
+    # hand-rolled "_emit_finished_if_natural" this class used to carry.
+    def _acquire_loop(self) -> None:
         try:
             with _FrameReader(self._frames_path) as reader:
                 self._frame_count = reader.n_frames
@@ -434,28 +418,8 @@ class PlaybackCamera(BaseCamera, BaseDataProducer):
                     # Re-anchor the clock so the next pass replays at speed.
                     reader.rewind()
                     self._clock.reset()
-        except Exception as exc:
-            self.logger.exception(f"playback loop crashed: {exc}")
         finally:
-            self._emit_finished_if_natural()
             self.logger.debug(f"playback camera {self.device_id} exited")
-
-    def _emit_finished_if_natural(self) -> None:
-        """Emit ``signals.finished`` when the loop exits without a stop call.
-
-        :meth:`stop` already emits via :class:`BaseDataProducer`; we only
-        emit here when the thread ran out of frames on its own, so the
-        :class:`~mesofield.base.Procedure`'s primary-finished hook fires
-        even though nothing explicitly called ``stop()``.
-        """
-        if self._stop_event.is_set():
-            return
-        self.is_active = False
-        self.is_running = False
-        try:
-            self.signals.finished.emit()
-        except Exception:
-            pass
 
     def _effective_timestamps(self, n_pages: int) -> List[float]:
         if self._timestamps and len(self._timestamps) >= n_pages:
@@ -517,8 +481,6 @@ class PlaybackEncoder(BaseDataProducer):
         self._payload_columns: List[str] = []
         self._clock: PlaybackClock = self.cfg.get("clock") or PlaybackClock()
         self._loop: bool = bool(self.cfg.get("loop", False))
-        self._stop_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
 
     # ---- lifecycle -----------------------------------------------------
     def initialize(self) -> bool:
@@ -530,57 +492,29 @@ class PlaybackEncoder(BaseDataProducer):
         return True
 
     def arm(self, config: "ExperimentConfig") -> None:
-        # Read-only: clear buffer, skip make_path.
+        # Read-only: reset the lifecycle and clear the buffer, skip make_path.
+        BaseDevice.arm(self, config)
         self.clear_buffer()
-
-    def start(self) -> bool:
-        if self._thread is not None and self._thread.is_alive():
-            return False
-        self._stop_event.clear()
-        self._thread = threading.Thread(
-            target=self._run_loop,
-            name=f"PlaybackEncoder-{self.device_id}",
-            daemon=True,
-        )
-        self._thread.start()
-        return super().start()
-
-    def stop(self) -> bool:
-        self._stop_event.set()
-        thread = self._thread
-        if thread is not None and thread is not threading.current_thread():
-            thread.join(timeout=2.0)
-        self._thread = None
-        return super().stop()
 
     def save_data(self, path: Optional[str] = None) -> Optional[str]:
         # Read-only.
         return None
 
-    # ---- run loop ------------------------------------------------------
-    def _run_loop(self) -> None:
-        try:
-            if not self._rows:
-                self.logger.warning(f"No rows in {self._csv_path}")
-                return
-            while not self._stop_event.is_set():
-                for ts, payload in self._rows:
-                    if self._stop_event.is_set():
-                        return
-                    if self._clock.sleep_until(ts, self._stop_event):
-                        return
-                    self.record(payload, ts=ts)
-                if not self._loop:
+    # ---- run loop (BaseDataProducer acquisition scaffold) ---------------
+    def _acquire_loop(self) -> None:
+        if not self._rows:
+            self.logger.warning(f"No rows in {self._csv_path}")
+            return
+        while not self._stop_event.is_set():
+            for ts, payload in self._rows:
+                if self._stop_event.is_set():
                     return
-                self._clock.reset()
-        finally:
-            if not self._stop_event.is_set():
-                self.is_active = False
-                self.is_running = False
-                try:
-                    self.signals.finished.emit()
-                except Exception:
-                    pass
+                if self._clock.sleep_until(ts, self._stop_event):
+                    return
+                self.record(payload, ts=ts)
+            if not self._loop:
+                return
+            self._clock.reset()
 
     @property
     def first_timestamp(self) -> Optional[float]:
