@@ -6,20 +6,26 @@ on:
 
 permissions:
   contents: write
+  id-token: write   # OIDC for Trusted Publishing to PyPI
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: pypi
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0   # setuptools_scm needs full history + tags
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      - run: pip install build
-      - run: python -m build
+          python-version: '3.12'
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check dist/*
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
           generate_release_notes: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
