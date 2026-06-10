@@ -88,7 +88,6 @@ class MockEncoderDevice(BaseDataProducer):
         self.sample_interval_s: float = float(
             self.cfg.get("sample_interval_ms", 100)
         ) / 1000.0
-        self._t0: float = 0.0
 
         # Expose the same Qt live-plot signals a real SerialWorker does, so the
         # GUI builds a live SerialWidget for a mock wheel exactly like a real one.
@@ -104,14 +103,12 @@ class MockEncoderDevice(BaseDataProducer):
         except Exception:
             self.logger.debug("Qt adapter unavailable; running headless.")
 
-    def start(self) -> bool:
-        self._t0 = time.monotonic()
-        return super().start()
-
     def _acquire_loop(self) -> None:
         while not self._loop_should_stop():
-            # Pass an elapsed-seconds timestamp so the live trace advances in x.
-            self.record(random.randint(1, 10), ts=time.monotonic() - self._t0)
+            # ts=None -> record() stamps wall time, matching the declared
+            # clock_source ("wall_unix_s") so saved timestamps land inside
+            # the manifest's [started_at, ended_at] window.
+            self.record(random.randint(1, 10))
             self._stop_event.wait(self.sample_interval_s)
 
 

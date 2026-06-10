@@ -12,8 +12,9 @@ import pytest
 from mesofield.base import Procedure, load_procedure_from_config
 
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-SAMPLE_EXPERIMENT = REPO_ROOT / "experiments" / "sample_experiment"
+# Self-contained fixture (experiment.json + procedure.py + hardware.yaml)
+# lives under tests/ so discovery doesn't couple to the demo experiments.
+SAMPLE_EXPERIMENT = Path(__file__).resolve().parent / "sample_experiment"
 
 
 def test_sample_experiment_loads_subclass(monkeypatch) -> None:

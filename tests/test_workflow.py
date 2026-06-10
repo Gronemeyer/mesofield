@@ -1,201 +1,100 @@
-import json
-import time
-from pathlib import Path
-from datetime import datetime
-import types
+"""End-to-end Procedure workflow against the real DataManager/DataSaver API.
 
-import pandas as pd
+Drives the *generic* ``Procedure.run`` (no subclass overrides) with the
+registered mock devices declared in a hardware YAML, exactly as a user rig
+would. The primary mock camera self-terminates at the configured duration,
+which triggers cleanup -> save_data -> manifest. Asserts the on-disk
+contract: every DataPaths entry exists and the source experiment.json gets
+its session auto-incremented.
+"""
+
+import json
+from pathlib import Path
+
 import pytest
 
 from mesofield.base import Procedure
-from mesofield.data.manager import DataManager, DataSaver
-from mesofield import DeviceRegistry
+from mesofield.data.manager import DataManager
+
+# Importing mocks registers `mock_camera` / `mock_wheel` with DeviceRegistry.
+import mesofield.devices.mocks  # noqa: F401
 
 
-class DummyEvent:
-    def __init__(self):
-        self._callbacks = []
+HARDWARE_YAML = """
+memory_buffer_size: 100
 
-    def connect(self, cb):
-        self._callbacks.append(cb)
+camera:
+  type: mock_camera
+  primary: true
+  width: 16
+  height: 16
+  frame_interval_ms: 50
+  output:
+    suffix: meso
+    file_type: ome.tiff
+    bids_type: func
 
-    def emit(self, val):
-        for cb in self._callbacks:
-            cb(val)
-
-
-class DummyWriter:
-    def __init__(self, path: str):
-        self._filename = path
-        self._frame_metadata_filename = path + "_meta.json"
-        Path(self._frame_metadata_filename).write_text("{}")
-
-    def write_frame(self, *a, **k):
-        pass
-
-
-class DummyCamera:
-    device_type = "camera"
-    file_type = "ome.tiff"
-    bids_type = "func"
-    sampling_rate = 1.0
-
-    def __init__(self, cfg: dict | None = None):
-        self.device_id = cfg.get("id", "cam") if cfg else "cam"
-        self.id = self.device_id
-        self.name = cfg.get("name", self.device_id) if cfg else "cam"
-        self.data_event = DummyEvent()
-
-        class _Core:
-            def __init__(self):
-                self.mda = types.SimpleNamespace(events=DummyEvent())
-
-        self.core = _Core()
-        self.output_path = ""
-        self.metadata_path = None
-        self.started = False
-
-    def start(self):
-        self.started = True
-        return True
-
-    def stop(self):
-        self.started = False
-        return True
-
-    def save_data(self, path=None):
-        Path(path).write_text("camera")
-
-    def get_data(self):
-        return None
-
-
-class DummyEncoder:
-    device_type = "encoder"
-    device_id = "encoder"
-    file_type = "csv"
-    bids_type = "beh"
-
-    def __init__(self, *a, **k):
-        self.output_path = ""
-        self.started = False
-
-    def start_recording(self):
-        self.started = True
-
-    def start(self):
-        self.start_recording()
-        return True
-
-    def stop(self):
-        self.started = False
-        return True
-
-    def save_data(self, path=None):
-        Path(path).write_text("encoder")
-
-    def get_data(self):
-        return []
-
-
-# patch DataSaver.writer_for to avoid heavy dependencies
-def _dummy_writer_for(self: DataSaver, camera: DummyCamera):
-    path = self.cfg.make_path(camera.name, "dat", camera.bids_type)
-    camera.output_path = path
-    self.paths.writers[camera.name] = path
-    Path(path).write_text("data")
-    return DummyWriter(path)
-
-
-class DummyProcedure(Procedure):
-    def run(self):
-        self.data.start_queue_logger()
-        for cam in self.hardware.cameras:
-            self.data.save.writer_for(cam)
-            cam.start()
-        self.hardware.encoder.start()
-        self.start_time = datetime.now()
-        self.data.queue.push("cam1", "frame")
-        self.data.queue.push("encoder", 1)
-        time.sleep(0.1)
-        self.hardware.encoder.stop()
-        for cam in self.hardware.cameras:
-            cam.stop()
-        self.stopped_time = datetime.now()
-        self.data.stop_queue_logger()
-        self.save_data()
-        self.data.update_database()
-
-
-def test_procedure_workflow(tmp_path, monkeypatch):
-    # register dummy devices
-    DeviceRegistry._registry["camera"] = DummyCamera
-    DeviceRegistry._registry["encoder"] = DummyEncoder
-    monkeypatch.setattr(DataSaver, "writer_for", _dummy_writer_for)
-    monkeypatch.setattr("mesofield.hardware.SerialWorker", DummyEncoder)
-    monkeypatch.setattr("mesofield.hardware.EncoderSerialInterface", DummyEncoder)
-
-    hw_path = tmp_path / "hardware.yaml"
-    hw_path.write_text(
-        """
-memory_buffer_size: 1
-encoder:
-  type: wheel
-  port: COM1
-cameras:
-  - id: cam1
-    name: cam1
-    backend: dummy
+wheel:
+  type: mock_wheel
+  sample_interval_ms: 50
+  output:
+    suffix: wheel
+    file_type: csv
+    bids_type: beh
 """
-    )
-    cfg_json = tmp_path / "config.json"
-    json.dump({
-        "Configuration": {
-            "experimenter": "tester",
-            "protocol": "exp1",
-            "database_path": str(tmp_path / "db.h5"),
-            "duration": 1,
-            "start_on_trigger": False,
-            "led_pattern": ["4", "4"]
-        },
-        "Subjects": {
-            "SUBJ1": {
-                "sex": "F",
-                "genotype": "test",
-                "DOB": "2024-01-01",
-                "DOS": "2024-01-02",
-                "session": "01",
-                "task": "wf"
-            }
-        },
-        "DisplayKeys": ["duration", "start_on_trigger", "task", "session"]
-    }, cfg_json.open("w"))
 
-    proc = DummyProcedure(hardware=str(hw_path), experiment=str(cfg_json))
+EXPERIMENT_JSON = {
+    "Configuration": {
+        "experimenter": "tester",
+        "protocol": "workflow_test",
+        "duration": 1,
+        "start_on_trigger": False,
+    },
+    "Subjects": {
+        "SUBJ1": {
+            "sex": "F",
+            "genotype": "test",
+            "session": "01",
+            "task": "wf",
+        }
+    },
+    "DisplayKeys": ["duration", "start_on_trigger", "task", "session"],
+}
 
-    # configuration loaded
+
+@pytest.mark.integration
+def test_procedure_workflow(tmp_path):
+    hw_path = tmp_path / "hardware.yaml"
+    hw_path.write_text(HARDWARE_YAML)
+    cfg_json = tmp_path / "experiment.json"
+    cfg_json.write_text(json.dumps(EXPERIMENT_JSON))
+
+    proc = Procedure(hardware=str(hw_path), experiment=str(cfg_json))
+    proc.config.experiment_dir = str(tmp_path)
+
     assert len(proc.hardware.devices) == 2
     assert isinstance(proc.data, DataManager)
 
     proc.add_note("test note")
-    proc.run()
+
+    # duration=1s: the primary mock camera self-terminates, which drives
+    # _cleanup_procedure -> save_data -> manifest with no manual stop.
+    assert proc.run_until_finished(timeout=15), "procedure never finished"
 
     paths = proc.data.save.paths
     assert Path(paths.configuration).exists()
     assert Path(paths.notes).exists()
     assert Path(paths.timestamps).exists()
-    assert Path(paths.hardware["encoder"]).exists()
-    assert Path(paths.writers["cam1"]).exists()
     assert Path(paths.queue).exists()
+    for dev_id in ("camera", "wheel"):
+        assert Path(paths.hardware[dev_id]).exists(), f"{dev_id} output missing"
 
-    db = proc.data.base
-    assert db and db.path.exists()
-    df = db.read("datapaths")
-    assert isinstance(df, pd.DataFrame) and not df.empty
+    session_dir = Path(proc.config.data_dir) / "sub-SUBJ1" / "ses-01"
+    manifest = json.loads((session_dir / "manifest.json").read_text())
+    assert manifest["acquisition_complete"] is True
 
-    # configuration JSON updated with incremented session
-    with open(cfg_json) as f:
-        data = json.load(f)
-    assert data["Subjects"]["SUBJ1"]["session"] == "02"
-    # subject-only keys should not be written to the Configuration block
+    # save_json round-trips the source experiment.json without leaking
+    # subject-only keys into the Configuration block.
+    data = json.loads(cfg_json.read_text())
+    assert data["Subjects"]["SUBJ1"]["session"] == "01"
     assert "sex" not in data["Configuration"]

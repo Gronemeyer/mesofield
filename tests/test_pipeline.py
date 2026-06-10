@@ -53,6 +53,8 @@ import shutil
 import sys
 import tempfile
 import traceback
+
+import pytest
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -92,7 +94,7 @@ except Exception:
 
 
 REPO_ROOT = Path(__file__).resolve().parent
-MESOFIELD_DEMO = Path("/Users/jakegronemeyer/dev/mesofield/experiments/pipeline_demo")
+MESOFIELD_DEMO = Path(__file__).resolve().parent.parent / "experiments" / "pipeline_demo"
 
 
 # ---------------------------------------------------------------------------
@@ -156,9 +158,6 @@ class _Expectations:
             "height": camera["height"],
             "frame_interval_ms": camera["frame_interval_ms"],
         }
-
-
-EXP = _Expectations(MESOFIELD_DEMO)
 
 
 # ---------------------------------------------------------------------------
@@ -519,6 +518,9 @@ def run_checks(
     table: pd.DataFrame,
     runtime: dict,
 ) -> CheckTracker:
+    # Snapshot of the demo's declared inputs; built here (not at module
+    # level) so a malformed demo folder fails a test, never collection.
+    EXP = _Expectations(MESOFIELD_DEMO)
     tracker = CheckTracker()
     acq_path = session_root / "manifest.json"
 
@@ -957,23 +959,37 @@ def _ingest_forged_manifest(session_root: Path, manifest_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+def _run_pipeline(workdir: Path) -> CheckTracker:
+    """Acquisition -> processing -> ingest -> consume, returning the tracker."""
+    session_root, runtime = run_mesofield(workdir / "experiment")
+    acq = AcquisitionManifest.read(session_root / "manifest.json")
+    proc_sidecar_path, _ = run_processor(session_root, acq)
+    pkl_path, ds_manifest_path, acq, proc_manifests, ds = ingest_with_datakit(session_root)
+    table = load_with_consumer(pkl_path)
+
+    print("\n--- first 3 rows ---")
+    print(table.head(3))
+
+    return run_checks(
+        session_root, acq, proc_manifests, ds, pkl_path, ds_manifest_path,
+        proc_sidecar_path, table, runtime,
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.slow
+def test_pipeline_end_to_end(tmp_path: Path) -> None:
+    """The full acquisition->analysis contract, as a real pytest test."""
+    tracker = _run_pipeline(tmp_path)
+    tracker.summary()
+    assert not tracker.failed, [label for label, _tb in tracker.failed]
+
+
 def main() -> int:
     print(f"=== Pipeline smoke test (mesokit-schema {SCHEMA_VERSION}) ===")
     tmp = Path(tempfile.mkdtemp(prefix="pipeline_demo_"))
     try:
-        session_root, runtime = run_mesofield(tmp / "experiment")
-        acq = AcquisitionManifest.read(session_root / "manifest.json")
-        proc_sidecar_path, _ = run_processor(session_root, acq)
-        pkl_path, ds_manifest_path, acq, proc_manifests, ds = ingest_with_datakit(session_root)
-        table = load_with_consumer(pkl_path)
-
-        print("\n--- first 3 rows ---")
-        print(table.head(3))
-
-        tracker = run_checks(
-            session_root, acq, proc_manifests, ds, pkl_path, ds_manifest_path,
-            proc_sidecar_path, table, runtime,
-        )
+        tracker = _run_pipeline(tmp)
         rc = tracker.summary()
         print(f"\nArtifacts kept at: {tmp}")
         return rc

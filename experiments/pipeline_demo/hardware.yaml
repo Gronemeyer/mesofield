@@ -1,13 +1,12 @@
 # Headless demo rig for the mesokit-schema pipeline test.
 #
 # Two synthetic devices, no real serial or pymmcore hardware:
-#   - mock_wheel: BaseSerialDevice subclass producing CSV samples
+#   - mock_wheel: MockEncoderDevice producing CSV samples
 #   - mock_camera: BaseDataProducer subclass writing a real OME-TIFF
 #                  stack + a _frame_metadata.json sidecar
 #
-# The wheel is primary; its signals.finished would normally trigger
-# cleanup, but since the mock devices run forever, the procedure uses
-# a wall-clock `duration` cap (see experiment.json) to call cleanup.
+# The camera is primary; the procedure also arms a wall-clock
+# `duration` cap (see experiment.json) that calls cleanup.
 memory_buffer_size: 1000
 
 
@@ -21,3 +20,13 @@ camera:
     suffix: meso
     file_type: ome.tiff
     bids_type: func
+
+wheel:
+  type: mock_wheel        # registered by procedure.py at import time
+  sample_interval_ms: 100
+  cpr: 2400
+  diameter_mm: 80
+  output:
+    suffix: wheel
+    file_type: csv
+    bids_type: beh

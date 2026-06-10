@@ -1,0 +1,17 @@
+{
+    "Configuration": {
+        "experimenter": "developer",
+        "protocol": "DEV",
+        "duration": 10,
+        "start_on_trigger": false
+    },
+    "procedure_file": "procedure.py",
+    "procedure_class": "SampleProcedure",
+    "Subjects": {
+        "STREHAB07": {
+            "session": "10",
+            "task": "widefield"
+        }
+    },
+    "DisplayKeys": ["subject", "session", "task", "experimenter", "protocol", "duration"]
+}
