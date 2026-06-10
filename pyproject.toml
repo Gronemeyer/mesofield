@@ -107,6 +107,7 @@ local_scheme = "no-local-version"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]   # makes _helpers importable at module scope
 addopts = "-ra"
 markers = [
     "hardware: requires physical hardware (cameras, MicroManager, serial ports); gated by MESOFIELD_HARDWARE_TESTS=1",

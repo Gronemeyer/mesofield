@@ -17,6 +17,8 @@ from typing import Optional, Tuple
 
 import pytest
 
+from _helpers import MockSerial as _MockSerial
+
 from mesofield.devices.base import (
     BaseDataProducer,
     BaseDevice,
@@ -145,27 +147,6 @@ def test_arm_clears_buffer_and_calls_make_path() -> None:
 # ---------------------------------------------------------------------------
 # BaseSerialDevice
 # ---------------------------------------------------------------------------
-
-
-class _MockSerial:
-    """Minimal stand-in for ``serial.Serial`` for unit tests."""
-
-    def __init__(self, lines=()):
-        self._lines = list(lines)
-        self.written: list = []
-
-    def readline(self) -> bytes:
-        return self._lines.pop(0) if self._lines else b""
-
-    def write(self, data: bytes) -> int:
-        self.written.append(data)
-        return len(data)
-
-    def reset_input_buffer(self) -> None:
-        pass
-
-    def close(self) -> None:
-        pass
 
 
 class _IntParser(BaseSerialDevice):

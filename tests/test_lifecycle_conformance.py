@@ -20,63 +20,18 @@ guarantees by passing this file, not by its author re-reading docstrings.
 
 from __future__ import annotations
 
-import threading
 import time
 from typing import Any, Optional
 
 import pytest
 
+# StubConfig (ExperimentConfig double) and SignalCounter (emission recorder)
+# are shared infrastructure; FakeSerial below is specialized to this suite
+# (it can fail on demand to exercise the dead-port path).
+from _helpers import SignalCounter, StubConfig
+
 from mesofield.devices.base import BaseSerialDevice
 from mesofield.devices.mocks import MockEncoderDevice, MockFrameProducer
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-class StubConfig:
-    """Minimal stand-in for ExperimentConfig: duration + path factory."""
-
-    def __init__(self, tmp_path, duration: float = 0.25):
-        self._tmp = tmp_path
-        self.sequence_duration = duration
-
-    def make_path(self, name, ext, bids_type=None, *_args):
-        return str(self._tmp / f"{name}.{ext}")
-
-    @staticmethod
-    def build_sequence(_device):
-        return None
-
-
-class SignalCounter:
-    """Counts DeviceSignals emissions and exposes wait-able events."""
-
-    def __init__(self, device):
-        self.started = 0
-        self.finished = 0
-        self.errors: list[BaseException] = []
-        self.finished_event = threading.Event()
-        # Keep refs: psygnal holds strong refs to non-method callables,
-        # but be explicit about lifetime anyway.
-        self._cbs = [self._on_started, self._on_finished, self._on_error]
-        device.signals.started.connect(self._on_started)
-        device.signals.finished.connect(self._on_finished)
-        device.signals.error.connect(self._on_error)
-
-    def _on_started(self):
-        self.started += 1
-
-    def _on_finished(self):
-        self.finished += 1
-        self.finished_event.set()
-
-    def _on_error(self, exc):
-        self.errors.append(exc)
-
-    def wait_finished(self, timeout: float = 5.0) -> bool:
-        return self.finished_event.wait(timeout)
 
 
 class CrashingEncoder(MockEncoderDevice):

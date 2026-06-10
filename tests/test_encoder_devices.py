@@ -6,27 +6,10 @@ import csv
 import time
 from pathlib import Path
 
+from _helpers import MockSerial as _MockSerial
+
 from mesofield.devices.encoder import SerialWorker
 from mesofield.devices.treadmill import EncoderSerialInterface
-
-
-class _MockSerial:
-    def __init__(self, lines=()):
-        self._lines = list(lines)
-        self.written: list = []
-
-    def readline(self) -> bytes:
-        return self._lines.pop(0) if self._lines else b""
-
-    def write(self, data: bytes) -> int:
-        self.written.append(data)
-        return len(data)
-
-    def reset_input_buffer(self) -> None:
-        pass
-
-    def close(self) -> None:
-        pass
 
 
 def _drain(dev, n: int, timeout: float = 1.0) -> None:
