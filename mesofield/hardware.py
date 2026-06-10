@@ -207,16 +207,23 @@ class HardwareManager():
                 continue
             Cls = DeviceRegistry.get_class(type_key)
             if Cls is None:
-                self.logger.warning(
-                    f"YAML stanza '{key}' has type='{type_key}' but no class "
-                    f"is registered for it; skipping."
+                self.logger.error(
+                    f"YAML stanza '{key}' has type='{type_key}' but no device "
+                    f"class resolved for it. Fix one of:\n"
+                    f"  - register it before launch: "
+                    f"register_device(YourClass, '{type_key}')\n"
+                    f"  - or use an import string as the type: "
+                    f"type: your_module:YourClass\n"
+                    f"  - or @DeviceRegistry.register('{type_key}') on the class "
+                    f"and ensure its module is imported.\n"
+                    f"Skipping '{key}'."
                 )
                 continue
             cfg = dict(params)
             cfg.setdefault("id", key)
             try:
                 device = Cls(cfg)
-            except Exception as exc:
+            except RuntimeError as exc:
                 self.logger.error(f"Failed to construct '{key}' ({type_key}): {exc}")
                 continue
             self._apply_output_args(device, params.get("output", {}), key)
@@ -272,9 +279,8 @@ class HardwareManager():
             try:
                 if hasattr(device, "initialize"):
                     device.initialize()
-            except Exception as exc:
+            except RuntimeError as exc:
                 self.logger.error(f"initialize() failed for '{dev_id}': {exc}")
-                continue
             self.devices[dev_id] = device
             setattr(self, dev_id, device)
             if getattr(device, "device_type", None) == "camera" and device not in cams:
@@ -378,7 +384,7 @@ class HardwareManager():
                 try:
                     cam.core.unloadAllDevices()
                 except Exception as e:
-                    self.logger.error(f"Error unloading devices for {cam.id}: {e}")
+                    self.logger.error(f"Error unloading devices for {cam.device_id}: {e}")
         self.devices.clear()
         self.cameras = ()
         self.encoder = None
@@ -471,8 +477,8 @@ class HardwareManager():
             cam = CameraClass(cfg)
             cam.is_primary = bool(cfg.get("primary", False))
             self._apply_output_args(cam, cfg.get('output', {}), cam.name)
-            setattr(self, cam.id, cam)
-            self.devices[cam.id] = cam
+            setattr(self, cam.device_id, cam)
+            self.devices[cam.device_id] = cam
             cams.append(cam)
         self.cameras = tuple(cams)
 
