@@ -175,15 +175,17 @@ class ExperimentConfig(ConfigRegister):
         self._register_default_parameters()
         self.logger.debug("Registered default parameters")
 
-        # Initialize hardware
+        # Data output directory defaults to the current working directory;
+        # load_json (or the GUI picker) overrides it. It is intentionally NOT
+        # derived from the hardware file's location -- a rig YAML may live in a
+        # shared rig store, and data must never land there.
+        self.experiment_dir = os.getcwd()
+
+        # Initialize hardware. The rig (hardware.yaml) is the anchor; experiment
+        # params are loaded separately and never touch hardware state.
         self.hardware: HardwareManager
-        self._hardware_yaml_path: Optional[str] = None
-        self._hardware_path_locked: bool = False
         try:
-            hardware_path, locked = self._resolve_hardware_path(path)
-            self._hardware_yaml_path = hardware_path
-            self._hardware_path_locked = locked
-            self.hardware = HardwareManager(hardware_path)
+            self.hardware = HardwareManager(self._resolve_hardware_path(path))
         except Exception as e:
             self.logger.warning(f"Hardware config not available: {e}. Starting in default state.")
             self.hardware = HardwareManager()
@@ -208,24 +210,20 @@ class ExperimentConfig(ConfigRegister):
             value = self._normalize_led_pattern(value)
         super().set(key, value)
 
-    def _resolve_hardware_path(self, path: Optional[str]) -> tuple[str, bool]:
-        """Resolve the hardware YAML path.
+    def _resolve_hardware_path(self, path: Optional[str]) -> Optional[str]:
+        """Normalize a hardware path to a YAML file (or ``None``).
 
-        Returns (hardware_path, locked) where locked indicates an explicit file was provided.
+        A file path is used as-is; a directory resolves to
+        ``<dir>/hardware.yaml``; ``None`` stays ``None``. This never touches
+        ``experiment_dir`` -- the rig location does not dictate where data is
+        written.
         """
-        if path:
-            abs_path = os.path.abspath(path)
-            if os.path.isdir(abs_path):
-                self.experiment_dir = abs_path
-                return os.path.join(abs_path, "hardware.yaml"), False
-            # treat as explicit file path
-            self.experiment_dir = os.path.dirname(abs_path)
-            return abs_path, True
-
-        # no path provided: resolve from experiment_dir (or cwd)
-        if not self.experiment_dir:
-            self.experiment_dir = os.getcwd()
-        return os.path.join(self.experiment_dir, "hardware.yaml"), False
+        if not path:
+            return None
+        abs_path = os.path.abspath(path)
+        if os.path.isdir(abs_path):
+            return os.path.join(abs_path, "hardware.yaml")
+        return abs_path
 
     def load_hardware(self, yaml_path: str) -> None:
         """Load (or reload) a hardware YAML configuration.
@@ -236,8 +234,6 @@ class ExperimentConfig(ConfigRegister):
         by :class:`~mesofield.base.Procedure.initialize_hardware`).
         """
         abs_path = os.path.abspath(yaml_path)
-        self._hardware_yaml_path = abs_path
-        self._hardware_path_locked = True
         self.hardware = HardwareManager(abs_path)
         self.logger.info(
             "Loaded hardware config from: "
@@ -507,16 +503,10 @@ class ExperimentConfig(ConfigRegister):
         self._json_file_path = file_path_str #store the json filepath
         json_dir = os.path.dirname(os.path.abspath(file_path_str))
         if json_dir:
+            # Experiment params live beside their JSON; point data output there.
+            # Hardware is owned by the constructor/load_hardware and is never
+            # rebuilt as a side effect of loading parameters.
             self.experiment_dir = json_dir
-            if not self._hardware_path_locked:
-                try:
-                    hardware_path = os.path.join(self.experiment_dir, "hardware.yaml")
-                    if hardware_path != self._hardware_yaml_path:
-                        self._hardware_yaml_path = hardware_path
-                        self.hardware = HardwareManager(hardware_path)
-                except Exception as e:
-                    self.logger.error(f"Failed to reinitialize hardware: {e}")
-                    raise
         self._apply_config(loaded_config)
 
     def load_dict(self, data: Any) -> None:
@@ -649,6 +639,34 @@ class ExperimentConfig(ConfigRegister):
                 json.dump(data, f, indent=4)
         except Exception as e:
             self.logger.error(f"Failed to update configuration JSON: {e}")
+
+    def save_json_as(self, path: str) -> None:
+        """Write the current configuration to a *new* JSON file and adopt it.
+
+        Unlike :meth:`save_json` (which edits an existing file in place), this
+        serializes the full in-memory state -- registry values, subjects, and
+        DisplayKeys -- into the ``Configuration`` / ``Subjects`` / ``DisplayKeys``
+        shape, then points ``_json_file_path`` at the new file so later saves
+        land there. Lets the GUI author an experiment.json from a hardware-only
+        session.
+        """
+        data = {
+            "Configuration": self.items(),
+            "Subjects": self.subjects,
+            "DisplayKeys": self.display_keys or [],
+        }
+        abs_path = os.path.abspath(path)
+        try:
+            with open(abs_path, "w") as f:
+                json.dump(data, f, indent=4)
+        except Exception as e:
+            self.logger.error(f"Failed to write configuration JSON: {e}")
+            raise
+        self._json_file_path = abs_path
+        self.logger.info(
+            "Wrote experiment configuration to: "
+            f"{hyperlink(abs_path, os.path.basename(abs_path))}"
+        )
 
     def select_subject(self, subject_id: str) -> None:
         """Apply subject-specific parameters from ``self.subjects``."""

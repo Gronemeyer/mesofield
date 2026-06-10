@@ -171,7 +171,7 @@ cameras:
         "DisplayKeys": ["duration", "start_on_trigger", "task", "session"]
     }, cfg_json.open("w"))
 
-    proc = DummyProcedure(str(cfg_json))
+    proc = DummyProcedure(hardware=str(hw_path), experiment=str(cfg_json))
 
     # configuration loaded
     assert len(proc.hardware.devices) == 2

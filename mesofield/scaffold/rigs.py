@@ -82,6 +82,25 @@ def new_rig(name: str, *, force: bool = False) -> Path:
     return dst
 
 
+def save_rig(name: str, doc: dict, *, force: bool = False) -> Path:
+    """Serialize a builder-assembled mapping into the store under ``name``.
+
+    The single write path used by the GUI hardware builder. The mapping is
+    dumped to YAML and re-parsed before it lands in the store, so a malformed
+    document can never be saved as a canonical rig.
+    """
+    text = yaml.safe_dump(doc, sort_keys=False, default_flow_style=False)
+    yaml.safe_load(text)  # validate it round-trips; result intentionally unused
+
+    dst = rig_path(name)
+    if dst.exists() and not force:
+        raise FileExistsError(
+            f"Rig {name!r} already exists at {dst}. Pass force=True to overwrite."
+        )
+    dst.write_text(text, encoding="utf-8")
+    return dst
+
+
 def remove_rig(name: str) -> None:
     """Delete a rig from the store."""
     _resolve_existing(name).unlink()

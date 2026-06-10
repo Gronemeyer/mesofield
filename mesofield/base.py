@@ -109,7 +109,7 @@ class Procedure:
     # is left untouched.
     playback: bool = False
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, hardware: Optional[str] = None, experiment: Optional[str] = None):
         # Initialize the processor registry before anything else so the
         # ``__setattr__`` hook can run safely from the first assignment on.
         # We bypass the hook itself with object.__setattr__ to avoid the
@@ -121,18 +121,18 @@ class Procedure:
         self.events.procedure_finished.connect(self._finished_event.set)
         self.events.procedure_error.connect(lambda _msg: self._finished_event.set())
 
+        # The rig (hardware.yaml) is the anchor; experiment params are optional
+        # and never touch hardware state.
         self.config: ExperimentConfig
-        self._config_path = config_path
-        experiment_dir = os.path.dirname(os.path.abspath(config_path)) if config_path else None
-        self.config = ExperimentConfig(experiment_dir)
+        self.config = ExperimentConfig(hardware)
 
         # Scripted config: a subclass may declare parameters in Python
         # (a dataclass or mapping) instead of an experiment.json file.
         config_data = self.define_config()
         if config_data is not None:
             self.config.load_dict(config_data)
-        elif config_path and config_path.endswith(".json"):
-            self.config.load_json(config_path)
+        elif experiment:
+            self.config.load_json(experiment)
 
         # Scripted hardware: a subclass may construct device objects directly
         # instead of relying on a hardware.yaml file.
@@ -191,26 +191,18 @@ class Procedure:
             self.config.hardware.deinitialize()
             raise
 
-    def setup_configuration(self, json_config: Optional[str]) -> None:
-        """Load a JSON configuration into the existing :class:`ExperimentConfig`."""
-        if json_config:
-            self.config.load_json(json_config)
-            self.config.hardware._configure_engines(self.config)
+    def load_config(self, hardware: Optional[str] = None,
+                    experiment: Optional[str] = None) -> None:
+        """Hot-load a hardware YAML and/or experiment JSON into the live config.
 
-    def load_config(self, json_path: Optional[str] = None,
-                    hardware_yaml_path: Optional[str] = None) -> None:
-        """Hot-load an experiment configuration and/or hardware YAML."""
-        if hardware_yaml_path:
-            self.config.load_hardware(hardware_yaml_path)
-        elif json_path:
-            candidate = os.path.join(
-                os.path.dirname(os.path.abspath(json_path)), "hardware.yaml"
-            )
-            if os.path.isfile(candidate):
-                self.config.load_hardware(candidate)
-
-        if json_path:
-            self.config.load_json(json_path)
+        The two inputs are independent: loading experiment params never touches
+        hardware. Callers pass explicit paths (the GUI wizard resolves them from
+        its pickers).
+        """
+        if hardware:
+            self.config.load_hardware(hardware)
+        if experiment:
+            self.config.load_json(experiment)
 
         self.protocol = self.config.get("protocol", "default_experiment")
         self.experimenter = self.config.get("experimenter", "researcher")
@@ -620,48 +612,93 @@ class Procedure:
 # ----------------------------------------------------------------------
 # Procedure discovery
 
-def load_procedure_from_config(config_path: str) -> "Procedure":
-    """Instantiate the right :class:`Procedure` subclass for a given JSON.
+def _resolve_target(
+    target: Optional[str],
+) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """Map a launch *target* to ``(hardware_yaml, experiment_json, procedure_py)``.
 
-    The experiment JSON may declare two optional fields:
+    The single place that owns the file-discovery convention:
 
-    ``procedure_file``
-        Path to a Python file containing the subclass.  Relative paths are
-        resolved against the JSON's directory.
-    ``procedure_class``
-        Name of the class to import from ``procedure_file``.
+    - ``None``               -> nothing (default state)
+    - ``*.yaml`` / ``*.yml``  -> hardware only
+    - ``*.py``               -> scripted Procedure subclass (params/hardware via ``define_*``)
+    - ``*.json``             -> experiment params + sibling ``hardware.yaml`` if present
+    - directory              -> ``hardware.yaml`` and/or ``experiment.json`` found inside
+    """
+    if not target:
+        return None, None, None
+    p = Path(target)
+    ext = p.suffix.lower()
+    if ext in (".yaml", ".yml"):
+        return target, None, None
+    if ext == ".py":
+        return None, None, target
+    if ext == ".json":
+        sibling = p.parent / "hardware.yaml"
+        return (str(sibling) if sibling.is_file() else None), target, None
+    if p.is_dir():
+        hw = p / "hardware.yaml"
+        exp = p / "experiment.json"
+        return (
+            str(hw) if hw.is_file() else None,
+            str(exp) if exp.is_file() else None,
+            None,
+        )
+    return None, None, None
 
-    When either field is missing, a base :class:`Procedure` is returned.
+
+def load_procedure_from_config(target: Optional[str]) -> "Procedure":
+    """Build the right :class:`Procedure` for a launch *target*.
+
+    ``target`` may be a ``hardware.yaml``, an ``experiment.json``, a scripted
+    ``procedure.py``, an experiment directory, or ``None``. Discovery of the
+    hardware/experiment pair is delegated to :func:`_resolve_target`.
+
+    When the experiment JSON declares ``procedure_file`` + ``procedure_class``,
+    that subclass is imported and used; otherwise a base :class:`Procedure`.
+    """
+    hardware, experiment, procedure_py = _resolve_target(target)
+
+    if procedure_py:
+        return _load_procedure_from_py(procedure_py)
+
+    cls: Type[Procedure] = Procedure
+    if experiment:
+        declared = _load_declared_procedure_class(experiment)
+        if declared is not None:
+            cls = declared
+
+    return cls(hardware=hardware, experiment=experiment)
+
+
+def _load_declared_procedure_class(
+    experiment_json: str,
+) -> Optional[Type["Procedure"]]:
+    """Import the :class:`Procedure` subclass declared by ``procedure_file`` /
+    ``procedure_class`` in an experiment JSON, or ``None`` when not declared.
+
     The user file is loaded via :func:`importlib.util.spec_from_file_location`
     so ``experiments/`` does not need to be on ``sys.path``.
     """
-    if not config_path or not os.path.isfile(config_path):
-        return Procedure(config_path)
-
-    # A scripted procedure: config_path points straight at a Python file that
-    # defines a Procedure subclass (with define_config / define_hardware).
-    if config_path.endswith(".py"):
-        return _load_procedure_from_py(config_path)
-
     try:
-        with open(config_path, "r", encoding="utf-8") as fh:
+        with open(experiment_json, "r", encoding="utf-8") as fh:
             cfg = json.load(fh)
     except Exception:
-        return Procedure(config_path)
+        return None
 
     proc_file = cfg.get("procedure_file")
     proc_class = cfg.get("procedure_class")
     if not proc_file or not proc_class:
-        return Procedure(config_path)
+        return None
 
     # Resolve relative paths against the JSON's directory
-    json_dir = os.path.dirname(os.path.abspath(config_path))
+    json_dir = os.path.dirname(os.path.abspath(experiment_json))
     if not os.path.isabs(proc_file):
         proc_file = os.path.join(json_dir, proc_file)
 
     if not os.path.isfile(proc_file):
         raise FileNotFoundError(
-            f"procedure_file declared in {config_path} not found: {proc_file}"
+            f"procedure_file declared in {experiment_json} not found: {proc_file}"
         )
 
     mod_name = f"mesofield_user_procedure_{uuid.uuid4().hex}"
@@ -674,15 +711,12 @@ def load_procedure_from_config(config_path: str) -> "Procedure":
 
     cls = getattr(module, proc_class, None)
     if cls is None:
-        raise AttributeError(
-            f"Class '{proc_class}' not found in {proc_file}"
-        )
+        raise AttributeError(f"Class '{proc_class}' not found in {proc_file}")
     if not (isinstance(cls, type) and issubclass(cls, Procedure)):
         raise TypeError(
             f"{proc_class} in {proc_file} must be a subclass of mesofield.base.Procedure"
         )
-
-    return cls(config_path)
+    return cls
 
 
 def _load_procedure_from_py(py_path: str) -> "Procedure":
@@ -690,9 +724,9 @@ def _load_procedure_from_py(py_path: str) -> "Procedure":
 
     The class is selected from a module-level ``PROCEDURE`` attribute when
     present, otherwise the single :class:`Procedure` subclass *defined in*
-    that file. The ``.py`` path is passed as ``config_path`` so the
-    procedure's ``experiment_dir`` resolves to the file's directory; the
-    ``define_config`` hook supplies the actual parameters.
+    that file. The instance's ``experiment_dir`` is set to the script's
+    directory so data lands beside it; the ``define_config`` /
+    ``define_hardware`` hooks supply the actual parameters and devices.
     """
     abs_path = os.path.abspath(py_path)
     mod_name = f"mesofield_user_procedure_{uuid.uuid4().hex}"
@@ -729,20 +763,12 @@ def _load_procedure_from_py(py_path: str) -> "Procedure":
         raise TypeError(
             f"{cls!r} in {abs_path} must be a subclass of mesofield.base.Procedure"
         )
-    return cls(abs_path)
-
-
-# Factory function for creating procedures
-def create_procedure(
-    procedure_class: Type[Procedure],
-    config_path: Optional[str],
-    **custom_parameters: Any,
-) -> Procedure:
-    """Factory function to create procedure instances."""
-    procedure = procedure_class(config_path)
-    for key, value in custom_parameters.items():
-        procedure.config.set(key, value)
-    return procedure
+    proc = cls()
+    # Scripted procedures supply params/hardware via define_*; default their
+    # data output beside the script rather than the current directory.
+    proc.config.experiment_dir = os.path.dirname(abs_path)
+    proc.data_dir = proc.config.data_dir
+    return proc
 
 
 # Legacy constants for backward compatibility

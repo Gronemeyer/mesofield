@@ -209,8 +209,8 @@ def _procedure_py(protocol: str) -> str:
         '\n'
         'To run::\n'
         '\n'
-        '    mesofield launch experiment.json     # GUI\n'
-        '    python -m experiment_script          # headless (see __main__)\n'
+        '    mesofield launch .                   # GUI (rig + params from this dir)\n'
+        '    python procedure.py                  # headless (see __main__)\n'
         '"""\n'
         '\n'
         'from __future__ import annotations\n'
@@ -266,8 +266,11 @@ def _procedure_py(protocol: str) -> str:
         '    """Run headless: `python procedure.py`."""\n'
         '    import sys\n'
         '    from pathlib import Path\n'
-        '    cfg = Path(__file__).parent / "experiment.json"\n'
-        '    proc = MyProcedure(str(cfg))\n'
+        '    here = Path(__file__).parent\n'
+        '    proc = MyProcedure(\n'
+        '        hardware=str(here / "hardware.yaml"),\n'
+        '        experiment=str(here / "experiment.json"),\n'
+        '    )\n'
         '    finished = proc.run_until_finished(timeout=30.0)\n'
         '    sys.exit(0 if finished else 1)\n'
         '\n'
@@ -367,11 +370,11 @@ def _readme(protocol: str, dir_name: str) -> str:
         "\n"
         "## Layout\n"
         "\n"
-        "- `experiment.json` — session/protocol/duration; subjects.\n"
-        "- `hardware.yaml` — device stanzas. Each `type:` value names a\n"
-        "  registered DataProducer class.\n"
+        "- `hardware.yaml` — device stanzas (the rig; all you need to launch).\n"
+        "  Each `type:` value names a registered DataProducer class.\n"
+        "- `experiment.json` — optional session/protocol/duration; subjects.\n"
         "- `procedure.py` — the `MyProcedure(Procedure)` subclass. Run with\n"
-        "  `python procedure.py` (headless) or `mesofield launch experiment.json`.\n"
+        "  `python procedure.py` (headless) or `mesofield launch .` (GUI).\n"
         "- `devices/thermal_example.py` — annotated template for adding a\n"
         "  custom hardware device. Delete it when you no longer need it.\n"
         "\n"
