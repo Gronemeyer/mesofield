@@ -74,71 +74,11 @@ def launch(config):
     parameters can be sideloaded or generated from the Configuration Wizard.
     When omitted, Mesofield opens in a default state and the wizard is shown.
     """
-    import time
-
-    from PyQt6.QtWidgets import QApplication, QSplashScreen
-    from PyQt6.QtGui import QPixmap, QPainter, QFont
-    from PyQt6.QtCore import Qt
-    from PyQt6.QtGui import QColor, QRadialGradient
-    from PyQt6.QtGui import QIcon
-
-    from mesofield.gui.maingui import MainWindow
-    from mesofield.gui import theme
+    from mesofield.gui.maingui import run_gui
     from mesofield.base import load_procedure_from_config
 
-    app = QApplication([])
-    theme.apply_theme(app)
-    window_icon = QIcon(os.path.join(os.path.dirname(os.path.dirname(__file__)), "gui", "Mesofield_icon.png"))
-    app.setWindowIcon(window_icon)
-
-# ====================== Splash Screen with ASCII Art ========================= """
-
-# Font: Sub-Zero; character width: Full, Character Height: Fitted
-# https://patorjk.com/software/taag/#p=display&h=0&v=1&f=Sub-Zero&t=Mesofield
-    ascii = r"""
- __    __     ______     ______     ______     ______   __      ____      __         _____
-/\ "-./  \   /\  ___\   /\  ___\   /\  __ \   /\  ___\ /\ \   /\  ___\   /\ \       /\  __-.
-\ \ \-./\ \  \ \  __\   \ \___  \  \ \ \/\ \  \ \  __\ \ \ \  \ \  __\   \ \ \____  \ \ \/\ \
- \ \_\ \ \_\  \ \_____\  \/\_____\  \ \_____\  \ \_\    \ \_\  \ \_____\  \ \_____\  \ \____-
-  \/_/  \/_/   \/_____/   \/_____/   \/_____/   \/_/     \/_/   \/_____/   \/_____/   \/____/
-
--------------------------  Mesofield Acquisition Interface  ---------------------------------
-"""
-
-    # Create a transparent pixmap
-    pixmap = QPixmap(1100, 210)
-    pixmap.fill(Qt.GlobalColor.transparent)
-
-    # Build a radial gradient: dark center that fades out at the edges
-    center = pixmap.rect().center()
-    radius = max(pixmap.width(), pixmap.height()) / 2
-    gradient = QRadialGradient(center.x(), center.y(), radius)
-    gradient.setColorAt(0.0, QColor(1, 25, 5))  # solid dark center
-    gradient.setColorAt(0.7, QColor(10, 15, 0, 200))  # keep dark until 80%
-    gradient.setColorAt(1.0, QColor(0, 0, 0, 0))    # fully transparent edges
-
-    painter = QPainter(pixmap)
-    # Fill entire pixmap with the gradient block
-    painter.fillRect(pixmap.rect(), gradient)
-
-    # Draw the ASCII art on top
-    painter.setPen(Qt.GlobalColor.green)
-    painter.setFont(QFont("Courier", 12))
-    painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, ascii)
-    painter.end()
-
-    splash = QSplashScreen(pixmap)
-
-    splash.show()
-    app.processEvents()  # ensure the splash appears
-
-    time.sleep(0.5)  # give the splash screen a moment to show :)
     procedure = load_procedure_from_config(_resolve_launch_target(config))
-
-    mesofield = MainWindow(procedure)
-    mesofield.show()
-    splash.finish(mesofield)
-    app.exec()
+    run_gui(procedure)
 
 
 # ---------------------------------------------------------------------------

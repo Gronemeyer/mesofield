@@ -176,10 +176,14 @@ class ExperimentConfig(ConfigRegister):
         self.logger.debug("Registered default parameters")
 
         # Data output directory defaults to the current working directory;
-        # load_json (or the GUI picker) overrides it. It is intentionally NOT
-        # derived from the hardware file's location -- a rig YAML may live in a
-        # shared rig store, and data must never land there.
-        self.experiment_dir = os.getcwd()
+        # an `experiment_directory` config key, load_json, or the GUI picker
+        # overrides it. It is intentionally NOT derived from the hardware
+        # file's location -- a rig YAML may live in a shared rig store, and
+        # data must never land there. Assigned directly (not via the property
+        # setter) so `experiment_dir_is_set` stays False until a caller
+        # chooses a directory explicitly.
+        self._experiment_dir_set = False
+        self._save_dir = os.path.abspath(os.getcwd())
 
         # Initialize hardware. The rig (hardware.yaml) is the anchor; experiment
         # params are loaded separately and never touch hardware state.
@@ -251,12 +255,22 @@ class ExperimentConfig(ConfigRegister):
         return self._save_dir
 
     @experiment_dir.setter
-    def experiment_dir(self, path: str):
+    def experiment_dir(self, path):
         """Set the experiment directory (base directory)."""
-        if isinstance(path, str):
-            self._save_dir = os.path.abspath(path)
+        if isinstance(path, (str, os.PathLike)):
+            self._save_dir = os.path.abspath(os.fspath(path))
+            self._experiment_dir_set = True
         else:
             print(f"ExperimentConfig: \n Invalid experiment directory path: {path}")
+
+    @property
+    def experiment_dir_is_set(self) -> bool:
+        """``True`` once a caller has explicitly chosen ``experiment_dir``.
+
+        Lets launchers (e.g. ``load_procedure_from_config``) apply a fallback
+        directory only when the user/config never picked one.
+        """
+        return self._experiment_dir_set
 
     @property
     def data_dir(self) -> str:
@@ -551,10 +565,12 @@ class ExperimentConfig(ConfigRegister):
                 first = next(iter(self.subjects.keys()))
                 self.select_subject(first)
         else:
-            # legacy flat structure
+            # flat structure (legacy JSON or scripted define_config mappings)
             for key, value in loaded_config.items():
                 self.set(key, value)
-        
+            if loaded_config.get("experiment_directory"):
+                self.experiment_dir = loaded_config["experiment_directory"]
+
         if "Plugins" in loaded_config:
             self.plugins: dict = loaded_config.get("Plugins", {})
             for plugin in self.plugins:

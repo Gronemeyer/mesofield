@@ -109,7 +109,48 @@ class Procedure:
     # is left untouched.
     playback: bool = False
 
-    def __init__(self, hardware: Optional[str] = None, experiment: Optional[str] = None):
+    # When True (default), a positive ``duration`` (seconds) in the config caps
+    # the run: the base class arms a wall-clock timer after ``start_all`` and
+    # stops the run when it elapses. Devices that terminate on their own stop 
+    # the run early via the primary's ``finished`` signal; whichever fires first wins. 
+    # Set ``False`` on a subclass when the primary runs a bounded acquisition 
+    # (e.g. an MDA camera capturing an exact frame count) that must complete regardless of wall time.
+    stop_after_duration: bool = True
+
+    def __init__(
+        self,
+        hardware: Optional[Any] = None,
+        experiment: Optional[str] = None,
+        *,
+        experiment_directory: Optional[str] = None,
+        **params: Any,
+    ):
+        """Build a procedure.
+
+        Parameters
+        ----------
+        hardware:
+            Either a path to a ``hardware.yaml`` rig file, **or** a list of
+            already-constructed device objects, e.g.::
+
+                proc = Procedure(hardware=[LickDetector(port="COM3")], ...)
+
+            A single device is automatically the primary, so one-device
+            scripts never set ``primary=True``. ``None`` falls back to the
+            :meth:`define_hardware` hook.
+        experiment:
+            Path to an ``experiment.json`` parameter file (or ``None``).
+        experiment_directory:
+            Where acquisition data is written (``<dir>/data/sub-.../ses-...``).
+            This is the simplest way for a standalone script to choose its
+            output location; relative paths resolve against the current working
+            directory. Overrides any value from ``define_config`` / JSON.
+        **params:
+            Any other experiment parameters (``subject``, ``session``,
+            ``task``, ``duration``, ...) set straight onto the config. These
+            also override ``define_config`` / JSON, so a script can stay a
+            single ``Procedure(...)`` call with no ``define_config`` override.
+        """
         # Initialize the processor registry before anything else so the
         # ``__setattr__`` hook can run safely from the first assignment on.
         # We bypass the hook itself with object.__setattr__ to avoid the
@@ -121,10 +162,24 @@ class Procedure:
         self.events.procedure_finished.connect(self._finished_event.set)
         self.events.procedure_error.connect(lambda _msg: self._finished_event.set())
 
+        # Wall-clock duration cap (see `stop_after_duration`) and a one-shot
+        # guard so the timer and the primary device's `finished` signal can
+        # both target cleanup without it running twice.
+        self._duration_timer: Optional[threading.Timer] = None
+        self._cleanup_started = False
+
+        # `hardware` is either a path to a hardware.yaml rig or a list of
+        # pre-built device objects. Keep the path (if any) for ExperimentConfig;
+        # a device list is handed to a HardwareManager below.
+        hardware_path = hardware if isinstance(hardware, str) else None
+        scripted_devices = (
+            None if isinstance(hardware, (str, type(None))) else list(hardware)
+        )
+
         # The rig (hardware.yaml) is the anchor; experiment params are optional
         # and never touch hardware state.
         self.config: ExperimentConfig
-        self.config = ExperimentConfig(hardware)
+        self.config = ExperimentConfig(hardware_path)
 
         # Scripted config: a subclass may declare parameters in Python
         # (a dataclass or mapping) instead of an experiment.json file.
@@ -134,11 +189,27 @@ class Procedure:
         elif experiment:
             self.config.load_json(experiment)
 
-        # Scripted hardware: a subclass may construct device objects directly
-        # instead of relying on a hardware.yaml file.
-        devices = self.define_hardware()
-        if devices is not None:
-            self.config.hardware = HardwareManager(devices=devices)
+        # Explicit constructor arguments win over define_config / JSON, so a
+        # standalone script can set everything in one readable call.
+        if experiment_directory is not None:
+            self.config.experiment_dir = experiment_directory
+        for key, value in params.items():
+            self.config.set(key, value)
+
+        # Scripted hardware: devices passed to the constructor (``hardware=[...]``)
+        # win; otherwise fall back to the :meth:`define_hardware` hook.
+        if scripted_devices is None:
+            scripted_devices = self.define_hardware()
+        if scripted_devices is not None:
+            scripted_devices = list(scripted_devices)
+            # A lone device is the primary by default, so single-device scripts
+            # don't have to flag ``primary=True``.
+            if (
+                len(scripted_devices) == 1
+                and not getattr(scripted_devices[0], "is_primary", False)
+            ):
+                scripted_devices[0].is_primary = True
+            self.config.hardware = HardwareManager(devices=scripted_devices)
 
         self.protocol = self.config.get("protocol", "default_experiment")
         self.experimenter = self.config.get("experimenter", "researcher")
@@ -406,10 +477,33 @@ class Procedure:
 
             # 6. Subclass post-start hook
             self.on_started()
+
+            # 7. Arm the wall-clock duration cap (see `stop_after_duration`).
+            self._arm_duration_timer()
         except Exception as e:
             self.logger.error(f"Error during experiment: {e}")
             self.events.procedure_error.emit(str(e))
             raise
+
+    def _arm_duration_timer(self) -> None:
+        """Stop the run after the configured ``duration`` (seconds).
+
+        No-op when ``stop_after_duration`` is False or ``duration`` is unset /
+        non-positive. The timer is a daemon so it never blocks interpreter
+        exit, and cleanup cancels it if the run ends first.
+        """
+        if not self.stop_after_duration:
+            return
+        try:
+            duration = float(self.config.get("duration") or 0)
+        except (TypeError, ValueError):
+            duration = 0.0
+        if duration <= 0:
+            return
+        self.logger.info(f"Duration cap armed: {duration:g}s")
+        self._duration_timer = threading.Timer(duration, self.cleanup)
+        self._duration_timer.daemon = True
+        self._duration_timer.start()
 
     def save_data(self) -> None:
         mgr = getattr(self, "data_manager", self.data)
@@ -424,6 +518,22 @@ class Procedure:
     def cleanup(self) -> None:
         """Public cleanup entry-point (manual stop)."""
         self._cleanup_procedure()
+
+    def launch(self, *, splash: bool = True) -> int:
+        """Open the Mesofield GUI for this procedure and block until closed.
+
+        The ordinary-Python alternative to ``mesofield launch``: build the
+        procedure in a script, then call ``proc.launch()``. The acquisition is
+        started from the GUI's Record button (which calls :meth:`run`), so the
+        window comes up ready to configure and record.
+
+        Returns the Qt application exit code. ``splash=False`` skips the
+        ASCII splash screen. The heavy GUI dependencies are imported lazily so
+        headless scripts that never call this keep a light import footprint.
+        """
+        from mesofield.gui.maingui import run_gui
+
+        return run_gui(self, splash=splash)
 
     def run_until_finished(self, timeout: Optional[float] = None) -> bool:
         """Run the procedure and block until cleanup completes.
@@ -469,8 +579,16 @@ class Procedure:
         return self._finished_event.is_set()
 
     def _cleanup_procedure(self):
+        # The wall-clock duration timer and the primary's `finished` signal can
+        # both reach here; run the teardown exactly once.
+        if self._cleanup_started:
+            return
+        self._cleanup_started = True
         self.logger.info("Cleanup Procedure")
         try:
+            if self._duration_timer is not None:
+                self._duration_timer.cancel()
+                self._duration_timer = None
             try:
                 self.hardware.primary.signals.finished.disconnect(self._cleanup_procedure)
             except Exception:
@@ -764,10 +882,12 @@ def _load_procedure_from_py(py_path: str) -> "Procedure":
             f"{cls!r} in {abs_path} must be a subclass of mesofield.base.Procedure"
         )
     proc = cls()
-    # Scripted procedures supply params/hardware via define_*; default their
-    # data output beside the script rather than the current directory.
-    proc.config.experiment_dir = os.path.dirname(abs_path)
-    proc.data_dir = proc.config.data_dir
+    # Scripted procedures supply params/hardware via define_*; when the
+    # config did not declare an `experiment_directory`, default the data
+    # output beside the script rather than the current directory.
+    if not proc.config.experiment_dir_is_set:
+        proc.config.experiment_dir = os.path.dirname(abs_path)
+        proc.data_dir = proc.config.data_dir
     return proc
 
 
