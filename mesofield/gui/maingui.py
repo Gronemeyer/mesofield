@@ -317,6 +317,7 @@ class MainWindow(QMainWindow):
         # Tear down the previous pass.
         for widget in self._device_widgets.values():
             try:
+                widget.cleanup()
                 self.main_layout.removeWidget(widget)
                 widget.deleteLater()
             except Exception:
@@ -387,6 +388,7 @@ class MainWindow(QMainWindow):
         # Tear down anything we built on the previous pass.
         for widget in self._processor_widgets:
             try:
+                widget.cleanup()
                 self.main_layout.removeWidget(widget)
                 widget.deleteLater()
             except Exception:

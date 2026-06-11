@@ -125,6 +125,15 @@ class SerialWidget(QWidget):
         if self._signal is not None:
             self._signal.disconnect()
 
+    def cleanup(self):
+        """Sever the inbound signal connection before this widget is destroyed."""
+        if self._signal is not None:
+            try:
+                self._signal.disconnect(self.receive_data)
+            except (TypeError, RuntimeError):
+                # Already disconnected, or the slot was never connected.
+                pass
+
     def receive_data(self, time, value):
         self.times.append(time)
         self.values.append(value * self.value_scale)
