@@ -555,6 +555,15 @@ class OpenCVCamera(BaseCamera, QThread):
 
     def stop(self) -> bool:
         """Signal the capture thread to stop and wait for it to join."""
+        # When a primary camera self-terminates, it emits `finished` from its
+        # own run() thread, which drives Procedure cleanup -> stop_all -> here.
+        # We are already inside (and exiting) run(), so skip the join/emit to
+        # avoid a thread-waits-on-itself deadlock; run()'s finally already
+        # released the writer and emitted `finished`.
+        if QThread.currentThread() is self:
+            self.is_active = False
+            self._stopped = datetime.now()
+            return True
         if not self.isRunning() and not self._stop:
             return True
         self._stop = True
@@ -668,17 +677,34 @@ class OpenCVCamera(BaseCamera, QThread):
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(self._req_height))
 
         self._capture = cap
-        # Open the CV2Writer for this recording (skipped for live preview,
-        # where `start_live()` clears `self.writer`).
+        # where `start_live()` clears `self.writer`). If `begin` fails (e.g. a
+        # missing codec on Linux), abort the recording instead of entering the
+        # loop — otherwise every `add_frame` would raise "called before
+        # begin()" once per frame.        # where `start_live()` clears `self.writer`).
         if self.writer is not None:
             try:
                 self.writer.begin(self._frame_width, self._frame_height, self.is_color)
             except Exception as exc:  # pragma: no cover - codec failure
-                self.logger.error(f"CV2Writer.begin failed: {exc}")
+                self.logger.error(f"CV2Writer.begin failed, aborting recording: {exc}")
+                cap.release()
+                self._capture = None
+                self.is_active = False
+                self._stopped = datetime.now()
+                self.progress.emit(-1, 0)
+                # Surface the failure so the procedure tears down cleanly
+                # rather than spinning forever on a primary that never writes.
+                self.signals.finished.emit()
+                return
+        # A primary OpenCV camera has no externally-driven sequence length, so
+        # it must self-terminate after the expected number of frames; that
+        # emission of `signals.finished` is what drives Procedure cleanup.
+        stop_at_expected = self.is_primary and self.writer is not None and self._expected_frames > 0
         period = 1.0 / self.sampling_rate if self.sampling_rate > 0 else 0.0
         next_t = time.perf_counter()
         try:
             while not self.isInterruptionRequested() and not self._stop:
+                if stop_at_expected and self._frame_index >= self._expected_frames:
+                    break
                 ok, frame = cap.read()
                 if not ok or frame is None:
                     self.msleep(1)
@@ -723,6 +749,10 @@ class OpenCVCamera(BaseCamera, QThread):
                     else:
                         next_t = time.perf_counter()
         finally:
+            # The loop exited on its own (reached the expected frame count)
+            # rather than via stop()/abort, which set `_stop` / requested
+            # interruption.
+            natural_stop = not self._stop and not self.isInterruptionRequested()
             try:
                 cap.release()
             except Exception:
@@ -738,3 +768,10 @@ class OpenCVCamera(BaseCamera, QThread):
             self.logger.info(
                 f"OpenCV capture stopped: wrote {self._frame_index} frames"
             )
+            # If we self-terminated as the primary device, drive procedure
+            # cleanup. (When stop()/abort ended the loop, stop() emits
+            # `finished` itself, so we must not double-emit here.)
+            if natural_stop and self.is_primary:
+                self.is_active = False
+                self._stopped = datetime.now()
+                self.signals.finished.emit()
