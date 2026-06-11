@@ -210,6 +210,11 @@ _BIDS_CHOICES = ["func", "beh", "behav", "anat"]
 # dropdown rather than a buried string. Names map to ``cv2.CAP_<NAME>``.
 _CV_BACKENDS = ["ANY", "AVFOUNDATION", "MSMF", "DSHOW", "V4L2"]
 
+# OpenCV video-writer codecs (fourcc) — owned by mesofield.data.codecs so
+# there's a single dependency-free place to add/remove a codec. That module
+# both presents these in the wizard and enforces the default + runtime fallback.
+from mesofield.data.codecs import FOURCC_CHOICES, DEFAULT_FOURCC
+
 
 def _default_cv_backend() -> str:
     return {"darwin": "AVFOUNDATION", "win32": "MSMF"}.get(sys.platform, "V4L2")
@@ -277,6 +282,13 @@ DEVICE_SPECS: dict[str, DeviceSpec] = {
                      "V4L2=Linux, ANY=auto. Wrong value = camera opens but shows nothing.",
             ),
             FieldSpec("fps", "fps", int, 30),
+            FieldSpec(
+                "fourcc", "fourcc", str, DEFAULT_FOURCC, choices=FOURCC_CHOICES,
+                help="OpenCV video codec. mp4v=portable default (works everywhere). "
+                     "H264/avc1 compress better but need an external codec "
+                     "(OpenH264 DLL on Windows, libx264 on Linux); falls back to "
+                     "mp4v if unavailable. MJPG/XVID use the .avi container.",
+            ),
         ],
         output=_output_fields("cam", "mp4", ["mp4", "ome.tiff"], "func"),
         fixed={"backend": "opencv"},

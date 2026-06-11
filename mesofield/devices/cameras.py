@@ -16,7 +16,7 @@ from mesofield.engines import DevEngine, MesoEngine, PupilEngine
 #from tests.arducam import VideoThread
 from mesofield.devices.base_camera import BaseCamera
 from mesofield.data import CustomWriter, CV2Writer
-from mesofield.data.writer import configure_opencv_codec
+from mesofield.data.codecs import configure_opencv_codec, default_fourcc
 from mesofield import DeviceRegistry
 
 
@@ -425,7 +425,10 @@ class OpenCVCamera(BaseCamera, QThread):
         # Default fps if cfg didn't carry one (BaseCamera reads `fps` from cfg).
         if not self.sampling_rate:
             self.sampling_rate = 30.0
-        self.fourcc: str = str(self.cfg.get("fourcc", "H264"))
+        # None -> CV2Writer picks the portable platform default (honours
+        # MESOFIELD_FOURCC). Set a 'fourcc' in cfg to force a codec (e.g. H264).
+        _cfg_fourcc = self.cfg.get("fourcc")
+        self.fourcc: str | None = str(_cfg_fourcc) if _cfg_fourcc else None
         self.is_color: bool = bool(self.cfg.get("color", True))
 
         # Optional explicit width/height overrides; otherwise driver default
@@ -506,7 +509,7 @@ class OpenCVCamera(BaseCamera, QThread):
             "cv_backend": self.cv_backend_name,
             "width": getattr(self, "_frame_width", None),
             "height": getattr(self, "_frame_height", None),
-            "fourcc": self.fourcc,
+            "fourcc": self.fourcc or default_fourcc(self.output_path or ".mp4"),
         })
         return md
 

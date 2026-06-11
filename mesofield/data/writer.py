@@ -40,13 +40,13 @@ import json
 
 FRAME_MD_FILENAME = "_frame_metadata.json"
 
-# ─── H264 Video Codec ─────────────────────────────────────────────────────
-# OpenH264 codec DLL for OpenCV video encoding (Windows only).
-# The DLL lives at <repo-root>/external/video-codecs/.
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-CODEC_DIRECTORY = str(_REPO_ROOT / "external" / "video-codecs")
-OPENH264_DLL_PATH = str(Path(CODEC_DIRECTORY) / "openh264-1.8.0-win64.dll")
-# ─────────────────────────────────────────────────────────────────
+# Codec selection lives in mesofield.data.codecs (the single source of truth,
+# shared with the config wizard). Imported here for the CV2Writer below.
+from mesofield.data.codecs import (  # noqa: E402
+    configure_opencv_codec,
+    default_fourcc,
+    open_video_writer,
+)
 
 class CustomWriter(OMETiffWriter):
     """OME-TIFF writer extending pymmcore-plus's :class:`OMETiffWriter`.
@@ -121,58 +121,6 @@ class CustomJSONEncoder(json.JSONEncoder):
         return super().default(object)
 
 
-def configure_opencv_codec() -> None:
-    """Configure environment so OpenCV can locate the bundled OpenH264 DLL.
-
-    Safe to call repeatedly. Silences OpenCV/FFMPEG logging and prepends the
-    project's ``external/video-codecs`` directory to PATH / DLL search.
-    """
-    import os
-
-    # Set environment variables to suppress OpenCV/FFMPEG output BEFORE importing cv2
-    os.environ.setdefault('OPENCV_LOG_LEVEL', 'SILENT')
-    os.environ.setdefault('OPENCV_FFMPEG_CAPTURE_OPTIONS', 'loglevel;quiet')
-    os.environ.setdefault('OPENCV_VIDEOIO_DEBUG', '0')
-
-    try:
-        import cv2  # noqa: F401
-    except ImportError as e:  # pragma: no cover - optional dependency
-        raise ImportError(
-            "opencv-python is required. Please `pip install opencv-python`."
-        ) from e
-
-    # OpenCV log silencing is version-dependent.
-    try:
-        if hasattr(cv2, 'setLogLevel'):
-            cv2.setLogLevel(0)  # 0 = Silent
-        elif (
-            hasattr(cv2, 'utils')
-            and hasattr(cv2.utils, 'logging')
-            and hasattr(cv2.utils.logging, 'setLogLevel')
-        ):
-            cv2.utils.logging.setLogLevel(0)
-    except Exception:
-        pass
-
-    # Respect user overrides so pip-installed users can point to a manually
-    # downloaded OpenH264 DLL in their procedure environment.
-    configured_dll = (
-        os.environ.get("MESOFIELD_OPENH264_DLL")
-        or os.environ.get("OPENH264_LIBRARY")
-        or OPENH264_DLL_PATH
-    )
-    os.environ['OPENH264_LIBRARY'] = configured_dll
-
-    codec_dir = str(Path(configured_dll).resolve().parent)
-    if codec_dir not in os.environ.get('PATH', ''):
-        os.environ['PATH'] = codec_dir + os.pathsep + os.environ.get('PATH', '')
-    if hasattr(os, 'add_dll_directory'):
-        try:
-            os.add_dll_directory(codec_dir)
-        except (OSError, FileNotFoundError):
-            pass
-
-
 class CV2Writer(OMETiffWriter):
     """Write frames to an mp4/avi video using OpenCV.
 
@@ -192,14 +140,15 @@ class CV2Writer(OMETiffWriter):
       their own capture loop (e.g. :class:`OpenCVCamera`).
     """
 
-    def __init__(self, filename: Path | str, fps: int = 30, fourcc: str = "H264") -> None:
+    def __init__(self, filename: Path | str, fps: int = 30, fourcc: str | None = None) -> None:
         configure_opencv_codec()
 
         self._filename = str(filename)
         if not self._filename.endswith((".mp4", ".avi")):
             raise ValueError("filename must end with '.mp4' or '.avi'")
         self._fps = fps
-        self._fourcc = fourcc
+        # ``None`` -> portable platform default (honours MESOFIELD_FOURCC).
+        self._fourcc = fourcc if fourcc else default_fourcc(self._filename)
         # FFmpeg expects H.264-in-MP4 with the 'avc1' tag; OpenCV often gets
         # 'H264' from callers, which triggers a noisy fallback warning.
         if self._filename.endswith(".mp4") and self._fourcc.upper() == "H264":
@@ -272,10 +221,9 @@ class CV2Writer(OMETiffWriter):
         else:
             fname = self._filename
 
-        writer, used_fourcc = self._open_writer(
-            fname, float(self._fps), width, height, is_color
+        writer, self._fourcc = open_video_writer(
+            fname, self._fourcc, self._fps, (width, height), is_color
         )
-        self._fourcc = used_fourcc
         return writer
 
     def write_frame(self, ary: Any, index: tuple[int, ...], frame: np.ndarray) -> None:
@@ -300,11 +248,9 @@ class CV2Writer(OMETiffWriter):
     def begin(self, width: int, height: int, is_color: bool = True) -> None:
         """Open the underlying ``cv2.VideoWriter`` for a self-driven loop."""
         Path(self._filename).parent.mkdir(parents=True, exist_ok=True)
-        writer, used_fourcc = self._open_writer(
-            self._filename, float(self._fps), width, height, is_color
+        self._direct_writer, self._fourcc = open_video_writer(
+            self._filename, self._fourcc, self._fps, (width, height), is_color
         )
-        self._fourcc = used_fourcc
-        self._direct_writer = writer
 
     def add_frame(self, frame: np.ndarray) -> None:
         """Write one frame to the direct-mode video (uint8 frames pass through)."""
