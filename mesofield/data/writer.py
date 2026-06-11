@@ -26,6 +26,7 @@ pymmcore-plus's private ``_5d_writer_base`` module.
 
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
+import warnings
 
 if TYPE_CHECKING:
     from pymmcore_plus.mda.metadata import SummaryMetaV1  # type: ignore
@@ -153,12 +154,21 @@ def configure_opencv_codec() -> None:
     except Exception:
         pass
 
-    os.environ['OPENH264_LIBRARY'] = OPENH264_DLL_PATH
-    if CODEC_DIRECTORY not in os.environ.get('PATH', ''):
-        os.environ['PATH'] = CODEC_DIRECTORY + os.pathsep + os.environ.get('PATH', '')
+    # Respect user overrides so pip-installed users can point to a manually
+    # downloaded OpenH264 DLL in their procedure environment.
+    configured_dll = (
+        os.environ.get("MESOFIELD_OPENH264_DLL")
+        or os.environ.get("OPENH264_LIBRARY")
+        or OPENH264_DLL_PATH
+    )
+    os.environ['OPENH264_LIBRARY'] = configured_dll
+
+    codec_dir = str(Path(configured_dll).resolve().parent)
+    if codec_dir not in os.environ.get('PATH', ''):
+        os.environ['PATH'] = codec_dir + os.pathsep + os.environ.get('PATH', '')
     if hasattr(os, 'add_dll_directory'):
         try:
-            os.add_dll_directory(CODEC_DIRECTORY)
+            os.add_dll_directory(codec_dir)
         except (OSError, FileNotFoundError):
             pass
 
@@ -209,9 +219,49 @@ class CV2Writer(OMETiffWriter):
         # frameReady plumbing state (position_arrays, frame_metadatas, etc.).
         super(OMETiffWriter, self).__init__()
 
-    def new_array(self, position_key: str, dtype: np.dtype, sizes: dict[str, int]):
+    def _codec_candidates(self) -> list[str]:
+        """Return ordered codec candidates for the current output container."""
+        primary = self._fourcc
+        # MP4 fallback order favors compatibility when OpenH264 is unavailable.
+        if self._filename.endswith(".mp4"):
+            fallbacks = ["avc1", "H264", "mp4v"]
+        else:
+            fallbacks = ["XVID", "MJPG"]
+        ordered = [primary] + [c for c in fallbacks if c.upper() != primary.upper()]
+        return ordered
+
+    def _open_writer(
+        self, filename: str, fps: float, width: int, height: int, is_color: bool
+    ) -> tuple[Any, str]:
+        """Open cv2.VideoWriter using codec fallbacks; return (writer, used_fourcc)."""
         import cv2
 
+        for code in self._codec_candidates():
+            fourcc = cv2.VideoWriter.fourcc(*code)
+            writer = cv2.VideoWriter(
+                filename, fourcc, fps, (width, height), isColor=is_color
+            )
+            if writer.isOpened():
+                if code.upper() != self._fourcc.upper():
+                    warnings.warn(
+                        (
+                            f"VideoWriter fallback: requested fourcc={self._fourcc} "
+                            f"but using {code} for '{filename}'."
+                        ),
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
+                return writer, code
+            try:
+                writer.release()
+            except Exception:
+                pass
+        raise RuntimeError(
+            f"cv2.VideoWriter failed to open '{filename}' "
+            f"(attempted fourcc={self._codec_candidates()}, fps={self._fps})"
+        )
+
+    def new_array(self, position_key: str, dtype: np.dtype, sizes: dict[str, int]):
         width = sizes["x"]
         height = sizes["y"]
         is_color = sizes.get("c", 1) > 1
@@ -222,8 +272,10 @@ class CV2Writer(OMETiffWriter):
         else:
             fname = self._filename
 
-        fourcc = cv2.VideoWriter.fourcc(*self._fourcc)
-        writer = cv2.VideoWriter(fname, fourcc, self._fps, (width, height), isColor=is_color)
+        writer, used_fourcc = self._open_writer(
+            fname, float(self._fps), width, height, is_color
+        )
+        self._fourcc = used_fourcc
         return writer
 
     def write_frame(self, ary: Any, index: tuple[int, ...], frame: np.ndarray) -> None:
@@ -247,18 +299,11 @@ class CV2Writer(OMETiffWriter):
     # ----- direct (non-MDA) capture-loop interface ----------------------
     def begin(self, width: int, height: int, is_color: bool = True) -> None:
         """Open the underlying ``cv2.VideoWriter`` for a self-driven loop."""
-        import cv2
-
         Path(self._filename).parent.mkdir(parents=True, exist_ok=True)
-        fourcc = cv2.VideoWriter.fourcc(*self._fourcc)
-        writer = cv2.VideoWriter(
-            self._filename, fourcc, float(self._fps), (width, height), isColor=is_color
+        writer, used_fourcc = self._open_writer(
+            self._filename, float(self._fps), width, height, is_color
         )
-        if not writer.isOpened():
-            raise RuntimeError(
-                f"cv2.VideoWriter failed to open '{self._filename}' "
-                f"(fourcc={self._fourcc}, fps={self._fps})"
-            )
+        self._fourcc = used_fourcc
         self._direct_writer = writer
 
     def add_frame(self, frame: np.ndarray) -> None:
