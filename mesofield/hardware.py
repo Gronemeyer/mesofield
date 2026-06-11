@@ -273,8 +273,10 @@ class HardwareManager():
                 if hasattr(device, "initialize"):
                     device.initialize()
             except Exception as exc:
-                self.logger.error(f"initialize() failed for '{dev_id}': {exc}")
-                continue
+                raise RuntimeError(
+                    f"Device '{dev_id}' ({type(device).__name__}) failed to "
+                    f"initialize: {exc}"
+                ) from exc
             self.devices[dev_id] = device
             setattr(self, dev_id, device)
             if getattr(device, "device_type", None) == "camera" and device not in cams:
