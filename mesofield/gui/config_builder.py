@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
@@ -205,19 +204,19 @@ class SchemaForm(QWidget):
 
 _BIDS_CHOICES = ["func", "beh", "behav", "anat"]
 
-# OpenCV capture backends. The wrong one is the single most common rig mistake
-# (a camera opens but yields no frames), so it is an explicit, platform-defaulted
-# dropdown rather than a buried string. Names map to ``cv2.CAP_<NAME>``.
-_CV_BACKENDS = ["ANY", "AVFOUNDATION", "MSMF", "DSHOW", "V4L2"]
-
-# OpenCV video-writer codecs (fourcc) — owned by mesofield.data.codecs so
-# there's a single dependency-free place to add/remove a codec. That module
-# both presents these in the wizard and enforces the default + runtime fallback.
-from mesofield.data.codecs import FOURCC_CHOICES, DEFAULT_FOURCC
-
-
-def _default_cv_backend() -> str:
-    return {"darwin": "AVFOUNDATION", "win32": "MSMF"}.get(sys.platform, "V4L2")
+# OpenCV capture/codec choices + platform defaults — owned by
+# mesofield.data.codecs so there's a single dependency-free place that both the
+# wizard (here) and the runtime camera/writer agree on. The wrong capture
+# backend/format is the single most common rig mistake (a camera opens but
+# yields no frames), so they're explicit, platform-defaulted dropdowns
+from mesofield.data.codecs import (
+    FOURCC_CHOICES,
+    DEFAULT_FOURCC,
+    CV_BACKENDS as _CV_BACKENDS,
+    CAP_FOURCC_CHOICES as _CAP_FOURCCS,
+    default_cv_backend as _default_cv_backend,
+    default_cap_fourcc as _default_cap_fourcc,
+)
 
 
 def _output_fields(suffix: str, file_type: str, file_choices: List[str], bids: str) -> List[FieldSpec]:
@@ -280,6 +279,12 @@ DEVICE_SPECS: dict[str, DeviceSpec] = {
                 "cv_backend", "cv_backend", str, _default_cv_backend(), choices=_CV_BACKENDS,
                 help="OpenCV capture backend. AVFOUNDATION=macOS, MSMF/DSHOW=Windows, "
                      "V4L2=Linux, ANY=auto. Wrong value = camera opens but shows nothing.",
+            ),
+            FieldSpec(
+                "cap_fourcc", "cap_fourcc", str, _default_cap_fourcc(), choices=_CAP_FOURCCS,
+                help="Capture pixel format forced on the camera (NOT the saved-file "
+                     "codec). Blank = camera default; defaults to MJPG on Windows, "
+                     "where USB webcams otherwise open but show no live view.",
             ),
             FieldSpec("fps", "fps", int, 30),
             FieldSpec(

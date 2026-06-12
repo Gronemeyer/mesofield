@@ -16,7 +16,12 @@ from mesofield.engines import DevEngine, MesoEngine, PupilEngine
 #from tests.arducam import VideoThread
 from mesofield.devices.base_camera import BaseCamera
 from mesofield.data import CustomWriter, CV2Writer
-from mesofield.data.codecs import configure_opencv_codec, default_fourcc
+from mesofield.data.codecs import (
+    configure_opencv_codec,
+    default_fourcc,
+    default_cv_backend,
+    default_cap_fourcc,
+)
 from mesofield import DeviceRegistry
 
 
@@ -362,7 +367,6 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         )
 
 # ============================ OpenCV camera ============================ #
-_DEFAULT_CV_BACKEND = "MSMF"
 
 
 def _resolve_cv_backend(name: str | int | None) -> int:
@@ -421,7 +425,7 @@ class OpenCVCamera(BaseCamera, QThread):
         self._init_camera_surface(cfg, backend="opencv")
         # OpenCV-specific knobs.
         self.device_index: int = int(self.cfg.get("device_index", 0))
-        self.cv_backend_name: str = str(self.cfg.get("cv_backend", _DEFAULT_CV_BACKEND))
+        self.cv_backend_name: str = str(self.cfg.get("cv_backend") or default_cv_backend())
         # Default fps if cfg didn't carry one (BaseCamera reads `fps` from cfg).
         if not self.sampling_rate:
             self.sampling_rate = 30.0
@@ -429,6 +433,13 @@ class OpenCVCamera(BaseCamera, QThread):
         # MESOFIELD_FOURCC). Set a 'fourcc' in cfg to force a codec (e.g. H264).
         _cfg_fourcc = self.cfg.get("fourcc")
         self.fourcc: str | None = str(_cfg_fourcc) if _cfg_fourcc else None
+        # Capture pixel format (CAP_PROP_FOURCC) forced on the VideoCapture.
+        # Distinct from `fourcc` (the writer codec)
+        _cfg_cap_fourcc = self.cfg.get("cap_fourcc", default_cap_fourcc())
+        if str(_cfg_cap_fourcc).lower() in ("", "none"):
+            self.cap_fourcc: str | None = None
+        else:
+            self.cap_fourcc = str(_cfg_cap_fourcc)
         self.is_color: bool = bool(self.cfg.get("color", True))
 
         # Optional explicit width/height overrides; otherwise driver default
@@ -455,14 +466,43 @@ class OpenCVCamera(BaseCamera, QThread):
 
         self.initialize()
 
-    # ----- HardwareDevice protocol ----------------------------------------
-    def initialize(self) -> bool:
-        """Verify the camera can be opened. Returns immediately afterwards."""
-        configure_opencv_codec()
+    def _open_capture(self):
+        """Open a ``cv2.VideoCapture`` configured for this camera.
+
+        The single place that opens the device — used by ``initialize``,
+        ``run`` and ``snap`` so backend, capture pixel format, and resolution
+        stay consistent. Sets ``CAP_PROP_FOURCC`` *before* resolution because
+        on Windows many USB webcams under MSMF deliver no frames in their
+        default mode until MJPG is forced. Returns the capture; the caller
+        checks ``isOpened()``.
+        """
         import cv2
 
         backend_id = _resolve_cv_backend(self.cv_backend_name)
         cap = cv2.VideoCapture(self.device_index, backend_id)
+        if not cap.isOpened():
+            return cap
+        if self.cap_fourcc:
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc(*self.cap_fourcc))
+        if self._req_width:
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(self._req_width))
+        if self._req_height:
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(self._req_height))
+        return cap
+
+    # ----- HardwareDevice protocol ----------------------------------------
+    def initialize(self) -> bool:
+        """Verify the camera opens *and actually delivers a frame*.
+
+        ``isOpened()`` is not proof on Windows: it returns True while
+        ``read()`` fails forever (wrong backend / capture format), which
+        manifests as a camera that "initializes" but shows no live view. So we
+        read a frame here and fail loudly if none arrives.
+        """
+        configure_opencv_codec()
+        import cv2
+
+        cap = self._open_capture()
         if not cap.isOpened():
             cap.release()
             self.logger.error(
@@ -470,20 +510,31 @@ class OpenCVCamera(BaseCamera, QThread):
                 f"backend={self.cv_backend_name}"
             )
             return False
-        # Detect actual resolution; honour overrides if given
-        if self._req_width:
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(self._req_width))
-        if self._req_height:
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(self._req_height))
         self._frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self._frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         cap_fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
         if cap_fps > 0 and not self.cfg.get("fps") and "fps" not in self.properties:
             self.sampling_rate = cap_fps
+        # Warm up: some cameras need a few attempts before the first frame.
+        got_frame = False
+        for _ in range(30):
+            ok, frame = cap.read()
+            if ok and frame is not None:
+                got_frame = True
+                break
+            time.sleep(0.05)
         cap.release()
+        if not got_frame:
+            self.logger.error(
+                f"OpenCV camera index={self.device_index} opened "
+                f"(backend={self.cv_backend_name}) but delivered no frames. "
+                f"On Windows USB webcams, try cv_backend=DSHOW and/or "
+                f"cap_fourcc=MJPG. (cap_fourcc={self.cap_fourcc!r})"
+            )
+            return False
         self.logger.info(
             f"OpenCV camera ready: index={self.device_index} "
-            f"backend={self.cv_backend_name} "
+            f"backend={self.cv_backend_name} cap_fourcc={self.cap_fourcc!r} "
             f"{self._frame_width}x{self._frame_height} @ {self.sampling_rate} fps"
         )
         return True
@@ -592,17 +643,10 @@ class OpenCVCamera(BaseCamera, QThread):
 
     def snap(self) -> np.ndarray:
         """Open the camera, read one frame, return it without recording."""
-        import cv2
-
-        backend_id = _resolve_cv_backend(self.cv_backend_name)
-        cap = cv2.VideoCapture(self.device_index, backend_id)
+        cap = self._open_capture()
         try:
             if not cap.isOpened():
                 raise RuntimeError("OpenCVCamera.snap: could not open camera")
-            if self._req_width:
-                cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(self._req_width))
-            if self._req_height:
-                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(self._req_height))
             ok, frame = cap.read()
             if not ok or frame is None:
                 raise RuntimeError("OpenCVCamera.snap: VideoCapture.read failed")
@@ -666,18 +710,12 @@ class OpenCVCamera(BaseCamera, QThread):
     def run(self) -> None:  # QThread entry point
         import cv2
 
-        backend_id = _resolve_cv_backend(self.cv_backend_name)
-        cap = cv2.VideoCapture(self.device_index, backend_id)
+        cap = self._open_capture()
         if not cap.isOpened():
             cap.release()
             self.is_active = False
             self.logger.error("Failed to open camera in capture thread")
             return
-
-        if self._req_width:
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(self._req_width))
-        if self._req_height:
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(self._req_height))
 
         self._capture = cap
         # where `start_live()` clears `self.writer`). If `begin` fails (e.g. a
@@ -704,14 +742,29 @@ class OpenCVCamera(BaseCamera, QThread):
         stop_at_expected = self.is_primary and self.writer is not None and self._expected_frames > 0
         period = 1.0 / self.sampling_rate if self.sampling_rate > 0 else 0.0
         next_t = time.perf_counter()
+        # Watchdog: a wrong backend / capture format makes read() fail forever
+        # while isOpened() stays True. Warn once instead of spinning silently.
+        consecutive_failures = 0
+        warned_no_frames = False
         try:
             while not self.isInterruptionRequested() and not self._stop:
                 if stop_at_expected and self._frame_index >= self._expected_frames:
                     break
                 ok, frame = cap.read()
                 if not ok or frame is None:
+                    consecutive_failures += 1
+                    if consecutive_failures >= 100 and not warned_no_frames:
+                        warned_no_frames = True
+                        self.logger.error(
+                            f"OpenCV camera index={self.device_index} is open but "
+                            f"read() keeps failing — no live view. Try "
+                            f"cv_backend=DSHOW and/or cap_fourcc=MJPG "
+                            f"(backend={self.cv_backend_name}, "
+                            f"cap_fourcc={self.cap_fourcc!r})."
+                        )
                     self.msleep(1)
                     continue
+                consecutive_failures = 0
 
                 ts = time.perf_counter()
                 idx = self._frame_index

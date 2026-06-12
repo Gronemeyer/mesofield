@@ -1,10 +1,12 @@
-"""OpenCV video-codec selection — the single source of truth for fourcc.
+"""OpenCV video defaults — the single source of truth for fourcc and the
+platform-dependent capture backend / pixel format.
 
 Kept deliberately free of heavyweight imports (no ``pymmcore_plus``, ``cv2``
 only imported lazily inside functions) so that both the acquisition writer
-(:mod:`mesofield.data.writer`) and the config wizard
-(:mod:`mesofield.gui.config_builder`) can import it without dragging in the
-acquisition stack. Add or remove a codec here and both surfaces follow.
+(:mod:`mesofield.data.writer`) / camera (:mod:`mesofield.devices.cameras`) and
+the config wizard (:mod:`mesofield.gui.config_builder`) can import it without
+dragging in the acquisition stack. Change a default here and every surface
+follows.
 
 OpenCV's FFMPEG ``VideoWriter`` needs a fourcc code. The portable choice — the
 *only* codec bundled in every opencv-python wheel on Windows, Linux, and macOS
@@ -19,10 +21,40 @@ Selection precedence (see :func:`default_fourcc`): explicit caller/config value
 
 import logging
 import os
+import sys
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# ─── Capture backend / pixel format (live view, not the saved file) ───────
+# OpenCV capture backends offered in the wizard. Names map to ``cv2.CAP_<NAME>``.
+CV_BACKENDS = ["ANY", "AVFOUNDATION", "MSMF", "DSHOW", "V4L2"]
+# Capture pixel formats (CAP_PROP_FOURCC) offered in the wizard. "" = leave the
+# camera default. This is the format the *camera delivers*, distinct from the
+# writer codec below.
+CAP_FOURCC_CHOICES = ["", "MJPG", "YUY2"]
+
+
+def default_cv_backend() -> str:
+    """Platform default capture backend.
+
+    Windows uses DSHOW: it's the most reliable for USB webcams. MSMF (the other
+    Windows option) frequently opens a camera that then delivers no frames.
+    """
+    return {"darwin": "AVFOUNDATION", "win32": "DSHOW"}.get(sys.platform, "V4L2")
+
+
+def default_cap_fourcc() -> str:
+    """Platform default capture pixel format.
+
+    Windows USB webcams under DSHOW/MSMF typically deliver no frames in their
+    default (raw/YUY2) mode and need MJPG forced; elsewhere the camera default
+    is fine.
+    """
+    return "MJPG" if sys.platform == "win32" else ""
+
+
+# ─── Writer codec (the saved file) ────────────────────────────────────────
 _PORTABLE_FOURCC = {".mp4": "mp4v", ".avi": "MJPG"}
 DEFAULT_FOURCC = "mp4v"
 
