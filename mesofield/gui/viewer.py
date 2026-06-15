@@ -211,6 +211,12 @@ class ImagePreview(QWidget):
             enev.sequenceCanceled.connect(self._on_sequence_finished)
 
         # Optional non-mmcore frame source (e.g. OpenCVCamera.image_ready).
+        # Keep the signal refs so `cleanup` can sever them: the camera outlives
+        # this widget, so an undropped connection fires a queued frame into a
+        # deleted QLabel ("wrapped C/C++ object ... deleted") on config reload.
+        self._image_payload = image_payload
+        self._progress_payload = progress_payload
+        self._cleaned = False
         if image_payload is not None and hasattr(image_payload, "connect"):
             image_payload.connect(
                 self._on_external_frame, type=Qt.ConnectionType.QueuedConnection
@@ -225,26 +231,51 @@ class ImagePreview(QWidget):
                 self._on_external_progress, type=Qt.ConnectionType.QueuedConnection
             )
 
+        # Backstop only bc `destroyed` fires after C++ deletion, too late to be
+        # the authoritative teardown. The owner (MDA) calls `cleanup()` before
+        # `deleteLater()`; this just covers any path that forgets to.
         self.destroyed.connect(self._disconnect)
 
-    def _disconnect(self) -> None:
+    def cleanup(self) -> None:
+        """Sever every inbound connection and stop timers before destruction.
+
+        Idempotent. Must be called before ``deleteLater()`` (see
+        ``MDA.cleanup`` / ``MainWindow._build_acquisition_ui``) so no signal can
+        deliver a frame into the half-deleted widget.
+        """
+        if self._cleaned:
+            return
+        self._cleaned = True
+
+        with suppress(RuntimeError):
+            self.streaming_timer.stop()
+
+        # External (camera) payloads — the connections the old code never dropped.
+        if self._image_payload is not None and hasattr(self._image_payload, "disconnect"):
+            with suppress(TypeError, RuntimeError):
+                self._image_payload.disconnect(self._on_external_frame)
+        if self._progress_payload is not None and hasattr(self._progress_payload, "disconnect"):
+            with suppress(TypeError, RuntimeError):
+                self._progress_payload.disconnect(self._on_external_progress)
+
         if self._mmcore is None:
             return
-        # Disconnect events for the mmcore
         ev = self._mmcore.events
-        with suppress(TypeError):
-            ev.imageSnapped.disconnect()
+        with suppress(TypeError, RuntimeError):
             ev.continuousSequenceAcquisitionStarted.disconnect()
             ev.sequenceAcquisitionStarted.disconnect()
             ev.sequenceAcquisitionStopped.disconnect()
             ev.exposureChanged.disconnect()
-
         enev = self._mmcore.mda.events
-        with suppress(TypeError):
+        with suppress(TypeError, RuntimeError):
             enev.frameReady.disconnect()
             enev.sequenceStarted.disconnect()
             enev.sequenceFinished.disconnect()
             enev.sequenceCanceled.disconnect()
+
+    def _disconnect(self) -> None:
+        # `destroyed`-triggered backstop; the real work is in `cleanup`.
+        self.cleanup()
 
     def _on_streaming_start(self) -> None:
         self._reset_fps_counter()
@@ -526,6 +557,10 @@ class InteractivePreview(pg.ImageView):
         self._fps_text = pg.TextItem("FPS: --.-", color=(255, 255, 0), anchor=(1, 0))
         self.view.addItem(self._fps_text)
 
+        # Keep the camera signal ref so `cleanup` can sever it before deletion
+        # (the camera outlives this widget; see ImagePreview.cleanup).
+        self._image_payload = image_payload
+        self._cleaned = False
         if image_payload is not None:
             image_payload.connect(self._on_image_payload)
 
@@ -546,20 +581,43 @@ class InteractivePreview(pg.ImageView):
             self.streaming_timer.setInterval(10)
             self.streaming_timer.timeout.connect(self._on_streaming_timeout)
 
+        # Backstop only; the owner calls cleanup() before deleteLater().
         self.destroyed.connect(self._disconnect)
 
-    def _disconnect(self) -> None:
+    def cleanup(self) -> None:
+        """Sever inbound connections and stop the timer before destruction.
+
+        Idempotent. Called before ``deleteLater()`` so no queued frame lands on
+        the deleted pyqtgraph view.
+        """
+        if self._cleaned:
+            return
+        self._cleaned = True
+
+        if self._image_payload is not None and hasattr(self._image_payload, "disconnect"):
+            with suppress(TypeError, RuntimeError):
+                self._image_payload.disconnect(self._on_image_payload)
+
+        timer = getattr(self, "streaming_timer", None)
+        if timer is not None:
+            with suppress(RuntimeError):
+                timer.stop()
+
         if self._mmcore:
             ev = self._mmcore.events
-            with suppress(TypeError):
+            with suppress(TypeError, RuntimeError):
                 ev.imageSnapped.disconnect()
                 ev.continuousSequenceAcquisitionStarted.disconnect()
                 ev.sequenceAcquisitionStarted.disconnect()
                 ev.sequenceAcquisitionStopped.disconnect()
                 ev.exposureChanged.disconnect()
             enev = self._mmcore.mda.events
-            with suppress(TypeError):
-                enev.frameReady.disconnect()
+            with suppress(TypeError, RuntimeError):
+                enev.frameReady.disconnect()  # drops both _on_image_payload and _on_frame_ready
+
+    def _disconnect(self) -> None:
+        # `destroyed`-triggered backstop; the real work is in `cleanup`.
+        self.cleanup()
 
     def _on_streaming_start(self) -> None:
         self._reset_fps_counter()

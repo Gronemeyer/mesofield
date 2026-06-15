@@ -199,6 +199,21 @@ class MockFrameProducer(BaseCamera, BaseDataProducer):
         self._thread = None
         return BaseDataProducer.stop(self)
 
+    def _release(self) -> None:
+        """Drop the Qt image adapter on shutdown.
+
+        ``image_ready`` IS the adapter's signal; disconnect its GUI subscribers
+        and release the adapter so a torn-down mock can't emit into the viewer.
+        Called by ``BaseCamera.shutdown`` after ``stop()``.
+        """
+        if self._qt_image_adapter is not None and hasattr(self.image_ready, "disconnect"):
+            try:
+                self.image_ready.disconnect()
+            except (TypeError, RuntimeError):
+                pass
+        self._qt_image_adapter = None
+        self.image_ready = None
+
     def _run_loop(self) -> None:
         rng = np.random.default_rng(seed=0)
         while not self._stop_event.is_set():

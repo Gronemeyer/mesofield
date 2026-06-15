@@ -14,7 +14,7 @@ them without touching real hardware:
 
 from __future__ import annotations
 
-import threading
+from pathlib import Path
 
 from mesofield import DeviceRegistry
 from mesofield.base import Procedure
@@ -27,24 +27,15 @@ DeviceRegistry._registry.setdefault("mock_camera", MockFrameProducer)
 
 
 class PipelineDemoProcedure(Procedure):
-    """Mock-encoder-only procedure with duration-gated cleanup."""
+    """Mock-encoder-only procedure.
 
-    def on_started(self) -> None:
-        duration = self.config.get("duration")
-        if duration:
-            self.logger.info(f"Duration cap armed: {duration}s")
-            self._duration_timer = threading.Timer(float(duration), self.cleanup)
-            self._duration_timer.daemon = True
-            self._duration_timer.start()
+    The base Procedure stops the run after `duration` seconds (set in
+    experiment.json); no on_started/on_finished timer needed.
+    """
 
-    def on_finished(self) -> None:
-        super().on_finished()
-        timer = getattr(self, "_duration_timer", None)
-        if timer is not None:
-            timer.cancel()
-            self._duration_timer = None
 
 def main():
-    """Run the procedure."""
-    procedure = PipelineDemoProcedure("/Users/jakegronemeyer/dev/mesofield/experiments/pipeline_demo/experiment.json")
-    procedure.run()
+    """Run the procedure headlessly until the duration cap stops it."""
+    cfg = Path(__file__).parent / "experiment.json"
+    procedure = PipelineDemoProcedure(str(cfg))
+    procedure.run_until_finished()

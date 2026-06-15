@@ -1,0 +1,78 @@
+memory_buffer_size: 10000
+widgets:
+  - psychopy
+
+# nidaq:
+#   device_name: "Dev1"
+#   lines: "port1/line1"
+#   ctr: "ctr0"
+#   io_type: "DO"
+#   widgets:
+#     - "nidaq_test"
+#   output:
+#     suffix: "nidaq"
+#     file_type: "csv" 
+
+encoder:
+  type: "treadmill"
+  port: "COM5"
+  baudrate: 19200
+  cpr: 2400
+  diameter_mm: 80
+  sample_interval_ms: 20
+  development_mode: False
+  output:
+    suffix: "treadmill"
+    file_type: "csv" 
+    bids_type: "beh"
+
+# sensor:
+#   type: "lick"
+#   port: "COM4"
+#   baudrate: 115200
+#   capacitance_threshold: 100
+#   sample_interval_ms: 20
+#   development_mode: False
+#   output:
+#     suffix: "lick"
+#     file_type: "csv"
+#     bids_type: "beh"
+
+cameras:
+  - id: "ThorCam"
+    primary: True
+    name: "pupil"
+    backend: "micromanager"
+    micromanager_path: "C:/Program Files/Micro-Manager-2.0"
+    configuration_path: "C:/Program Files/Micro-Manager-2.0/PupilCam.cfg"
+    auto_contrast:
+    properties:
+      ThorCam:
+        Exposure: 20
+        fps: 20 #20 if fulll ROI # IMPORTANT: This is validated externally and is a value used merely to calculate experiment duration and frames to capture
+        #ROI: [440, 305, 509, 509]
+        viewer_type: "static"
+    output:
+      suffix: "pupil"
+      file_type: "mp4" 
+      bids_type: "func"
+    #widgets:
+      #- camera_snap
+
+# cameras:
+  # - id: "ArduCam"
+  #   name: "arducam"
+  #   backend: "opencv"
+  #   properties:
+  #     viewer_type: "interactive"
+  #   output:
+  #     suffix: "body"
+  #     file_type: "mp4" 
+  #     bids_type: "func"
+
+
+  # - id: "arducam"
+  #   name: "arducam"
+  #   backend: "opencv"
+  #   properties:
+  #     fps: 30

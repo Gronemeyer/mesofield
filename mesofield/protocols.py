@@ -106,7 +106,15 @@ class HardwareDevice(Protocol):
         ...
 
     def shutdown(self) -> None:
-        """Close and clean up resources."""
+        """Close and clean up resources.
+
+        Post-condition: after ``shutdown()`` returns, the device has stopped
+        all threads, released its hardware/driver handles, and disconnected all
+        of the signals it owns — no further emissions occur. Must be idempotent
+        (``HardwareManager.deinitialize`` and other teardown paths may both
+        reach a device). This lets a hot-reload tear a rig down without leaking
+        threads or firing signals into deleted GUI widgets.
+        """
         ...
 
     def status(self) -> Dict[str, Any]:

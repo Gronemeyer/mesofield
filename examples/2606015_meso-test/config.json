@@ -1,0 +1,55 @@
+{
+    "Configuration": {
+        "experimentor": "sbaskar",
+        "protocol": "hfd",
+        "psychopy_filename": "Gratings_vis_stim_v0.9.py",
+        "duration": 1200,
+        "start_on_trigger": false,
+        "task": "grayscreen"
+    },
+    "Subjects": {
+        "SB18": {
+            "sex": "M",
+            "genotype": "camkii-gcamp8s",
+            "DOB": "2025-10-31",
+            "DOS": "2026-01-20",
+            "session": "08",
+            "weight": "31.80"
+        },
+        "SB19": {
+            "sex": "F",
+            "genotype": "camkii-gcamp8s",
+            "DOB": "2025-10-31",
+            "DOS": "2026-01-21",
+            "session": "04",
+            "weight": "21.21"
+        },
+        "SB20": {
+            "sex": "F",
+            "genotype": "camkii-gcamp8s",
+            "DOB": "2025-10-31",
+            "DOS": "2026-01-21",
+            "session": "08",
+            "weight": "23.72"
+        },
+        "test": {
+            "sex": "M",
+            "genotype": "camkii-gcamp8s",
+            "DOB": "2025-07-01",
+            "DOS": "2025-09-28",
+            "session": "04",
+            "weight": "002"
+        }
+    },
+    "DisplayKeys": [
+        "session",
+        "task",
+        "experimentor",
+        "protocol",
+        "duration",
+        "start_on_trigger",
+        "weight",
+        "injection",
+        "inj_vol"
+    ]
+}

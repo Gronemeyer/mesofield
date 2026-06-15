@@ -1,3 +1,5 @@
+from contextlib import suppress
+
 from pymmcore_plus import CMMCorePlus
 
 from PyQt6.QtWidgets import (
@@ -210,6 +212,10 @@ class MDA(QWidget):
 
         # Track the per-camera button widgets so acquisition can lock them out.
         self._camera_buttons: list[CameraButtons] = []
+        # Track previews so `cleanup` can disconnect them from the (longer-lived)
+        # cameras before this widget is deleteLater()'d on a hardware reload.
+        self._previews: list = []
+        self._procedure_events = getattr(procedure, "events", None)
 
         for cam in self.cameras:
             # Per-core container
@@ -250,6 +256,7 @@ class MDA(QWidget):
             # and MockFrameProducer (synthetic frames). Non-mmcore cameras
             # used to auto-start on widget creation; now the user clicks
             # "Live" to start, matching mmcore camera UX.
+            self._previews.append(preview)
             cam_buttons = CameraButtons(cam, preview)
             self._camera_buttons.append(cam_buttons)
             core_box.layout().addWidget(cam_buttons)
@@ -268,6 +275,32 @@ class MDA(QWidget):
             events.procedure_started.connect(self._on_acquisition_started)
             events.procedure_finished.connect(self._on_acquisition_finished)
             events.procedure_error.connect(self._on_acquisition_finished)
+
+    def cleanup(self) -> None:
+        """Tear down every preview and procedure-event subscription.
+
+        Called by ``MainWindow._build_acquisition_ui`` before ``deleteLater()``
+        so previews disconnect from their cameras (which outlive this widget)
+        and the procedure-event slots don't fire into a deleted MDA on the next
+        run. Idempotent and exception-safe.
+        """
+        for preview in self._previews:
+            try:
+                preview.cleanup()
+            except Exception:
+                pass
+        self._previews.clear()
+
+        events = self._procedure_events
+        if events is not None:
+            for sig, slot in (
+                (getattr(events, "procedure_started", None), self._on_acquisition_started),
+                (getattr(events, "procedure_finished", None), self._on_acquisition_finished),
+                (getattr(events, "procedure_error", None), self._on_acquisition_finished),
+            ):
+                if sig is not None:
+                    with suppress(TypeError, RuntimeError):
+                        sig.disconnect(slot)
 
     def _on_acquisition_started(self, *_args) -> None:
         self.set_acquisition_active(True)

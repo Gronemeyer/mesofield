@@ -445,6 +445,15 @@ class Procedure:
     # ------------------------------------------------------------------
     # Core lifecycle
 
+    @property
+    def is_running(self) -> bool:
+        """True while a run is in progress (started and not yet finished).
+
+        Used to refuse destructive actions mid-recording — e.g. a hardware
+        hot-reload, which would tear down devices and abandon their writers.
+        """
+        return self.start_time is not None and not self._finished_event.is_set()
+
     def run(self) -> None:
         """Drive a standard experiment run.
 
@@ -452,6 +461,16 @@ class Procedure:
         any combination of devices declared in ``hardware.yaml``.
         """
         self.logger.info("================= Starting experiment ===================")
+
+        # 0. Reset per-run termination state. `_cleanup_procedure` latches
+        # `_cleanup_started` so the duration timer and the primary's `finished`
+        # signal only tear down once; without resetting it here, a *second*
+        # `run()` would short-circuit cleanup at the guard, so `stop_all()`
+        # never fires and non-primary capture threads hang with their writers
+        # unflushed. Clearing `_finished_event` keeps `run_until_finished`
+        # correct on re-runs too.
+        self._cleanup_started = False
+        self._finished_event.clear()
 
         # 1. DataManager / queue logger setup
         self.data.setup(self.config)
