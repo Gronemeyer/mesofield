@@ -92,18 +92,19 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
             except Exception:
                 pass
 
-        try:
-            evt.sequenceStarted.connect(_on_started)
-        except Exception:
-            pass
-        try:
-            evt.sequenceFinished.connect(_on_finished)
-        except Exception:
-            pass
-        try:
-            evt.frameReady.connect(_on_frame)
-        except Exception:
-            pass
+        # Keep handles so `_release` can disconnect these on shutdown — the
+        # closures were previously never severed, leaking handlers on the core
+        # (which may outlive this camera if a core is ever reused).
+        self._mda_handlers = {
+            "sequenceStarted": _on_started,
+            "sequenceFinished": _on_finished,
+            "frameReady": _on_frame,
+        }
+        for event_name, handler in self._mda_handlers.items():
+            try:
+                getattr(evt, event_name).connect(handler)
+            except Exception:
+                pass
 
     def _setup_micromanager(self, cfg):
         core = CMMCorePlus(cfg.get("micromanager_path"))
@@ -307,11 +308,28 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         except Exception as exc:
             self.logger.debug(f"stopSequenceAcquisition: {exc}")
 
-    def shutdown(self):
-        """Cancel any in-flight MDA on the Micro-Manager backend."""
-        if self.backend == "micromanager" and hasattr(self.core, "reset"):
+    def _release(self) -> None:
+        """Cancel any in-flight MDA and disconnect the mmcore event handlers.
+
+        Called by ``BaseCamera.shutdown`` (the template) after ``stop()``. The
+        handlers wired in ``_wire_signals`` were previously never disconnected;
+        sever them so no closure keeps emitting into this (torn-down) camera.
+        """
+        if self.backend != "micromanager" or self.core is None:
+            return
+        try:
             self.core.mda.cancel()
-    
+        except Exception as exc:
+            self.logger.debug(f"mda.cancel: {exc}")
+        evt = getattr(self.core.mda, "events", None)
+        handlers = getattr(self, "_mda_handlers", None)
+        if evt is not None and handlers:
+            for event_name, handler in handlers.items():
+                try:
+                    getattr(evt, event_name).disconnect(handler)
+                except (TypeError, RuntimeError):
+                    pass
+
     def __getattr__(self, name: str):
         """
         Any attribute not found on MMCamera will be looked up
@@ -628,13 +646,10 @@ class OpenCVCamera(BaseCamera, QThread):
         self.signals.finished.emit()
         return True
 
-    def shutdown(self) -> None:
-        """Tear down the capture thread.
-
-        ``stop()`` joins the capture thread; its ``run()`` finally-block
-        releases the :class:`CV2Writer` and writes the sidecar JSON.
-        """
-        self.stop()
+    # `shutdown()` is inherited from BaseCamera: the template calls `stop()`
+    # (joins the capture thread; run()'s finally releases the CV2Writer and
+    # writes the sidecar) then disconnects this camera's frame_ready/image_ready/
+    # progress Qt signals. No OpenCV-specific `_release` is needed.
 
     # --- live preview contract (BaseCamera abstract methods) ------------
     # `snap()` reads a frame from a one-shot VideoCapture; the live capture
@@ -736,10 +751,14 @@ class OpenCVCamera(BaseCamera, QThread):
                 # rather than spinning forever on a primary that never writes.
                 self.signals.finished.emit()
                 return
-        # A primary OpenCV camera has no externally-driven sequence length, so
-        # it must self-terminate after the expected number of frames; that
-        # emission of `signals.finished` is what drives Procedure cleanup.
-        stop_at_expected = self.is_primary and self.writer is not None and self._expected_frames > 0
+        # Any recording OpenCV camera with a known length self-terminates after
+        # its expected frame count, so a camera never depends solely on the
+        # primary -> _cleanup_procedure -> stop_all chain to stop (which would
+        # strand its capture thread + open writer if cleanup misfires). Only the
+        # *primary* emits `signals.finished` on natural stop (see the finally
+        # block) to drive Procedure cleanup; non-primary cameras just stop
+        # writing and release their own writer.
+        stop_at_expected = self.writer is not None and self._expected_frames > 0
         period = 1.0 / self.sampling_rate if self.sampling_rate > 0 else 0.0
         next_t = time.perf_counter()
         # Watchdog: a wrong backend / capture format makes read() fail forever

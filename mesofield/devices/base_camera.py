@@ -99,6 +99,9 @@ class BaseCamera:
         # Lifecycle timestamps.
         self._started: Optional[datetime] = None
         self._stopped: Optional[datetime] = None
+        # One-shot guard so `shutdown` is safe to call twice (HardwareManager
+        # deinitialize + any GUI/teardown path can both reach a device).
+        self._shutdown_done: bool = False
         # `image_ready` is a pyqtSignal (or psygnal wrapper) the MDA gui's
         # non-mmcore viewer subscribes to. Subclasses set this when they
         # have a Qt-friendly emitter (OpenCVCamera does directly via
@@ -287,9 +290,54 @@ class BaseCamera:
         """Extra sidecars beyond ``metadata_path``. Cameras typically have none."""
         return []
 
+    def _release(self) -> None:
+        """Backend-specific teardown hook (default no-op).
+
+        Called by :meth:`shutdown` after :meth:`stop` and before this camera's
+        signals are severed. Override to disconnect backend event handlers
+        (e.g. mmcore MDA events) and drop driver/adapter handles. Do NOT
+        disconnect this camera's own ``signals`` / ``image_ready`` here — the
+        template does that uniformly for every subclass.
+        """
+        return None
+
     def shutdown(self) -> None:
-        """Default cleanup: stop the camera. Subclasses extend if needed."""
+        """Stop the camera and release everything it owns. **Final** — override
+        :meth:`_release` (and :meth:`stop`), not this.
+
+        After it returns: threads are joined, backend handles released, and
+        every signal this camera owns (``signals`` psygnal bundle plus the Qt
+        ``image_ready`` / ``frame_ready`` / ``progress`` emitters) is
+        disconnected — so nothing it emits can reach a now-deleted subscriber
+        during a hot-reload. Idempotent.
+        """
+        if self._shutdown_done:
+            return
+        self._shutdown_done = True
+
+        # 1. Stop acquisition / join threads (subclass-specific, idempotent).
         try:
             self.stop()
         except Exception:
+            self.logger.exception("shutdown: stop() failed")
+
+        # 2. Backend handle + backend-signal release.
+        try:
+            self._release()
+        except Exception:
+            self.logger.exception("shutdown: _release() failed")
+
+        # 3. Sever the psygnal bundle at the source.
+        try:
+            self.signals.disconnect_all()
+        except Exception:
             pass
+
+        # 4. Sever the Qt signals this camera owns (no-op when unset / no slots).
+        for _sig_name in ("image_ready", "frame_ready", "progress"):
+            sig = getattr(self, _sig_name, None)
+            if sig is not None and hasattr(sig, "disconnect"):
+                try:
+                    sig.disconnect()
+                except (TypeError, RuntimeError):
+                    pass

@@ -238,6 +238,18 @@ class ExperimentConfig(ConfigRegister):
         by :class:`~mesofield.base.Procedure.initialize_hardware`).
         """
         abs_path = os.path.abspath(yaml_path)
+        # Tear down the outgoing rig before replacing it. Without this, a reload
+        # orphans the old HardwareManager with its camera threads still running
+        # and signals still connected (leaked threads + open writers, and frames
+        # firing into about-to-be-deleted GUI widgets). `deinitialize` already
+        # stops devices, unloads mmcore, and clears refs — it was just never
+        # called on the reload path.
+        old = getattr(self, "hardware", None)
+        if old is not None and getattr(old, "is_configured", False):
+            try:
+                old.deinitialize()
+            except Exception:
+                self.logger.exception("Error deinitializing previous hardware")
         self.hardware = HardwareManager(abs_path)
         self.logger.info(
             "Loaded hardware config from: "

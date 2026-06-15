@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Optional, List
 from PyQt6.QtCore import pyqtSignal, Qt, QSettings, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
+    QApplication,
     QComboBox,
     QFileDialog,
     QGroupBox,
@@ -406,6 +407,9 @@ class ConfigWizard(QWidget):
 
     Signals
     -------
+    hardwareAboutToChange
+        Emitted **before** a (re)load tears down the current hardware, so the
+        GUI can disconnect live viewers from the outgoing cameras first.
     configApplied
         Emitted **after** the experiment JSON (and optionally hardware YAML)
         have been successfully applied to the running :class:`Procedure`.
@@ -413,6 +417,7 @@ class ConfigWizard(QWidget):
         Emitted after hardware has been initialised (cameras available).
     """
 
+    hardwareAboutToChange = pyqtSignal()
     configApplied = pyqtSignal()
     hardwareReady = pyqtSignal()
     procedureChanged = pyqtSignal(object)  # emitted when a JSON declares a different Procedure subclass
@@ -593,6 +598,12 @@ class ConfigWizard(QWidget):
         if last_yaml and os.path.isfile(last_yaml):
             self._set_hardware_path(last_yaml, status="rig restored")
             self._select_rig_in_combo(last_yaml)
+        # Restore the experiment.json too 
+        last_json = self._settings.value(self._SETTINGS_KEY_JSON, "", type=str)
+        if last_json and os.path.isfile(last_json):
+            self._set_experiment_json(last_json, "experiment restored")
+            if not self._outdir_edit.text().strip():
+                self._outdir_edit.setText(os.path.dirname(last_json))
 
     def _save_recent_paths(self) -> None:
         """Persist current picker values to QSettings."""
@@ -600,6 +611,11 @@ class ConfigWizard(QWidget):
             self._settings.setValue(self._SETTINGS_KEY_JSON, self._experiment_json)
         if self._hardware_path:
             self._settings.setValue(self._SETTINGS_KEY_YAML, self._hardware_path)
+
+    def _dialog_start_dir(self, settings_key: str) -> str:
+        """Folder a Browse dialog should open in: the last picked file's dir."""
+        last = self._settings.value(settings_key, "", type=str)
+        return os.path.dirname(last) if last else ""
 
     # -- Helpers -------------------------------------------------------------
 
@@ -672,7 +688,8 @@ class ConfigWizard(QWidget):
     def _browse_yaml(self) -> None:
         """Pick an explicit hardware.yaml outside the rig store."""
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select hardware.yaml", "", "YAML Config (*.yaml *.yml);;All Files (*)"
+            self, "Select hardware.yaml", self._dialog_start_dir(self._SETTINGS_KEY_YAML),
+            "YAML Config (*.yaml *.yml);;All Files (*)"
         )
         if not path:
             return
@@ -773,7 +790,8 @@ class ConfigWizard(QWidget):
     def _browse_json(self) -> None:
         """Select an experiment.json from anywhere on disk."""
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select experiment.json", "", "JSON Config (*.json);;All Files (*)"
+            self, "Select experiment.json", self._dialog_start_dir(self._SETTINGS_KEY_JSON),
+            "JSON Config (*.json);;All Files (*)"
         )
         if not path:
             return
@@ -794,6 +812,22 @@ class ConfigWizard(QWidget):
             )
             return
 
+        # Refuse to reload while a recording is in progress: load_config tears
+        # down the live hardware, which would abandon the open writers and
+        # truncate the output files. The user must stop the run first.
+        if getattr(self.procedure, "is_running", False):
+            QMessageBox.warning(
+                self,
+                "Recording in progress",
+                "Stop the current recording before reloading the configuration.",
+            )
+            return
+
+        # Sever live viewers from the outgoing cameras BEFORE the teardown below
+        # deinitializes them, so no in-flight frame lands on a doomed widget.
+        self.hardwareAboutToChange.emit()
+
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             # If the JSON declares a custom Procedure subclass that differs
             # from the currently active class, instantiate the new one and
@@ -859,6 +893,8 @@ class ConfigWizard(QWidget):
                 f"Failed to apply configuration:\n\n{exc}",
             )
             return
+        finally:
+            QApplication.restoreOverrideCursor()
 
         # An explicit output directory overrides the JSON/cwd default.
         out_dir = self._outdir_edit.text().strip()

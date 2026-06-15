@@ -102,6 +102,7 @@ class MainWindow(QMainWindow):
         self._processor_widgets: list[SerialWidget] = []
 
         # Connect hot-load signals
+        self.config_wizard.hardwareAboutToChange.connect(self._on_hardware_about_to_change)
         self.config_wizard.configApplied.connect(self._on_config_applied)
         self.config_wizard.hardwareReady.connect(self._build_acquisition_ui)
         self.config_wizard.procedureChanged.connect(self._on_procedure_changed)
@@ -272,10 +273,31 @@ class MainWindow(QMainWindow):
         cc_width = self._config_controller.width() or self._config_controller.sizeHint().width()
         self.right_tabs.setFixedWidth(cc_width + 12)
 
+    def _on_hardware_about_to_change(self) -> None:
+        """Sever live viewers from the outgoing cameras before they're torn down.
+
+        Fires on ``hardwareAboutToChange`` (emitted by the wizard before
+        ``load_config`` deinitializes the old hardware), so frames in flight
+        from a still-running camera can't reach a viewer that's about to be
+        rebuilt. The full rebuild still happens later on ``hardwareReady``.
+        """
+        if self._acquisition_gui is not None:
+            try:
+                self._acquisition_gui.cleanup()
+            except Exception:
+                pass
+
     def _build_acquisition_ui(self) -> None:
         """Build (or rebuild) hardware-dependent widgets: MDA viewer and encoder."""
         # -- MDA / acquisition GUI -------------------------------------------
         if self._acquisition_gui is not None:
+            # Disconnect previews from their (longer-lived) cameras BEFORE the
+            # async deleteLater(), so a still-streaming camera can't fire a frame
+            # into a half-deleted viewer. Mirrors the _build_device_plots idiom.
+            try:
+                self._acquisition_gui.cleanup()
+            except Exception:
+                pass
             self._mda_layout.removeWidget(self._acquisition_gui)
             self._acquisition_gui.deleteLater()
             self._acquisition_gui = None
