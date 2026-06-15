@@ -31,7 +31,7 @@ import pandas as pd
 from mesofield import DeviceRegistry
 from mesofield.signals import DeviceSignals
 from mesofield.utils._logger import get_logger
-from mesofield.datakit.sources.register import IntervalSeriesSource, SourceContext
+from mesofield.datakit.sources.register import IntervalSeriesSource
 from mesofield.datakit.timeline import DataqueueIndex
 
 
@@ -65,6 +65,10 @@ class PsychoPyDevice:
     def start(self) -> bool:
         from mesofield.devices.subprocesses.psychopy import PsychoPyProcess
 
+        if self._process is not None:
+            # Already launched (e.g. by a procedure's start_on_trigger gate,
+            # before start_all). Don't spawn a second subprocess.
+            return False
         if self._config is None:
             self.logger.error("PsychoPyDevice.start called before arm()")
             return False

@@ -242,6 +242,10 @@ class HardwareManager():
             # builds a live SerialWidget for them just like a real wheel.
             if getattr(device, "device_type", None) == "encoder" and self.encoder is None:
                 self.encoder = device
+            # NI-DAQ-typed extras fill the dedicated ``nidaq`` slot so the
+            # PupilEngine and the GUI test button can reach it via cfg.hardware.nidaq.
+            if getattr(device, "device_type", None) == "nidaq" and self.nidaq is None:
+                self.nidaq = device
             self.logger.info(f"Registered extra device '{dev_id}' (type={type_key}).")
 
     # ---- Pre-built device path (scripted procedures) ----------------------
@@ -520,12 +524,10 @@ class HardwareManager():
         params = self.yaml.get("nidaq")
         if not params:
             return
-        self.nidaq = Nidaq(
-            device_name=params.get('device_name'),
-            lines=params.get('lines'),
-            io_type=params.get('io_type'),
-            ctr=params.get('crt', 'ctr0'),
-        )
+        cfg = dict(params)
+        cfg.setdefault("id", "nidaq")
+        self.nidaq = Nidaq(cfg)
+        self._apply_output_args(self.nidaq, params.get("output", {}), "nidaq")
         self.nidaq.is_primary = bool(params.get("primary", False))
         self.devices["nidaq"] = self.nidaq
 

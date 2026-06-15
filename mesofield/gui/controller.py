@@ -274,7 +274,6 @@ class ConfigController(QWidget):
         dynamic_buttons = [
             (DynamicController.LED_TEST_BTN, self._test_led),
             (DynamicController.STOP_BTN, self._stop_led),
-            (DynamicController.NIDAQ_BTN, self._test_nidaq),
         ]
         for btn_attr, handler in dynamic_buttons:
             if hasattr(self.dynamic_controller, btn_attr):
@@ -522,12 +521,6 @@ class ConfigController(QWidget):
             data_manager = getattr(self.procedure, "data", None)
             if data_manager is not None and getattr(data_manager, "queue", None) is not None:
                 data_manager.queue.push("notes", text, timestamp=now)
-
-    def _test_nidaq(self):
-        """
-        PUlse the nidaq device to test its functionality.
-        """
-        self.procedure.config.hardware.get_device('nidaq').start()
     # ----------------------------------------------------------------------------------------------- #
 
 

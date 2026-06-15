@@ -15,7 +15,8 @@ import json
 import inspect
 from typing import TYPE_CHECKING, Optional, List
 
-from PyQt6.QtCore import pyqtSignal, Qt, QSettings
+from PyQt6.QtCore import pyqtSignal, Qt, QSettings, QUrl
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -37,6 +38,28 @@ if TYPE_CHECKING:
     from pymmcore_plus import CMMCorePlus
     from mesofield.base import Procedure
     from mesofield.devices.cameras import MMCamera
+
+
+# ---------------------------------------------------------------------------
+# Open / reveal the actual config files on disk
+# ---------------------------------------------------------------------------
+
+def _open_in_default_app(path: str) -> None:
+    """Open *path* in the OS default editor/application."""
+    QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+
+
+def _reveal_in_file_manager(path: str) -> None:
+    """Select *path* in the OS file manager (Finder/Explorer), else open its folder."""
+    import subprocess
+    import sys
+
+    if sys.platform == "darwin":
+        subprocess.run(["open", "-R", path], check=False)
+    elif os.name == "nt":
+        subprocess.run(["explorer", f"/select,{os.path.normpath(path)}"], check=False)
+    else:
+        QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
 
 
 # ---------------------------------------------------------------------------
@@ -421,6 +444,34 @@ class ConfigWizard(QWidget):
         """Return a themed standard icon for buttons."""
         return self.style().standardIcon(sp)
 
+    def _file_action_row(self, get_path) -> QHBoxLayout:
+        """Open / Reveal buttons acting on the path returned by *get_path*."""
+        row = QHBoxLayout()
+        open_btn = QPushButton(" Open")
+        open_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_FileIcon))
+        open_btn.setToolTip("Open this file in your default editor")
+        open_btn.clicked.connect(lambda: self._open_file(get_path()))
+        reveal_btn = QPushButton(" Reveal")
+        reveal_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_DirOpenIcon))
+        reveal_btn.setToolTip("Show this file in your file manager")
+        reveal_btn.clicked.connect(lambda: self._reveal_file(get_path()))
+        row.addWidget(open_btn)
+        row.addWidget(reveal_btn)
+        row.addStretch()
+        return row
+
+    def _open_file(self, path: str) -> None:
+        if not path or not os.path.isfile(path):
+            QMessageBox.information(self, "No file", "Select a file first.")
+            return
+        _open_in_default_app(path)
+
+    def _reveal_file(self, path: str) -> None:
+        if not path or not os.path.isfile(path):
+            QMessageBox.information(self, "No file", "Select a file first.")
+            return
+        _reveal_in_file_manager(path)
+
     def _build_ui(self) -> None:
         # Pending selections (no raw path fields in the UI — kept here and shown
         # as friendly status lines with the full path in a tooltip).
@@ -472,6 +523,7 @@ class ConfigWizard(QWidget):
         self._yaml_status = QLabel("• no rig selected")
         self._yaml_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
         rig_layout.addWidget(self._yaml_status)
+        rig_layout.addLayout(self._file_action_row(lambda: self._hardware_path))
         layout.addWidget(rig_group)
 
         # === ② Experiment (optional) =======================================
@@ -497,6 +549,7 @@ class ConfigWizard(QWidget):
         self._json_status = QLabel("")
         self._json_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
         exp_layout.addWidget(self._json_status)
+        exp_layout.addLayout(self._file_action_row(lambda: self._experiment_json))
 
         json_btn_row = QHBoxLayout()
         self._create_json_btn = QPushButton(" Create experiment.json…")

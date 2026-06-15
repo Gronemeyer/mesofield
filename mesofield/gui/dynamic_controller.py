@@ -7,7 +7,6 @@ class DynamicController(QWidget):
     STOP_BTN = 'stop_btn'
     SNAP_BTN = 'snap_btn'
     PSYCHOPY_BTN = 'psychopy_btn'
-    NIDAQ_BTN = 'nidaq_btn'
     """
     A dynamic controller that loads and arranges GUI components based on hardware features.
     """
@@ -22,7 +21,6 @@ class DynamicController(QWidget):
             'led_control': (self._create_led_controls, 'buttons'),
             'camera_snap': (self._create_snap_control, 'buttons'),
             'psychopy': (self._create_psychopy_controls, 'buttons'),
-            'nidaq_test': (self._create_nidaq_controls, 'buttons'),
             # more mappings as needed are added here
         }
 
@@ -69,10 +67,4 @@ class DynamicController(QWidget):
         psychopy_btn = QPushButton("Launch PsychoPy")
         setattr(self, self.PSYCHOPY_BTN, psychopy_btn)
         layout.addWidget(psychopy_btn)
-    
-    def _create_nidaq_controls(self, layout):
-        """Create NIDAQ control button."""
-        nidaq_btn = QPushButton("NIDAQ Digital Pulse")
-        setattr(self, self.NIDAQ_BTN, nidaq_btn)
-        layout.addWidget(nidaq_btn)
     # Additional factory methods can be added here

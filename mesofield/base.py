@@ -434,6 +434,15 @@ class Procedure:
         """Subclass hook called before arming devices.  Override as needed."""
         return None
 
+    def await_trigger(self) -> None:
+        """Subclass hook called after arming, before starting devices.
+
+        Default no-op. Override to gate the run on an external or manual
+        trigger (e.g. a spacebar "start on trigger" gate). Devices are armed
+        but nothing has started yet, so blocking here holds the whole run.
+        """
+        return None
+
     def on_started(self) -> None:
         """Subclass hook called immediately after ``start_all``."""
         return None
@@ -466,6 +475,10 @@ class Procedure:
         try:
             # 3. Per-run device prep
             self.hardware.arm_all(self.config)
+
+            # 3b. Optional trigger gate (subclass hook): hold here until an
+            # external/manual trigger before anything starts.
+            self.await_trigger()
 
             # 4. Wire termination: primary device's finished signal triggers cleanup
             self.hardware.primary.signals.finished.connect(self._cleanup_procedure)
