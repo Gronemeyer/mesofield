@@ -28,7 +28,7 @@ import pandas as pd
 from mesofield import DeviceRegistry
 from mesofield.devices.base import BaseSerialDevice
 from mesofield.utils._logger import get_logger
-from mesofield.datakit.sources.register import SourceContext, TimeseriesSource
+from mesofield.datakit.sources.register import TimeseriesSource
 from mesofield.datakit.timeline import DataqueueIndex
 
 _logger = get_logger(__name__)

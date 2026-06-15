@@ -313,6 +313,20 @@ DEVICE_SPECS: dict[str, DeviceSpec] = {
         output=_output_fields("cam", "ome.tiff", ["ome.tiff", "mp4"], "func"),
         fixed={"backend": "micromanager"},
     ),
+    "treadmill": DeviceSpec(
+        # Teensy treadmill (EncoderSerialInterface) registers under "encoder";
+        # the stanza name defaults to "treadmill" so it routes through
+        # _init_extras rather than the reserved top-level "encoder" key.
+        type="encoder",
+        label="Treadmill encoder (Teensy serial)",
+        default_name="treadmill",
+        category="Encoder",
+        fields=[
+            FieldSpec("port", "port", str, "COM5", help="e.g. COM5 (Win) or /dev/ttyACM0"),
+            FieldSpec("baudrate", "baudrate", int, 192000),
+        ],
+        output=_output_fields("treadmill", "csv", ["csv"], "beh"),
+    ),
     "wheel": DeviceSpec(
         type="wheel",
         label="Wheel encoder (serial)",
@@ -325,6 +339,22 @@ DEVICE_SPECS: dict[str, DeviceSpec] = {
             FieldSpec("diameter_mm", "diameter_mm", int, 80),
         ],
         output=_output_fields("wheel", "csv", ["csv"], "beh"),
+    ),
+    "nidaq": DeviceSpec(
+        type="nidaq",
+        label="NI-DAQ (start trigger + TTL)",
+        default_name="nidaq",
+        category="DAQ",
+        fields=[
+            FieldSpec("device_name", "device_name", str, "Dev1"),
+            FieldSpec("lines", "lines", str, "port1/line1",
+                      help="Digital-output line pulsed once at start to signal an external system"),
+            FieldSpec("ctr", "ctr", str, "ctr0",
+                      help="Counter input that tallies returned TTL rising edges"),
+            FieldSpec("io_type", "io_type", str, "DO", choices=["DO"]),
+            FieldSpec("development_mode", "development_mode", bool, False),
+        ],
+        output=_output_fields("nidaq", "csv", ["csv"], "beh"),
     ),
     # --- Stimulus apps (subprocess-backed; design lives in experiment.json) ---
     "psychopy": DeviceSpec(
@@ -521,7 +551,7 @@ class HardwareBuilderDialog(QDialog):
         if doc:
             self._load_doc(doc)
 
-    _CATEGORY_ORDER = ["Camera", "Encoder", "Stimulus", "Mock"]
+    _CATEGORY_ORDER = ["Camera", "Encoder", "DAQ", "Stimulus", "Mock"]
 
     def _populate_add_combo(self) -> None:
         """Group the add-device menu by category, registration-aware.

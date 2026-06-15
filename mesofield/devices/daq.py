@@ -1,151 +1,161 @@
-from typing import Any, ClassVar, Dict, List
+"""NI-DAQ device: external start-trigger + TTL edge counter.
 
-from dataclasses import dataclass
-import threading 
-from datetime import datetime
+Registered as a :class:`~mesofield.devices.base.BaseDataProducer` so its TTL
+rising edges flow onto the session dataqueue via :meth:`record` and into the
+AcquisitionManifest like any other producer.
+
+Dual purpose, preserved from the original engine-driven design:
+
+1. On :meth:`start` the counter input is armed *first* (begins counting),
+   then a single pulse is written on the digital-output line to tell a
+   separate system to go. Arming before pulsing means the first TTL returned
+   by that system is never missed.
+2. A background thread polls the counter and records one row per new rising
+   edge (payload ``1``) -- the marker downstream parsers align against
+   (``dataqueue_device_match="nidaq"`` in ``psychopy_device.Psychopy``).
+
+``nidaqmx`` is imported lazily so this module loads on machines without the NI
+driver; ``development_mode`` short-circuits every hardware call.
+"""
+
+from __future__ import annotations
+
+import threading
 import time
+from typing import Any, ClassVar, Dict, Optional
 
-import nidaqmx.system
-import nidaqmx
-from nidaqmx.constants import Edge
-
-from mesofield.signals import DeviceSignals
-from mesofield.utils._logger import get_logger
+from mesofield import DeviceRegistry
+from mesofield.devices.base import BaseDataProducer
 
 
-@dataclass
-class Nidaq:
-    """
-    NIDAQ hardware control device.
-    
-    This class implements the ControlDevice protocol via duck typing,
-    providing all the necessary methods and attributes without inheritance.
-    """
-    device_name: str
-    lines: str
-    ctr: str
-    io_type: str
+@DeviceRegistry.register("nidaq")
+class Nidaq(BaseDataProducer):
+    """External start-trigger + TTL edge counter on an NI-DAQ board."""
+
     device_type: ClassVar[str] = "nidaq"
-    device_id: str = "nidaq"
-    bids_type: str = ""
-    file_type: str = "csv"
+    file_type: ClassVar[str] = "csv"
+    bids_type: ClassVar[Optional[str]] = "beh"
+    data_type: ClassVar[str] = "ttl_edges"
 
-    def __post_init__(self):
-        self._started: datetime # Timestamp when the device was started
-        self._stopped: datetime # Timestamp when the device was stopped
-        self.signals = DeviceSignals()
-        self.logger = get_logger(f"{__name__}.{self.__class__.__name__}[{self.device_id}]")
-        self.pulse_width = 0.001
-        self.poll_interval = 0.01
+    dataqueue_payload_schema: ClassVar[Optional[dict]] = {
+        "device_id": "nidaq",
+        "payload_format": "scalar",
+        "payload_fields": {"pulse": "int"},
+        "description": "One row per counter rising edge; payload=1 marks a TTL pulse.",
+    }
+
+    def __init__(self, cfg: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
+        cfg = dict(cfg or {})
+        cfg.setdefault("id", "nidaq")
+        super().__init__(cfg, **kwargs)
+
+        self.device_name: str = self.cfg.get("device_name", "Dev1")
+        self.lines: str = self.cfg.get("lines", "port0/line0")
+        self.ctr: str = self.cfg.get("ctr", "ctr0")
+        self.io_type: str = self.cfg.get("io_type", "DO")
+        self.pulse_width: float = float(self.cfg.get("pulse_width", 0.001))
+        self.poll_interval: float = float(self.cfg.get("poll_interval", 0.01))
+        self.development_mode: bool = bool(self.cfg.get("development_mode", False))
+
+        self._ci: Any = None
+        self._do: Any = None
         self._stop_event = threading.Event()
-        self._thread = None
-        self._lock = threading.Lock()
-        self._exposure_times: list[float] = []
+        self._thread: Optional[threading.Thread] = None
 
-    def initialize(self) -> None:
-        """Initialize the device."""
-        pass
+    # -- hardware helpers ------------------------------------------------
+    def reset(self) -> None:
+        """Stop the worker (if running) and reset the NI-DAQ device."""
+        if self._thread and self._thread.is_alive():
+            self.stop()
+        if self.development_mode:
+            return
+        import nidaqmx.system
 
-    def arm(self, config) -> None:
-        """No per-run prep needed."""
-        return None
+        nidaqmx.system.Device(self.device_name).reset_device()
 
-    def test_connection(self):
-        """Pulse the configured DO line high for ~3 s as a connectivity test.
+    def test_connection(self) -> None:
+        """Pulse the DO line high ~3 s as a wiring check (logs, never raises)."""
+        self.logger.info(f"Testing NI-DAQ {self.device_name}/{self.lines}")
+        if self.development_mode:
+            return
+        import nidaqmx
 
-        Logs the outcome; does not raise on failure (errors are surfaced
-        via the logger).
-        """
-        self.logger.info(f"Testing connection to NI-DAQ device: {self.device_name}")
         try:
             with nidaqmx.Task() as task:
-                task.do_channels.add_do_chan(f'{self.device_name}/{self.lines}')
+                task.do_channels.add_do_chan(f"{self.device_name}/{self.lines}")
                 task.write(True)
                 time.sleep(3)
                 task.write(False)
-            self.logger.info("NI-DAQ connection successful")
-        except nidaqmx.DaqError as e:
-            self.logger.error(f"NI-DAQ connection failed: {e}")
+            self.logger.info("NI-DAQ connection OK")
+        except nidaqmx.DaqError as exc:
+            self.logger.error(f"NI-DAQ connection failed: {exc}")
 
-    def reset(self):
-        """Stop the worker thread (if running) and reset the NI-DAQ device."""
-        self.logger.info(f"Resetting NIDAQ device")
+    # -- lifecycle -------------------------------------------------------
+    def start(self) -> bool:
+        # Both start_all() and PupilEngine.exec_sequenced_event call start();
+        # the first wins, later calls are no-ops.
         if self._thread and self._thread.is_alive():
-            self.stop()
-        nidaqmx.system.Device(self.device_name).reset_device()
+            return False
 
-    def start(self):
-        """Begin counting edges on ``ctr`` and pulsing ``lines`` from a thread.
-
-        Configures both a counter-input task (rising-edge counts) and a
-        digital-output task (camera trigger), then launches a worker
-        thread that drives them on the configured ``poll_interval``.
-        """
-        # Configure and start the CI task
-        self._ci = nidaqmx.Task()
-        self._ci.ci_channels.add_ci_count_edges_chan(
-            f"{self.device_name}/{self.ctr}", edge=Edge.RISING, initial_count=0
-        )
-        self._ci.start()
-        self._started = datetime.now()
-        # Configure the DO task (camera trigger)
-        self._do = nidaqmx.Task()
-        self._do.do_channels.add_do_chan(f"{self.device_name}/{self.lines}")
-
-        # Launch background thread
         self._stop_event.clear()
-        self._thread = threading.Thread(target=self._worker, daemon=True)
-        self._thread.start()
-        self.signals.started.emit()
 
-    def _worker(self):
-        prev_count = 0
-        while not self._stop_event.is_set():
-            # 1) Start Read count & timestamp
-            cnt = self._ci.read()
-            ts = time.time()
-            dt = datetime.now()
+        if not self.development_mode:
+            import nidaqmx
+            from nidaqmx.constants import Edge
 
-            # 2) Trigger camera
+            # 1) Arm the counter FIRST so no returned TTL is missed.
+            self._ci = nidaqmx.Task()
+            self._ci.ci_channels.add_ci_count_edges_chan(
+                f"{self.device_name}/{self.ctr}", edge=Edge.RISING, initial_count=0
+            )
+            self._ci.start()
+
+            # 2) Then pulse the DO line once to start the external system.
+            self._do = nidaqmx.Task()
+            self._do.do_channels.add_do_chan(f"{self.device_name}/{self.lines}")
             self._do.write(True)
             time.sleep(self.pulse_width)
             self._do.write(False)
 
-            # 3) For each new edge, record the timestamp
-            new_count = int(cnt)
-            if new_count > prev_count:
-                event_data = [ts] * (new_count - prev_count)
-                with self._lock:
-                    self._exposure_times.extend(event_data)
-                self.signals.data.emit(cnt, ts)
-                prev_count = new_count
-            
-            # 4) Wait before next trigger
-            time.sleep(self.poll_interval)
+        self._thread = threading.Thread(
+            target=self._worker, name=f"Nidaq-{self.device_id}", daemon=True
+        )
+        self._thread.start()
+        return super().start()
 
-        # Cleanup when stopping
-        self._ci.stop()
-        self._ci.close()
-        self._do.close()
-    
-    def stop(self):
-        """Signal the background thread to stop and wait for it.
-        
-        This will also reset the NIDAQ device.
-        """
-        self.logger.info(f"Resetting NIDAQ device")
+    def _worker(self) -> None:
+        """Poll the counter and record one row per new rising edge."""
+        prev = 0
+        while not self._stop_event.is_set():
+            if self._ci is not None:
+                count = int(self._ci.read())
+                ts = time.time()
+                for _ in range(count - prev):
+                    self.record(1, ts)
+                prev = count
+            self._stop_event.wait(self.poll_interval)
+
+    def stop(self) -> bool:
         self._stop_event.set()
         if self._thread and self._thread.is_alive():
-            self._thread.join()
-        self._stopped = datetime.now()
-        nidaqmx.system.Device(self.device_name).reset_device()
-        self.signals.finished.emit()
-    
+            self._thread.join(timeout=2.0)
+        self._thread = None
+        for task in (self._ci, self._do):
+            if task is not None:
+                try:
+                    task.close()
+                except Exception as exc:
+                    self.logger.debug(f"task close failed: {exc}")
+        self._ci = self._do = None
+        if not self.development_mode:
+            try:
+                import nidaqmx.system
+
+                nidaqmx.system.Device(self.device_name).reset_device()
+            except Exception as exc:
+                self.logger.debug(f"device reset on stop failed: {exc}")
+        return super().stop()
+
     def shutdown(self) -> None:
-        """Close the device."""
-        self.stop()
-    
-    def get_data(self) -> list[float]:
-        """Retrieve a copy of the host-time exposure timestamps."""
-        with self._lock:
-            return list(self._exposure_times)
+        if self.is_running:
+            self.stop()

@@ -31,7 +31,7 @@ import pandas as pd
 from mesofield import DeviceRegistry
 from mesofield.signals import DeviceSignals
 from mesofield.utils._logger import get_logger
-from mesofield.datakit.sources.register import IntervalSeriesSource, SourceContext
+from mesofield.datakit.sources.register import IntervalSeriesSource
 from mesofield.datakit.timeline import DataqueueIndex
 
 

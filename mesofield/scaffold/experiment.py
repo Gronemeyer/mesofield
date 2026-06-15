@@ -322,7 +322,7 @@ def _thermal_example_py() -> str:
         '\n'
         'from mesofield import DeviceRegistry\n'
         'from mesofield.devices.base import BaseSerialDevice\n'
-        'from mesofield.datakit.sources.register import SourceContext, TimeseriesSource\n'
+        'from mesofield.datakit.sources.register import TimeseriesSource\n'
         '\n'
         '\n'
         '@DeviceRegistry.register("thermal")\n'
