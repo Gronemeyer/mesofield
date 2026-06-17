@@ -189,3 +189,6 @@ Dhyana 400BSI_PIDe408.xml
 # Sphinx-apidoc generated stubs (rebuilt every docs build)
 docs/api/mesofield*.rst
 docs/_build/
+
+# Camera throughput benchmark output (scripts/bench_camera_throughput.py)
+bench_out/
