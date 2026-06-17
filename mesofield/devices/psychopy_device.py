@@ -53,22 +53,43 @@ class PsychoPyDevice:
         self._config = None
         self._started: Optional[datetime] = None
         self._stopped: Optional[datetime] = None
+        # Per-run gate. A procedure may set this False in ``prerun`` for a task
+        # that records without a visual stimulus (e.g. a spontaneous baseline),
+        # so neither ``start_all`` nor an explicit ``start`` launches PsychoPy.
+        self.enabled: bool = True
 
     # -- lifecycle ------------------------------------------------------
     def initialize(self) -> bool:
         return True
 
     def arm(self, config) -> None:
-        """Per-run prep: stash the experiment config so ``start`` can launch."""
+        """Per-run prep: stash the config and clear any prior process handle.
+
+        Resetting ``_process`` here lets a second recording in the same GUI
+        session relaunch PsychoPy (the handle is otherwise left dangling after
+        ``stop``, which would make ``start`` a no-op on the next run).
+        """
         self._config = config
+        self._process = None
+        self._started = None
+        self._stopped = None
 
     def start(self) -> bool:
+        """Launch the PsychoPy subprocess and block on its handshake.
+
+        Returns ``True`` only when the subprocess reported ``PSYCHOPY_READY``.
+        Returns ``False`` when disabled for this run, already launched, or the
+        handshake failed (see :attr:`handshake_ok`).
+        """
         from mesofield.devices.subprocesses.psychopy import PsychoPyProcess
 
+        if not self.enabled:
+            self.logger.info("PsychoPy disabled for this run; skipping launch.")
+            return False
         if self._process is not None:
             # Already launched (e.g. by a procedure's start_on_trigger gate,
             # before start_all). Don't spawn a second subprocess.
-            return False
+            return self.handshake_ok
         if self._config is None:
             self.logger.error("PsychoPyDevice.start called before arm()")
             return False
@@ -77,8 +98,16 @@ class PsychoPyDevice:
         self._process.ready.connect(self._on_ready)
         self._process.finished.connect(self._on_finished)
         self._started = datetime.now()
-        self._process.start()
-        return True
+        self._process.start()  # blocks on the PSYCHOPY_READY handshake dialog
+        return self.handshake_ok
+
+    @property
+    def handshake_ok(self) -> bool:
+        """``True`` once the subprocess has printed ``PSYCHOPY_READY``."""
+        return bool(
+            self._process is not None
+            and getattr(self._process, "_handshake_ok", False)
+        )
 
     def stop(self) -> bool:
         self._stopped = datetime.now()

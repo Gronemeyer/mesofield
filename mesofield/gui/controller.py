@@ -145,8 +145,12 @@ class ConfigController(QWidget):
     # ------------------------------------------------------------------------------------- #
     def __init__(self, procedure: 'Procedure', display_keys=None):
         super().__init__()
-        self.config: ExperimentConfig = procedure.config 
+        self.config: ExperimentConfig = procedure.config
         self.procedure = procedure
+        # Own the "start on trigger" gate here (GUI layer) 
+        # base.Procedure.await_trigger() calls this after
+        # arming and before starting devices.
+        self.procedure.start_gate = self._start_gate
         if display_keys is None and hasattr(self.config, "display_keys"):
             display_keys = self.config.display_keys
         self.display_keys = list(display_keys) if display_keys is not None else None
@@ -310,9 +314,9 @@ class ConfigController(QWidget):
         if self.procedure is not None:
             try:
                 # Run the procedure in a separate thread to avoid blocking the GUI
-                self.procedure_thread = threading.Thread(target=self.procedure.run())
-                self.procedure_thread.start()
-                
+                # self.procedure_thread = threading.Thread(target=self.procedure.run())
+                # self.procedure_thread.start()
+                self.procedure.run()
                 # Signal that recording has started
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 self.recordStarted.emit(timestamp)
@@ -320,6 +324,49 @@ class ConfigController(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "Procedure Error", f"Failed to run procedure: {str(e)}")
                 return
+
+    def _start_gate(self, procedure) -> bool:
+        """Hold the armed run until the operator triggers the start.
+
+        Injected onto the procedure as ``start_gate`` and called from
+        :meth:`mesofield.base.Procedure.await_trigger` when ``start_on_trigger``
+        is set (after arming, before any device starts). If an *enabled* PsychoPy
+        stimulus device is present, launch it and block on its ``PSYCHOPY_READY``
+        handshake -- its own foreground "ready" dialog is the start gate.
+        Otherwise (e.g. a spontaneous baseline with no stimulus) show a focused
+        manual start dialog. Returns ``True`` to proceed, ``False`` to cancel.
+        """
+        psychopy = procedure.hardware.get_device("psychopy")
+        if psychopy is not None and getattr(psychopy, "enabled", True):
+            psychopy.start()  # blocks on the foreground handshake/ready dialog
+            if not getattr(psychopy, "handshake_ok", False):
+                QMessageBox.critical(
+                    self,
+                    "PsychoPy Error",
+                    "PsychoPy did not report ready (PSYCHOPY_READY); aborting run.\n"
+                    "Check the PsychoPy console/stderr for the script error.",
+                )
+                return False
+            return True
+        return self._manual_start_gate()
+
+    def _manual_start_gate(self) -> bool:
+        """Focused modal "press to start" gate for runs with no stimulus."""
+        from mesofield.devices.subprocesses.psychopy import force_foreground
+
+        box = QMessageBox(self)
+        box.setWindowTitle("Start recording")
+        box.setText(
+            "Ready to record (no visual stimulus).\n"
+            "Press spacebar (or click OK) to start, Cancel to abort."
+        )
+        box.setStandardButtons(
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
+        )
+        box.setDefaultButton(QMessageBox.StandardButton.Ok)
+        box.setWindowModality(Qt.WindowModality.ApplicationModal)
+        force_foreground(box)
+        return box.exec() == QMessageBox.StandardButton.Ok
 
     def _abort(self):
         """Safely stop the running Procedure (stops hardware, saves data)."""

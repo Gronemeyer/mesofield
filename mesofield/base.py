@@ -168,6 +168,15 @@ class Procedure:
         self._duration_timer: Optional[threading.Timer] = None
         self._cleanup_started = False
 
+        # Optional start gate, injected by a front-end (e.g. the GUI
+        # ConfigController). When ``start_on_trigger`` is set, the default
+        # :meth:`await_trigger` calls this after arming and before starting any
+        # device; it owns whatever "ready / press to start" interaction the
+        # front-end wants (launching a stimulus subprocess, a focused dialog,
+        # etc.) and returns ``True`` to proceed or ``False`` to cancel the run.
+        # Left ``None`` for headless runs, which then do not block.
+        self.start_gate: Optional[Any] = None
+
         # `hardware` is either a path to a hardware.yaml rig or a list of
         # pre-built device objects. Keep the path (if any) for ExperimentConfig;
         # a device list is handed to a HardwareManager below.
@@ -435,13 +444,27 @@ class Procedure:
         return None
 
     def await_trigger(self) -> None:
-        """Subclass hook called after arming, before starting devices.
+        """Gate the run after arming and before starting devices.
 
-        Default no-op. Override to gate the run on an external or manual
-        trigger (e.g. a spacebar "start on trigger" gate). Devices are armed
-        but nothing has started yet, so blocking here holds the whole run.
+        When ``start_on_trigger`` is set and a :attr:`start_gate` has been
+        injected (e.g. by the GUI ConfigController), it is invoked here to own
+        the "ready / press to start" interaction; returning ``False`` cancels
+        the run. Devices are armed but nothing has started yet, so blocking here
+        holds the whole run. Headless runs with no gate do not block.
+
+        This default contains no device-specific logic. Subclasses may still
+        override it for a fully custom trigger.
         """
-        return None
+        if not self.config.start_on_trigger:
+            return
+        gate = self.start_gate
+        if gate is None:
+            self.logger.info(
+                "start_on_trigger set but no start gate injected; proceeding."
+            )
+            return
+        if not gate(self):
+            raise RuntimeError("Run cancelled at the start gate")
 
     def on_started(self) -> None:
         """Subclass hook called immediately after ``start_all``."""
