@@ -258,20 +258,20 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         return True
 
     def stop(self) -> bool:
-        """Stop acquisition.
+        """Stop acquisition for any running Micro-Manager camera (incl. primary).
 
-        Non-primary Micro-Manager cameras must be told explicitly to halt
-        their sequence acquisition — the primary camera's MDA driver
-        does not stop them.
+        ``stopSequenceAcquisition`` is non-joining and idempotent: on natural
+        completion the engine already stopped the sequence (no-op here), and on
+        abort/duration-cap it flips the flag the engine loop polls so the run
+        ends and buffered frames flush. Safe from any thread — unlike
+        ``mda.cancel()``, which joins the runner and would self-deadlock when
+        cleanup runs on the MDA worker thread (the primary's ``finished`` path).
         """
         self._stopped = datetime.now()
-        if (
-            self.backend == "micromanager"
-            and not self.is_primary
-            and self.core is not None
-        ):
+        if self.backend == "micromanager" and self.core is not None:
             try:
-                self.core.stopSequenceAcquisition()
+                if self.core.isSequenceRunning():
+                    self.core.stopSequenceAcquisition()
             except Exception as exc:
                 self.logger.warning(f"stopSequenceAcquisition failed: {exc}")
         return True
