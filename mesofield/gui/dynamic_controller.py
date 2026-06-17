@@ -15,24 +15,28 @@ class DynamicController(QWidget):
         self.config = config
         self.main_layout = QVBoxLayout(self)
 
-        # Initialize device-specific component registry: 
+        # Initialize device-specific component registry:
         # maps feature key -> (factory method, layout section)
         self._component_registry = {
             'led_control': (self._create_led_controls, 'buttons'),
             'camera_snap': (self._create_snap_control, 'buttons'),
             'psychopy': (self._create_psychopy_controls, 'buttons'),
+            # MousePortal has its own dedicated MainWindow tab
+            # (mesofield.gui.mouseportal_controller), not a DynamicController panel.
             # more mappings as needed are added here
         }
 
+        # 'panels' stacks status widgets above the row of action 'buttons'.
         self._sections = {
+            'panels': QVBoxLayout(),
             'buttons': QHBoxLayout(),
             # examples:
-            # 'dropdowns': QVBoxLayout(), 
+            # 'dropdowns': QVBoxLayout(),
             # 'tables': QVBoxLayout(), etc.
         }
         for section_layout in self._sections.values():
             self.main_layout.addLayout(section_layout)
-        
+
         self._load_components()
 
     def _load_components(self):

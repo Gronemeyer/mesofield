@@ -432,18 +432,27 @@ class HardwareManager():
             return yaml.safe_load(f) or {}
 
     def _aggregate_widgets(self) -> List[str]:
-        """Collect unique widget keys from all device sections."""
-        sources = [
-            self.yaml.get('widgets', []),
-            *[cam.get('widgets', []) for cam in self.yaml.get('cameras', [])],
-            self.yaml.get('encoder', {}).get('widgets', []),
-            self.yaml.get('nidaq', {}).get('widgets', []),
-            self.yaml.get('psychopy', {}).get('widgets', []),
-        ]
+        """Collect unique widget keys from every device stanza.
+
+        Scans the top-level ``widgets`` list plus a ``widgets:`` key on any
+        stanza -- mappings (``encoder``/``nidaq``/``psychopy`` and registered
+        extras like ``mouseportal``) and lists of mappings (``cameras``) -- so
+        any device can contribute a GUI widget without special-casing here.
+        """
+        sources: List[list] = [self.yaml.get('widgets', []) or []]
+        for key, val in (self.yaml or {}).items():
+            if key == 'widgets':
+                continue
+            if isinstance(val, dict):
+                sources.append(val.get('widgets', []) or [])
+            elif isinstance(val, list):
+                for item in val:
+                    if isinstance(item, dict):
+                        sources.append(item.get('widgets', []) or [])
         # flatten and dedupe while preserving order
         seen: dict[str, None] = {}
         for group in sources:
-            for w in group:
+            for w in group or []:
                 seen.setdefault(w, None)
         return list(seen)
 

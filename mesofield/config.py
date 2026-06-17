@@ -207,6 +207,10 @@ class ExperimentConfig(ConfigRegister):
         self.register("trial_duration", None, int, "Trial duration in seconds", "experiment")
         self.register("led_pattern", ["4", "4"], list, "Arduino LED sequence pattern", "hardware")
         self.register("psychopy_filename", "experiment.py", str, "PsychoPy experiment filename", "experiment")
+        # MousePortal stimulus config (corridor + gain-trial design). Lives in
+        # its own top-level "MousePortal" block in experiment.json, edited via
+        # the MousePortal tab and persisted with update_mouseportal().
+        self.register("mouseportal", {}, dict, "MousePortal stimulus configuration", "stimulus")
 
     def set(self, key: str, value: Any) -> None:
         """Set config values with field-specific normalization where needed."""
@@ -583,6 +587,11 @@ class ExperimentConfig(ConfigRegister):
             if loaded_config.get("experiment_directory"):
                 self.experiment_dir = loaded_config["experiment_directory"]
 
+        # MousePortal stimulus config is its own top-level block (not nested
+        # under Configuration) and is round-tripped via update_mouseportal().
+        if isinstance(loaded_config.get("MousePortal"), dict):
+            self.set("mouseportal", loaded_config["MousePortal"])
+
         if "Plugins" in loaded_config:
             self.plugins: dict = loaded_config.get("Plugins", {})
             for plugin in self.plugins:
@@ -708,6 +717,27 @@ class ExperimentConfig(ConfigRegister):
                 self.set(key, val)
             except Exception as e:
                 self.logger.error(f"Failed to update session in JSON file: {e}")
+
+    @property
+    def mouseportal(self) -> dict:
+        """The MousePortal stimulus config block (corridor + gain trials)."""
+        value = self.get("mouseportal")
+        return value if isinstance(value, dict) else {}
+
+    def update_mouseportal(self, block: dict) -> None:
+        """Apply and persist the MousePortal config block.
+
+        Updates the in-memory registry (so the next run's ``arm`` reads the new
+        params) and writes the top-level ``MousePortal`` block back to
+        experiment.json. Mirrors how ConfigController persists ExperimentConfig
+        edits, but for MousePortal's structured block.
+        """
+        self.set("mouseportal", dict(block))
+        data = self._read_json_file()
+        if data is not None:
+            data["MousePortal"] = dict(block)
+            self._write_json_file(data)
+            self.logger.info("Persisted MousePortal config block to experiment.json")
 
     def _read_json_file(self) -> Optional[dict]:
         path = getattr(self, "_json_file_path", "")

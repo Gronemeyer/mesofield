@@ -266,6 +266,16 @@ class DataManager:
     ) -> None:
         """Attach configuration and optionally register devices."""
         self.save = DataSaver(config)
+        # Assign each device its allocated output path up front (it was just
+        # built once by DataPaths). Devices that write their own file during the
+        # run -- e.g. subprocess stimuli like MousePortal -- can then read
+        # ``self.output_path`` at arm time and write to the
+        # ExperimentConfig-authoritative path instead of inventing one. Devices
+        # saved by DataSaver get the same path reassigned at save (idempotent).
+        for dev_id, path in self.save.paths.hardware.items():
+            device = config.hardware.devices.get(dev_id)
+            if device is not None:
+                device.output_path = path
         if devices is not None:
             self.register_devices(devices)
 

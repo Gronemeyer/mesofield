@@ -5,7 +5,8 @@ mesofield/_version.py
 **/*.log.*
 /mesofield/logs/
 mesofield/external/drivers
-/experiments
+#/experiments
+/experiments/*/data
 # Ignore hardware.yaml everywhere except the one in mesofield/tests and mesofield/sample_experiments
 */hardware.yaml
 !/mesofield/tests/sample_experiment/hardware.yaml
