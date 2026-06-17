@@ -585,6 +585,11 @@ def run_gui(procedure: Procedure, *, splash: bool = True) -> int:
     from PyQt6.QtGui import QIcon
 
     app = QApplication.instance() or QApplication([])
+    # Drain psygnal `thread="main"` emissions on the GUI thread. mmcore/MDA
+    # signals fire on the acquisition worker thread; widgets subscribe with
+    # thread="main" so their slots (timer start, widget mutation) run here.
+    from psygnal.qt import start_emitting_from_queue
+    start_emitting_from_queue()
     theme.apply_theme(app)
     icon_path = os.path.join(os.path.dirname(__file__), "Mesofield_icon.png")
     if os.path.exists(icon_path):

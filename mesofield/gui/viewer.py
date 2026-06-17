@@ -14,6 +14,23 @@ from qtpy.QtWidgets import (
 )
 from threading import Lock
 
+
+def _connect_main(signal, slot) -> None:
+    """Connect so ``slot`` always runs on the GUI thread, for either signaler.
+
+    pymmcore-plus emits psygnal signals when the core is built without a live
+    QApplication (normal startup) and Qt signals when one exists (e.g. a
+    hardware hot-reload). psygnal delivers on the emitting (acquisition worker)
+    thread, so we request ``thread="main"`` marshaling — drained by run_gui's
+    ``start_emitting_from_queue``. Qt signals reject that kwarg but already
+    auto-queue cross-thread emissions onto the GUI thread.
+    """
+    try:
+        signal.connect(slot, thread="main")
+    except TypeError:
+        signal.connect(slot)
+
+
 class ImagePreview(QWidget):
     """
     A PyQt widget that displays images from a `CMMCorePlus` instance (mmcore).
@@ -196,19 +213,20 @@ class ImagePreview(QWidget):
         self.streaming_timer.timeout.connect(self._on_streaming_timeout)
 
         if self._mmcore is not None:
-            # Connect events for the mmcore
+            # Every handler must run on the GUI thread; see _connect_main. MDA
+            # events fire on the acquisition worker thread, so this is what makes
+            # frames display and the timer run during a recording, not just live.
             ev = self._mmcore.events
-            #ev.imageSnapped.connect(self._on_image_snapped)
-            ev.continuousSequenceAcquisitionStarted.connect(self._on_streaming_start)
-            ev.sequenceAcquisitionStarted.connect(self._on_streaming_start)
-            ev.sequenceAcquisitionStopped.connect(self._on_streaming_stop)
-            ev.exposureChanged.connect(self._on_exposure_changed)
+            #_connect_main(ev.imageSnapped, self._on_image_snapped)
+            _connect_main(ev.continuousSequenceAcquisitionStarted, self._on_streaming_start)
+            _connect_main(ev.sequenceAcquisitionStopped, self._on_streaming_stop)
+            _connect_main(ev.exposureChanged, self._on_exposure_changed)
 
             enev = self._mmcore.mda.events
-            enev.frameReady.connect(self._on_frame_ready)
-            enev.sequenceStarted.connect(self._on_sequence_started)
-            enev.sequenceFinished.connect(self._on_sequence_finished)
-            enev.sequenceCanceled.connect(self._on_sequence_finished)
+            _connect_main(enev.frameReady, self._on_frame_ready)
+            _connect_main(enev.sequenceStarted, self._on_sequence_started)
+            _connect_main(enev.sequenceFinished, self._on_sequence_finished)
+            _connect_main(enev.sequenceCanceled, self._on_sequence_finished)
 
         # Optional non-mmcore frame source (e.g. OpenCVCamera.image_ready).
         # Keep the signal refs so `cleanup` can sever them: the camera outlives
@@ -263,7 +281,6 @@ class ImagePreview(QWidget):
         ev = self._mmcore.events
         with suppress(TypeError, RuntimeError):
             ev.continuousSequenceAcquisitionStarted.disconnect()
-            ev.sequenceAcquisitionStarted.disconnect()
             ev.sequenceAcquisitionStopped.disconnect()
             ev.exposureChanged.disconnect()
         enev = self._mmcore.mda.events
@@ -377,8 +394,12 @@ class ImagePreview(QWidget):
         self.progress_bar.setFormat(f"{self._progress_count}/{self._progress_total}")
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setVisible(True)
+        # MDA has no continuous-acquisition event to start the display timer.
+        if not self.streaming_timer.isActive():
+            self.streaming_timer.start()
 
     def _on_sequence_finished(self, *_) -> None:
+        self.streaming_timer.stop()
         self.progress_bar.setValue(self._progress_total)
         self.progress_bar.setFormat(f"{self._progress_total}/{self._progress_total}")
         # Hide after a short delay
@@ -565,16 +586,18 @@ class InteractivePreview(pg.ImageView):
             image_payload.connect(self._on_image_payload)
 
         if self._mmcore is not None:
-            self._mmcore.events.imageSnapped.connect(self._on_image_snapped)
-            self._mmcore.events.continuousSequenceAcquisitionStarted.connect(self._on_streaming_start)
-            self._mmcore.events.sequenceAcquisitionStarted.connect(self._on_streaming_start)
-            self._mmcore.events.sequenceAcquisitionStopped.connect(self._on_streaming_stop)
-            self._mmcore.events.exposureChanged.connect(self._on_exposure_changed)
+            # All handlers run on the GUI thread; see _connect_main. MDA frames
+            # display via mda.events.frameReady (marshaled from the worker thread).
+            ev = self._mmcore.events
+            _connect_main(ev.imageSnapped, self._on_image_snapped)
+            _connect_main(ev.continuousSequenceAcquisitionStarted, self._on_streaming_start)
+            _connect_main(ev.sequenceAcquisitionStopped, self._on_streaming_stop)
+            _connect_main(ev.exposureChanged, self._on_exposure_changed)
 
             enev = self._mmcore.mda.events
-            enev.frameReady.connect(self._on_image_payload, type=Qt.ConnectionType.QueuedConnection)
+            _connect_main(enev.frameReady, self._on_image_payload)
             if self._use_with_mda:
-                self._mmcore.mda.events.frameReady.connect(self._on_frame_ready)
+                _connect_main(enev.frameReady, self._on_frame_ready)
 
             self.streaming_timer = QTimer(parent=self)
             self.streaming_timer.setTimerType(Qt.TimerType.PreciseTimer)
@@ -608,7 +631,6 @@ class InteractivePreview(pg.ImageView):
             with suppress(TypeError, RuntimeError):
                 ev.imageSnapped.disconnect()
                 ev.continuousSequenceAcquisitionStarted.disconnect()
-                ev.sequenceAcquisitionStarted.disconnect()
                 ev.sequenceAcquisitionStopped.disconnect()
                 ev.exposureChanged.disconnect()
             enev = self._mmcore.mda.events
