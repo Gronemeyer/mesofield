@@ -1,6 +1,21 @@
 memory_buffer_size: 10000
-widgets:
-  - psychopy
+
+# --- PsychoPy visual stimulus -------------------------------------------
+# Subprocess plumbing only. The stimulus script and its parameters live in the
+# ExperimentConfig (experiment.json -> Configuration.psychopy_filename and the
+# derived psychopy_parameters), so the experiment design is part of the
+# experiment record, not the rig file. Loaded as a registered stimulus device
+# (type: psychopy) through HardwareManager._init_extras, exactly like the
+# mouseportal stanza.
+psychopy:
+  type: psychopy
+  # Interpreter that runs the PsychoPy script. Omit to auto-discover the
+  # standalone PsychoPy install from the Windows registry; set it to pin a
+  # specific PsychoPy python.exe.
+  # python_exe: "C:/Program Files/PsychoPy/python.exe"
+  ready_timeout: 60.0
+  widgets:
+    - psychopy
 
 # nidaq:
 #   device_name: "Dev1"

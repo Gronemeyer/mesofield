@@ -90,7 +90,6 @@ class MockEncoderDevice(BaseDataProducer):
         ) / 1000.0
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
-        self._t0: float = 0.0
 
         # Expose the same Qt live-plot signals a real SerialWorker does, so the
         # GUI builds a live SerialWidget for a mock wheel exactly like a real one.
@@ -108,15 +107,16 @@ class MockEncoderDevice(BaseDataProducer):
 
     def _run_loop(self) -> None:
         while not self._stop_event.is_set():
-            # Pass an elapsed-seconds timestamp so the live trace advances in x.
-            self.record(random.randint(1, 10), ts=time.monotonic() - self._t0)
+            # Wall-clock timestamp, matching the real wheel (SerialWorker) and the
+            # mock camera. The Qt live-plot adapter rebases it to a 0-based x for
+            # display, so the recorded CSV/dataqueue stays in real time.
+            self.record(random.randint(1, 10), ts=time.time())
             self._stop_event.wait(self.sample_interval_s)
 
     def start(self) -> bool:
         if self._thread is not None and self._thread.is_alive():
             return False
         self._stop_event.clear()
-        self._t0 = time.monotonic()
         self._thread = threading.Thread(
             target=self._run_loop,
             name=f"MockEncoder-{self.device_id}",

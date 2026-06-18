@@ -170,7 +170,6 @@ class HardwareManager():
             self._init_cameras()
             self._init_encoder()
             self._init_daq()
-            self._init_psychopy()
             self._init_extras()
         self._configure_engines(cfg)
         # Inject the ExperimentConfig onto every device so producers can reach
@@ -184,7 +183,7 @@ class HardwareManager():
     # Anything else with a ``type:`` field is dispatched through
     # ``_init_extras`` against the global :class:`DeviceRegistry`.
     _RESERVED_YAML_KEYS = frozenset({
-        "cameras", "encoder", "nidaq", "psychopy",
+        "cameras", "encoder", "nidaq",
         "memory_buffer_size", "blue_led_power_mw", "violet_led_power_mw",
         "viewer_type", "widgets",
     })
@@ -539,21 +538,6 @@ class HardwareManager():
         self._apply_output_args(self.nidaq, params.get("output", {}), "nidaq")
         self.nidaq.is_primary = bool(params.get("primary", False))
         self.devices["nidaq"] = self.nidaq
-
-    def _init_psychopy(self):
-        params = self.yaml.get("psychopy")
-        if not params:
-            return
-        Cls = DeviceRegistry.get_class("psychopy")
-        if Cls is None:
-            self.logger.error("No class registered under 'psychopy'")
-            return
-        cfg = dict(params)
-        cfg.setdefault("id", "psychopy")
-        device = Cls(cfg)
-        device.is_primary = bool(params.get("primary", False))
-        self.psychopy = device
-        self.devices[device.device_id] = device
 
     # ---- Engine configuration ----------------------------------------------
 

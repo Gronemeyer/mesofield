@@ -43,6 +43,8 @@ class QtDeviceAdapter(QObject):
     def __init__(self, device: Any) -> None:
         super().__init__()
         self._device = device
+        # First live-trace timestamp seen; used to rebase x to ~0 (see _on_data).
+        self._t0: Optional[float] = None
         signals = getattr(device, "signals", None)
         data_sig = getattr(signals, "data", None) if signals is not None else None
         if data_sig is not None and hasattr(data_sig, "connect"):
@@ -71,8 +73,17 @@ class QtDeviceAdapter(QObject):
             return
         if t is None:
             t = ts if ts is not None else 0.0
+        # Rebase the live-trace x to the first sample so it advances from ~0
+        # regardless of the device's absolute time basis (wall-clock seconds for
+        # serial / mock wheels, device_us for treadmills).
         try:
-            self.serialSpeedUpdated.emit(float(t), float(value))
+            t = float(t)
+        except (TypeError, ValueError):
+            return
+        if self._t0 is None:
+            self._t0 = t
+        try:
+            self.serialSpeedUpdated.emit(t - self._t0, float(value))
         except (TypeError, ValueError):
             pass
 

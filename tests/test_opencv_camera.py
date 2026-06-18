@@ -17,7 +17,6 @@ from pathlib import Path
 import pytest
 
 pytest.importorskip("cv2")
-from PyQt6.QtCore import QCoreApplication  # noqa: E402
 
 from mesofield.data.manager import DataManager  # noqa: E402
 from mesofield.devices.cameras import OpenCVCamera, _resolve_cv_backend  # noqa: E402
@@ -41,15 +40,18 @@ def _camera_available() -> bool:
         cap.release()
 
 
-pytestmark = pytest.mark.skipif(
-    not _camera_available(), reason="No OpenCV camera available for integration test"
-)
+# Real-camera integration: skipped by default (run with --run-hardware). The
+# camera-availability probe is deferred into a fixture so collection never opens
+# a device. The session ``qapp`` comes from pytest-qt (a single QApplication for
+# the whole run) -- this module previously created/tore down its own module
+# QCoreApplication, which orphaned later QObjects mid-session.
+pytestmark = pytest.mark.hardware
 
 
-@pytest.fixture(scope="module")
-def qapp():
-    app = QCoreApplication.instance() or QCoreApplication([])
-    yield app
+@pytest.fixture(autouse=True)
+def _require_camera():
+    if not _camera_available():
+        pytest.skip("No OpenCV camera available for integration test")
 
 
 def test_protocol_compliance(qapp):
@@ -95,7 +97,7 @@ def test_capture_and_queue(tmp_path: Path, qapp):
     cam.set_sequence(lambda _device: None)
 
     # Wire into a DataManager so frames flow into the queue.
-    dm = DataManager(str(tmp_path / "scratch.h5"))
+    dm = DataManager()
     dm.register_hardware_device(cam)
     assert cam in dm.devices
 

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import subprocess
 import threading
+from collections import deque
 from typing import Callable, Mapping, Optional, Sequence
 
 from mesofield.utils._logger import get_logger
@@ -64,6 +65,9 @@ class SubprocessSupervisor:
         self._proc: Optional[subprocess.Popen] = None
         self._reader: Optional[threading.Thread] = None
         self._ready = threading.Event()
+        # Rolling tail of the child's merged stdout/stderr, so a failure
+        # handler can show why it died before the readiness handshake.
+        self._tail: deque[str] = deque(maxlen=200)
 
     # -- lifecycle ------------------------------------------------------
     def start(self) -> None:
@@ -90,6 +94,11 @@ class SubprocessSupervisor:
     def is_running(self) -> bool:
         return self._proc is not None and self._proc.poll() is None
 
+    @property
+    def output_tail(self) -> str:
+        """The child's last ~4000 chars of merged stdout/stderr."""
+        return "\n".join(self._tail)[-4000:]
+
     def terminate(self, timeout: float = 5.0) -> None:
         """Stop the subprocess: ``terminate`` first, ``kill`` as a fallback."""
         proc = self._proc
@@ -113,6 +122,7 @@ class SubprocessSupervisor:
             for line in self._proc.stdout:
                 line = line.rstrip("\n")
                 self.logger.info(f"[{self.name}] {line}")
+                self._tail.append(line)
                 if self.ready_token in line and not self._ready.is_set():
                     self._ready.set()
                     if self._on_ready is not None:

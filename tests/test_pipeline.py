@@ -60,6 +60,7 @@ from typing import Iterator
 
 import numpy as np
 import pandas as pd
+import pytest
 from pydantic import ValidationError
 
 # --- mesokit-schema (the shared contract) ----------------------------------
@@ -92,7 +93,9 @@ except Exception:
 
 
 REPO_ROOT = Path(__file__).resolve().parent
-MESOFIELD_DEMO = Path("/Users/jakegronemeyer/dev/mesofield/experiments/pipeline_demo")
+# Resolve the shipped demo relative to the repo (tests/ -> repo root) so the
+# suite is portable across machines instead of hardcoding one developer's path.
+MESOFIELD_DEMO = REPO_ROOT.parent / "experiments" / "pipeline_demo"
 
 
 # ---------------------------------------------------------------------------
@@ -847,13 +850,19 @@ def run_checks(
             pkl_path.write_bytes(original)
 
     with tracker.step("tampered TIFF bytes -> recomputed hash differs from processing input hash"):
+        # Tamper a *copy* rather than the original: the OME-TIFF can still be
+        # memory-mapped by the writer, and reopening it for writing fails on
+        # Windows ([Errno 22]). Hashing a mutated copy proves the same thing
+        # without depending on the original being rewritable.
         tiff_path = session_root / camera_p.output_path
-        original = tiff_path.read_bytes()
+        tampered = tiff_path.parent / (tiff_path.name + ".tampered")
+        shutil.copyfile(tiff_path, tampered)
         try:
-            tiff_path.write_bytes(original + b"\x00")
-            assert hash_file(tiff_path) != pm.inputs[0].content_hash
+            with open(tampered, "ab") as fh:
+                fh.write(b"\x00")
+            assert hash_file(tampered) != pm.inputs[0].content_hash
         finally:
-            tiff_path.write_bytes(original)
+            tampered.unlink(missing_ok=True)
 
     with tracker.step("mutated AcquisitionManifest -> hash no longer matches upstream"):
         mutated = acq.model_copy(update={"notes": "tampered"})
@@ -954,6 +963,33 @@ def _ingest_forged_manifest(session_root: Path, manifest_path: Path) -> None:
             raise IngestError(
                 f"Producer {producer.device_id!r} output path missing: {producer.output_path}"
             )
+
+
+# ---------------------------------------------------------------------------
+# pytest entry point
+# ---------------------------------------------------------------------------
+@pytest.mark.integration
+@pytest.mark.slow
+def test_pipeline_end_to_end(tmp_path):
+    """Acquire -> process -> ingest -> consume on the demo rig; all checks pass.
+
+    The same flow as :func:`main` but rooted in pytest's ``tmp_path`` and
+    asserting the CheckTracker recorded zero failures -- so a single bad check
+    surfaces with its label + traceback instead of a bare exit code.
+    """
+    session_root, runtime = run_mesofield(tmp_path / "experiment")
+    acq = AcquisitionManifest.read(session_root / "manifest.json")
+    proc_sidecar_path, _ = run_processor(session_root, acq)
+    pkl_path, ds_manifest_path, acq, proc_manifests, ds = ingest_with_datakit(session_root)
+    table = load_with_consumer(pkl_path)
+
+    tracker = run_checks(
+        session_root, acq, proc_manifests, ds, pkl_path, ds_manifest_path,
+        proc_sidecar_path, table, runtime,
+    )
+    assert not tracker.failed, "pipeline checks failed:\n" + "\n".join(
+        f"  - {label}\n{tb}" for label, tb in tracker.failed
+    )
 
 
 # ---------------------------------------------------------------------------

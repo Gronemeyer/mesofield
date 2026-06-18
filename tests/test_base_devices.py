@@ -260,13 +260,20 @@ def test_teensy_example_loads_in_development_mode() -> None:
     teensy = mod.TeensyPulseGenerator(
         {"id": "teensy", "development_mode": True}
     )
+    assert teensy.development_mode is True
     teensy.start()
     try:
-        # Commands should be no-ops, not exceptions.
+        # In development mode every command writes to no port -- they must be
+        # no-ops, not exceptions.
         teensy.set_frequency(10.0)
-        teensy.start_pulses()
+        teensy.set_pattern_simple(20000, 480)
+        teensy.run()
         teensy.query_status()
         teensy.stop_pulses()
-        assert teensy.frequency_hz == 10.0
+        # Local validation still runs even without a port.
+        with pytest.raises(ValueError):
+            teensy.set_frequency(0)
+        with pytest.raises(ValueError):
+            teensy.set_pattern_simple(100, 100)  # period < width + MIN_GAP_US
     finally:
         teensy.stop()

@@ -330,25 +330,37 @@ class ConfigController(QWidget):
 
         Injected onto the procedure as ``start_gate`` and called from
         :meth:`mesofield.base.Procedure.await_trigger` when ``start_on_trigger``
-        is set (after arming, before any device starts). If an *enabled* PsychoPy
-        stimulus device is present, launch it and block on its ``PSYCHOPY_READY``
-        handshake -- its own foreground "ready" dialog is the start gate.
-        Otherwise (e.g. a spontaneous baseline with no stimulus) show a focused
-        manual start dialog. Returns ``True`` to proceed, ``False`` to cancel.
+        is set (after arming, before any device starts).
+
+        Stimulus-device-agnostic: launch every *enabled* stimulus device that
+        defers its launch to start (``launch_phase == "start"`` -- the
+        operator-in-the-loop kind, e.g. PsychoPy). Each device's ``start`` owns
+        its own readiness handshake and foreground "press to start" gate (its
+        presentation hooks), and returns ``False`` on a failed handshake or an
+        operator cancel -- in which case we abort the run. Arm-phase stimuli
+        (e.g. MousePortal) are already up from ``arm`` and need no gate here.
+        When no start-phase stimulus is present (a spontaneous baseline), show a
+        focused manual start dialog. Returns ``True`` to proceed, ``False`` to
+        cancel.
         """
-        psychopy = procedure.hardware.get_device("psychopy")
-        if psychopy is not None and getattr(psychopy, "enabled", True):
-            psychopy.start()  # blocks on the foreground handshake/ready dialog
-            if not getattr(psychopy, "handshake_ok", False):
-                QMessageBox.critical(
-                    self,
-                    "PsychoPy Error",
-                    "PsychoPy did not report ready (PSYCHOPY_READY); aborting run.\n"
-                    "Check the PsychoPy console/stderr for the script error.",
+        stimuli = [
+            d for d in procedure.hardware.devices.values()
+            if getattr(d, "device_type", None) == "stimulus"
+            and getattr(d, "launch_phase", "start") == "start"
+            and getattr(d, "enabled", True)
+        ]
+        if not stimuli:
+            return self._manual_start_gate()
+        for dev in stimuli:
+            # start() launches, waits on the readiness handshake, and runs the
+            # device's ready gate; it surfaces any failure via the device's
+            # present_failure hook, so we just honor the result.
+            if not dev.start():
+                procedure.logger.info(
+                    f"Start gate: {dev.device_id} did not start; aborting run."
                 )
                 return False
-            return True
-        return self._manual_start_gate()
+        return True
 
     def _manual_start_gate(self) -> bool:
         """Focused modal "press to start" gate for runs with no stimulus."""

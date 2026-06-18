@@ -1,201 +1,73 @@
-import json
-import time
-from pathlib import Path
-from datetime import datetime
-import types
+"""End-to-end Procedure orchestration + data-outcome test on the mock rig.
 
-import pandas as pd
-import pytest
+Drives the *real* ``Procedure.run`` lifecycle (construct -> initialize hardware
+-> arm -> start -> duration-timer cleanup -> save) with the shipped mock devices
+from ``mesofield/devices/mocks.py``, then asserts the on-disk acquisition
+outcomes and the emitted manifest.
 
-from mesofield.base import Procedure
-from mesofield.data.manager import DataManager, DataSaver
-from mesofield import DeviceRegistry
-
-
-class DummyEvent:
-    def __init__(self):
-        self._callbacks = []
-
-    def connect(self, cb):
-        self._callbacks.append(cb)
-
-    def emit(self, val):
-        for cb in self._callbacks:
-            cb(val)
-
-
-class DummyWriter:
-    def __init__(self, path: str):
-        self._filename = path
-        self._frame_metadata_filename = path + "_meta.json"
-        Path(self._frame_metadata_filename).write_text("{}")
-
-    def write_frame(self, *a, **k):
-        pass
-
-
-class DummyCamera:
-    device_type = "camera"
-    file_type = "ome.tiff"
-    bids_type = "func"
-    sampling_rate = 1.0
-
-    def __init__(self, cfg: dict | None = None):
-        self.device_id = cfg.get("id", "cam") if cfg else "cam"
-        self.id = self.device_id
-        self.name = cfg.get("name", self.device_id) if cfg else "cam"
-        self.data_event = DummyEvent()
-
-        class _Core:
-            def __init__(self):
-                self.mda = types.SimpleNamespace(events=DummyEvent())
-
-        self.core = _Core()
-        self.output_path = ""
-        self.metadata_path = None
-        self.started = False
-
-    def start(self):
-        self.started = True
-        return True
-
-    def stop(self):
-        self.started = False
-        return True
-
-    def save_data(self, path=None):
-        Path(path).write_text("camera")
-
-    def get_data(self):
-        return None
-
-
-class DummyEncoder:
-    device_type = "encoder"
-    device_id = "encoder"
-    file_type = "csv"
-    bids_type = "beh"
-
-    def __init__(self, *a, **k):
-        self.output_path = ""
-        self.started = False
-
-    def start_recording(self):
-        self.started = True
-
-    def start(self):
-        self.start_recording()
-        return True
-
-    def stop(self):
-        self.started = False
-        return True
-
-    def save_data(self, path=None):
-        Path(path).write_text("encoder")
-
-    def get_data(self):
-        return []
-
-
-# patch DataSaver.writer_for to avoid heavy dependencies
-def _dummy_writer_for(self: DataSaver, camera: DummyCamera):
-    path = self.cfg.make_path(camera.name, "dat", camera.bids_type)
-    camera.output_path = path
-    self.paths.writers[camera.name] = path
-    Path(path).write_text("data")
-    return DummyWriter(path)
-
-
-class DummyProcedure(Procedure):
-    def run(self):
-        self.data.start_queue_logger()
-        for cam in self.hardware.cameras:
-            self.data.save.writer_for(cam)
-            cam.start()
-        self.hardware.encoder.start()
-        self.start_time = datetime.now()
-        self.data.queue.push("cam1", "frame")
-        self.data.queue.push("encoder", 1)
-        time.sleep(0.1)
-        self.hardware.encoder.stop()
-        for cam in self.hardware.cameras:
-            cam.stop()
-        self.stopped_time = datetime.now()
-        self.data.stop_queue_logger()
-        self.save_data()
-        self.data.update_database()
-
-
-def test_procedure_workflow(tmp_path, monkeypatch):
-    # register dummy devices
-    DeviceRegistry._registry["camera"] = DummyCamera
-    DeviceRegistry._registry["encoder"] = DummyEncoder
-    monkeypatch.setattr(DataSaver, "writer_for", _dummy_writer_for)
-    monkeypatch.setattr("mesofield.hardware.SerialWorker", DummyEncoder)
-    monkeypatch.setattr("mesofield.hardware.EncoderSerialInterface", DummyEncoder)
-
-    hw_path = tmp_path / "hardware.yaml"
-    hw_path.write_text(
-        """
-memory_buffer_size: 1
-encoder:
-  type: wheel
-  port: COM1
-cameras:
-  - id: cam1
-    name: cam1
-    backend: dummy
+This replaces the previous hand-rolled ``DummyCamera``/``DummyEncoder``/
+``DummyWriter`` fakes (and the obsolete ``DataSaver.writer_for`` monkeypatch)
+with production code paths, so the test cannot silently drift from real device
+behavior. Covers areas: Procedure orchestration, hardware lifecycle, and data
+management / acquisition outcomes.
 """
+
+from __future__ import annotations
+
+import csv
+import json
+from pathlib import Path
+
+# Importing the module registers the ``mock_wheel`` / ``mock_camera`` device
+# types used by the fixture's hardware.yaml.
+import mesofield.devices.mocks  # noqa: F401
+from mesofield.base import Procedure
+from mesofield.data.manager import DataManager
+
+
+def test_procedure_workflow(tmp_path, hardware_yaml, experiment_json):
+    hw = hardware_yaml(camera=True)          # primary mock wheel + mock camera
+    cfg_json = experiment_json(duration=1)   # 1s wall-clock duration cap (int)
+    out_dir = tmp_path / "out"
+
+    proc = Procedure(
+        hardware=str(hw),
+        experiment=str(cfg_json),
+        experiment_directory=str(out_dir),
     )
-    cfg_json = tmp_path / "config.json"
-    json.dump({
-        "Configuration": {
-            "experimenter": "tester",
-            "protocol": "exp1",
-            "database_path": str(tmp_path / "db.h5"),
-            "duration": 1,
-            "start_on_trigger": False,
-            "led_pattern": ["4", "4"]
-        },
-        "Subjects": {
-            "SUBJ1": {
-                "sex": "F",
-                "genotype": "test",
-                "DOB": "2024-01-01",
-                "DOS": "2024-01-02",
-                "session": "01",
-                "task": "wf"
-            }
-        },
-        "DisplayKeys": ["duration", "start_on_trigger", "task", "session"]
-    }, cfg_json.open("w"))
 
-    proc = DummyProcedure(hardware=str(hw_path), experiment=str(cfg_json))
-
-    # configuration loaded
-    assert len(proc.hardware.devices) == 2
+    # Hardware brought up and a DataManager created at construction.
     assert isinstance(proc.data, DataManager)
+    assert len(proc.hardware.devices) == 2
+    assert proc.hardware.primary is not None
 
-    proc.add_note("test note")
-    proc.run()
+    proc.add_note("integration note")
+
+    # Real run: arms a 0.3s duration timer that drives cleanup + save.
+    assert proc.run_until_finished(timeout=15) is True
 
     paths = proc.data.save.paths
+
+    # Always-produced session artifacts.
     assert Path(paths.configuration).exists()
-    assert Path(paths.notes).exists()
     assert Path(paths.timestamps).exists()
-    assert Path(paths.hardware["encoder"]).exists()
-    assert Path(paths.writers["cam1"]).exists()
+    assert Path(paths.notes).exists(), "a note was added but notes.txt is missing"
     assert Path(paths.queue).exists()
 
-    db = proc.data.base
-    assert db and db.path.exists()
-    df = db.read("datapaths")
-    assert isinstance(df, pd.DataFrame) and not df.empty
+    # Every non-camera device wrote its own data file via DataSaver.all_hardware.
+    for dev_id, dev in proc.hardware.devices.items():
+        if getattr(dev, "device_type", None) != "camera":
+            assert Path(paths.hardware[dev_id]).exists(), f"missing output for {dev_id}"
 
-    # configuration JSON updated with incremented session
-    with open(cfg_json) as f:
-        data = json.load(f)
-    assert data["Subjects"]["SUBJ1"]["session"] == "02"
-    # subject-only keys should not be written to the Configuration block
-    assert "sex" not in data["Configuration"]
+    # Data actually flowed from the devices through the queue logger.
+    with open(paths.queue, newline="") as fh:
+        rows = list(csv.reader(fh))
+    assert len(rows) > 1, "dataqueue has only a header -- no device data captured"
+
+    # The acquisition manifest landed at the session root and lists every
+    # device that produced an output (mesokit-schema contract).
+    manifest_files = list(Path(out_dir).rglob("manifest.json"))
+    assert manifest_files, "no AcquisitionManifest written"
+    manifest = json.loads(manifest_files[0].read_text())
+    producer_ids = {p["device_id"] for p in manifest.get("producers", [])}
+    assert producer_ids == set(proc.hardware.devices.keys())

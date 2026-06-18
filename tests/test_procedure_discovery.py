@@ -12,22 +12,15 @@ import pytest
 from mesofield.base import Procedure, load_procedure_from_config
 
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-SAMPLE_EXPERIMENT = REPO_ROOT / "experiments" / "sample_experiment"
+def test_sample_experiment_loads_subclass(sample_experiment_dir, no_hardware_init) -> None:
+    """A discoverable experiment.json resolves to its declared Procedure subclass.
 
+    Uses a fixture-synthesized experiment dir (procedure.py + experiment.json +
+    mock hardware.yaml) instead of a checked-in sample, so the test is portable.
+    """
+    exp_dir = sample_experiment_dir("SampleProcedure")
 
-def test_sample_experiment_loads_subclass(monkeypatch) -> None:
-    """The shipped sample_experiment must resolve to SampleProcedure."""
-    json_path = SAMPLE_EXPERIMENT / "experiment.json"
-    assert json_path.is_file(), f"missing fixture: {json_path}"
-
-    # Prevent real MicroManager / serial hardware initialization in CI / dev
-    # environments where the adapters may not be installed.
-    from mesofield.hardware import HardwareManager
-
-    monkeypatch.setattr(HardwareManager, "initialize", lambda self, cfg: None)
-
-    proc = load_procedure_from_config(str(json_path))
+    proc = load_procedure_from_config(str(exp_dir / "experiment.json"))
 
     assert proc.__class__.__name__ == "SampleProcedure"
     assert isinstance(proc, Procedure)

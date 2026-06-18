@@ -72,6 +72,9 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "pytest",
+    "pytest-qt",
+    "pytest-timeout",
+    "pytest-mock",
     "coverage",
     "flake8",
     "black",
@@ -104,3 +107,19 @@ exclude = ["tests*", ".github*"]
 write_to = "mesofield/_version.py"
 version_scheme = "guess-next-dev"
 local_scheme = "no-local-version"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# -ra: summary of all non-pass outcomes. --strict-markers: every marker must be
+# registered below. --timeout: global safety net so a hung subprocess/Qt loop
+# can't wedge CI (pytest-timeout uses the thread method on Windows).
+addopts = "-ra --strict-markers --timeout=60"
+# The project ships PyQt6; pin pytest-qt to it so the single session QApplication
+# uses the same binding as the app (and fixes cross-test QObject lifetime leaks).
+qt_api = "pyqt6"
+markers = [
+    "hardware: requires real hardware (camera/serial/MicroManager); skipped unless --run-hardware is passed",
+    "gui: needs a Qt application; runs headless under the offscreen platform",
+    "slow: long-running test",
+    "integration: cross-component integration (e.g. pymmcore-plus demo, full pipeline)",
+]
