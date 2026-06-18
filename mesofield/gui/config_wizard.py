@@ -430,7 +430,15 @@ class ConfigWizard(QWidget):
         self.procedure = procedure
         self._settings = QSettings("Mesofield", "Mesofield")
         self._build_ui()
+        # Restore the last-used pickers first (helpful on a fresh launch), then
+        # let the live procedure's actually-loaded files win: a procedure built
+        # from a CLI target, a scripted procedure.py, an experiment directory,
+        # or a prior hot-swap never touches this wizard's Apply button, so its
+        # real paths must override any stale QSettings value -- otherwise the
+        # Setup tab could advertise a different experiment.json than the
+        # ExperimentConfig tab is actually editing.
         self._restore_recent_paths()
+        self.sync_from_procedure()
 
         # If hardware is already configured, pre-populate the MM section
         if self.procedure.config.hardware.is_configured:
@@ -442,6 +450,48 @@ class ConfigWizard(QWidget):
         """Re-populate the MicroManager config section from current hardware."""
         cameras = self.procedure.config.hardware.cameras
         self._mm_section.set_cameras(cameras)
+
+    def sync_from_procedure(self) -> None:
+        """Reflect the live procedure's actually-loaded config files in the UI.
+
+        ``ExperimentConfig._json_file_path`` (and ``hardware.config_file``) are
+        the single source of truth for *what is currently loaded*. The wizard's
+        own pickers are only a staging area for the next Apply, so whenever the
+        procedure was configured outside this wizard -- a CLI target, a scripted
+        ``procedure.py``, an experiment directory, or a hot-swap candidate -- we
+        adopt and persist its real paths here. This keeps the Setup tab and the
+        ExperimentConfig tab in agreement and makes the last-used experiment.json
+        survive a relaunch even when Apply was never clicked.
+        """
+        cfg = getattr(self.procedure, "config", None)
+        if cfg is None:
+            return
+
+        json_path = getattr(cfg, "_json_file_path", "") or ""
+        if json_path and os.path.isfile(json_path):
+            self._set_experiment_json(json_path, "experiment loaded")
+            if not self._outdir_edit.text().strip():
+                self._outdir_edit.setText(os.path.dirname(json_path))
+        elif getattr(cfg.hardware, "is_configured", False):
+            # The procedure is live but its parameters came from a scripted
+            # define_config (no JSON file on disk). Drop any stale restored path
+            # so the Setup tab can't advertise an experiment.json the running
+            # config never loaded.
+            self._experiment_json = ""
+            self._json_status.setText(
+                "• running from a scripted procedure (no experiment.json)"
+            )
+            self._json_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
+            self._json_status.setToolTip("")
+
+        yaml_path = getattr(cfg.hardware, "config_file", "") or ""
+        if yaml_path and os.path.isfile(yaml_path):
+            self._set_hardware_path(yaml_path, status="rig loaded")
+            self._select_rig_in_combo(yaml_path)
+
+        # Persist whatever the procedure actually loaded so a relaunch restores
+        # the right files even when the user never pressed Apply.
+        self._save_recent_paths()
 
     # -- UI ------------------------------------------------------------------
 

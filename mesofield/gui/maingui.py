@@ -249,6 +249,10 @@ class MainWindow(QMainWindow):
         # instance instead of the empty default created at launch.
         if getattr(self, "kernel", None) is not None:
             self.kernel.shell.push({"procedure": new_procedure})
+        # Keep the Setup tab's displayed/persisted paths pinned to the file the
+        # swapped-in procedure actually loaded, so it can't drift from the
+        # ExperimentConfig tab built from the same procedure.
+        self.config_wizard.sync_from_procedure()
 
     def _on_config_applied(self) -> None:
         """Rebuild config-dependent tabs after the user applies a configuration."""
