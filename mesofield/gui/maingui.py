@@ -103,6 +103,7 @@ class MainWindow(QMainWindow):
         # keyed by device_id. Tracked so we can tear them down on rebuild.
         self._device_widgets: dict[str, SerialWidget] = {}
         self._mouseportal_controller: QWidget | None = None
+        self._psychopy_controller: QWidget | None = None
         # Widgets built from `procedure.processors` -- one SerialWidget per
         # FrameProcessor whose `plot_enabled` is True. Tracked here so we
         # can tear them down on a `_build_acquisition_ui` rebuild.
@@ -296,8 +297,43 @@ class MainWindow(QMainWindow):
         if self.procedure.config.hardware.devices.get("mouseportal") is not None:
             from mesofield.gui.mouseportal_controller import MousePortalController
             self._mouseportal_controller = MousePortalController(self.procedure)
+            # Saving a task binding re-derives the ExperimentConfig task choices.
+            self._mouseportal_controller.tasksChanged.connect(
+                lambda: self._config_controller.set_display_keys(
+                    self.procedure.config.display_keys
+                )
+            )
             # Insert right after ExperimentConfig: [Setup][ExperimentConfig][MousePortal][Terminal]
             self.right_tabs.insertTab(2, self._mouseportal_controller, "MousePortal")
+
+        # PsychoPy tab (only when a psychopy device is loaded). Editable
+        # task->script map persisted via update_psychopy(); saving re-derives the
+        # ExperimentConfig task dropdown via the tasksChanged hook below.
+        if self._psychopy_controller is not None:
+            idx = self.right_tabs.indexOf(self._psychopy_controller)
+            if idx >= 0:
+                self.right_tabs.removeTab(idx)
+            # Sever its connections to the (persistent) Procedure events before
+            # deletion, or the dead controller keeps reacting to procedure_started
+            # and crashes on its deleted widgets.
+            try:
+                self._psychopy_controller.cleanup()
+            except Exception:
+                pass
+            self._psychopy_controller.deleteLater()
+            self._psychopy_controller = None
+        if self.procedure.config.hardware.devices.get("psychopy") is not None:
+            from mesofield.gui.psychopy_controller import PsychoPyController
+            self._psychopy_controller = PsychoPyController(self.procedure)
+            # Rebuilding the ConfigController re-reads the task choices that Save
+            # just re-derived from the script map.
+            self._psychopy_controller.tasksChanged.connect(
+                lambda: self._config_controller.set_display_keys(
+                    self.procedure.config.display_keys
+                )
+            )
+            # Insert right after ExperimentConfig (before any MousePortal tab).
+            self.right_tabs.insertTab(2, self._psychopy_controller, "PsychoPy")
 
         # Pin the right column width to the ConfigController's fixed width
         # (plus a small allowance for tab frame/margins) so the tab area is
@@ -383,7 +419,13 @@ class MainWindow(QMainWindow):
         cameras = set(getattr(hardware, "cameras", ()) or ())
 
         for dev_id, device in getattr(hardware, "devices", {}).items():
-            if device in cameras or getattr(device, "device_type", None) == "camera":
+            dev_type = getattr(device, "device_type", None)
+            if device in cameras or dev_type == "camera":
+                continue
+            # Stimulus apps (PsychoPy, MousePortal) are not DataProducers -- they
+            # never emit on signals.data, so a Serial Trace would sit forever on
+            # an empty "Start Live View". They have their own tabs/panels instead.
+            if dev_type == "stimulus":
                 continue
             # Must speak the standard signal contract to be plottable.
             signals = getattr(device, "signals", None)

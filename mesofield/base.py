@@ -443,6 +443,37 @@ class Procedure:
         """Subclass hook called before arming devices.  Override as needed."""
         return None
 
+    def _gate_stimuli_by_task(self) -> None:
+        """Enable only the stimulus device(s) bound to the selected task.
+
+        Stimulus devices declare which tasks they serve (``serves_task``);
+        for the current ``task`` we enable the matching ones and disable the
+        rest, so a rig with several stimulus apps (e.g. PsychoPy + MousePortal)
+        launches only what the task needs instead of all of them at once. A
+        device that serves every task (no binding) is left enabled, and a task
+        bound to no device simply records stimulus-free (the start gate falls
+        back to a manual "press to start"). Runs before :meth:`prerun`, so a
+        subclass may still override ``enabled`` for fully custom logic.
+        """
+        task = self.config.task
+        for dev in self.config.hardware.devices.values():
+            if getattr(dev, "device_type", None) != "stimulus":
+                continue
+            try:
+                serves = bool(dev.serves_task(task, self.config))
+            except Exception:
+                self.logger.exception(
+                    f"{getattr(dev, 'device_id', dev)}.serves_task failed; "
+                    f"leaving it enabled."
+                )
+                serves = True
+            dev.enabled = serves
+            if not serves:
+                self.logger.info(
+                    f"Task '{task}': {dev.device_id} is not bound to this task; "
+                    f"disabled for this run."
+                )
+
     def await_trigger(self) -> None:
         """Gate the run after arming and before starting devices.
 
@@ -511,7 +542,9 @@ class Procedure:
         if not self.playback:
             self.data.start_queue_logger()
 
-        # 2. Subclass pre-run hook
+        # 2. Gate stimulus devices by the selected task, then the subclass
+        # pre-run hook (which may further override `enabled` for custom logic).
+        self._gate_stimuli_by_task()
         self.prerun()
 
         try:

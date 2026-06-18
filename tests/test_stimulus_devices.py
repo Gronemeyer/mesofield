@@ -16,6 +16,8 @@ import time
 import types
 from contextlib import contextmanager
 
+import pytest
+
 from mesofield.devices.stimulus_base import SubprocessStimulusDevice
 
 # Short-but-safe: long enough that the child is still alive while we assert,
@@ -155,6 +157,82 @@ def test_present_failure_receives_output_tail():
     d.arm(None)
     assert d.start() is False
     assert "boom-marker" in captured.get("detail", "")
+
+
+# ---------------------------------------------------------------------------
+# Whole-tree teardown (no orphaned helper processes, e.g. PsychoPy's iohub)
+# ---------------------------------------------------------------------------
+
+
+# Parent that spawns a long-lived grandchild (stands in for PsychoPy's iohub),
+# prints the grandchild PID, then either idles (ready) or crashes. The grandchild
+# is spawned after a short delay, mirroring iohub's real timing (it launches
+# seconds into PsychoPy startup, well after the supervisor has placed the parent
+# in its process group / Job Object) -- a child spawned in the microseconds
+# before Windows job assignment can still escape, which is an accepted gap.
+def _spawn_grandchild_cmd(*, ready: bool, then: str) -> list:
+    body = (
+        "import subprocess, sys, time;"
+        "time.sleep(0.5);"
+        "g = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)']);"
+        "print('GRANDCHILD_PID', g.pid, flush=True);"
+    )
+    if ready:
+        body += "print('FAKE_READY', flush=True);"
+    body += then
+    return [sys.executable, "-c", body]
+
+
+def _grandchild_pid(dev) -> int:
+    for line in dev._process.output_tail.splitlines():
+        if line.startswith("GRANDCHILD_PID"):
+            return int(line.split()[1])
+    raise AssertionError("grandchild PID was never printed")
+
+
+def _wait_dead(pid: int, timeout: float = 5.0) -> bool:
+    psutil = pytest.importorskip("psutil")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not psutil.pid_exists(pid):
+            return True
+        try:
+            if psutil.Process(pid).status() == psutil.STATUS_ZOMBIE:
+                return True
+        except psutil.NoSuchProcess:
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def test_terminate_kills_whole_process_tree():
+    """stop() must reap helper processes the stimulus spawned, not just the parent."""
+    psutil = pytest.importorskip("psutil")
+    d = _FakeStim(
+        {"id": "tree", "ready_timeout": 8},
+        _spawn_grandchild_cmd(ready=True, then="time.sleep(30)"),
+    )
+    d.arm(None)
+    assert d.start() is True
+    grandchild = _grandchild_pid(d)
+    assert psutil.pid_exists(grandchild)
+    d.stop()
+    assert _wait_dead(grandchild), "grandchild (iohub stand-in) survived stop()"
+
+
+def test_crashed_parent_still_reaps_grandchild():
+    """A parent that crashes before the handshake must not leave an orphan behind."""
+    pytest.importorskip("psutil")
+    d = _FakeStim(
+        {"id": "crash", "ready_timeout": 8},
+        # No FAKE_READY: parent exits ~immediately, orphaning the grandchild.
+        _spawn_grandchild_cmd(ready=False, then="time.sleep(0.3); sys.exit(1)"),
+    )
+    d.arm(None)
+    assert d.start() is False  # require_ready + parent died -> failure
+    grandchild = _grandchild_pid(d)
+    # The reader thread reaps the tree the instant the parent exits.
+    assert _wait_dead(grandchild), "orphaned grandchild survived a parent crash"
 
 
 # ---------------------------------------------------------------------------

@@ -18,11 +18,16 @@ PsychoPy is *not* a :class:`~mesofield.protocols.DataProducer`: it never emits o
 ``signals.data``. ``signals.started`` fires on the ``PSYCHOPY_READY`` handshake;
 ``signals.finished`` fires on ``stop`` / subprocess exit.
 
-Config convention (standardized with MousePortal): the script filename and
-parameters live in the ExperimentConfig (``experiment.json`` ->
-``psychopy_filename`` / ``psychopy_parameters``); the hardware.yaml ``psychopy``
+Config convention (standardized with MousePortal): the script and parameters
+live in the ExperimentConfig (``experiment.json``); the hardware.yaml ``psychopy``
 stanza carries only subprocess plumbing (``type`` / ``python_exe`` /
-``ready_timeout``). Parameters are handed to the script as a base64 JSON argv
+``ready_timeout``). Which script runs is keyed by the selected ``task``: a
+top-level ``PsychoPy`` block maps ``{task: filename}`` (scripts declare their
+task by embedding ``task-{name}`` in the filename), and
+``ExperimentConfig.psychopy_path`` resolves the entry for the current task,
+falling back to the legacy single ``psychopy_filename`` when no map is present.
+``prepare()`` reads ``psychopy_path`` / ``psychopy_parameters`` and is unaware of
+this resolution. Parameters are handed to the script as a base64 JSON argv
 token so the PsychoPy interpreter needs only the stdlib to decode them (no
 ``mesofield`` import). The matching offline parser is registered under the
 ``psychopy`` tag in :mod:`mesofield.datakit.sources` and bound here as
@@ -65,6 +70,15 @@ class PsychoPyDevice(SubprocessStimulusDevice):
         self._launching_box = None  # QMessageBox shown while waiting for ready
 
     # -- SubprocessStimulusDevice hooks ---------------------------------
+    def serves_task(self, task, config) -> bool:
+        """Serve a task iff the task->script map has an entry for it.
+
+        With no map (legacy single-script experiments) PsychoPy serves every
+        task, preserving the old behavior.
+        """
+        mapping = config.psychopy
+        return task in mapping if mapping else True
+
     def prepare(self, config) -> None:
         """Resolve the script path and serialize parameters for the subprocess.
 

@@ -20,10 +20,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List
 
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox, QLabel,
     QSpinBox, QDoubleSpinBox, QComboBox, QPushButton, QTableWidget,
-    QTableWidgetItem, QPlainTextEdit, QMessageBox, QHeaderView,
+    QTableWidgetItem, QPlainTextEdit, QMessageBox, QHeaderView, QLineEdit,
 )
 
 from mesofield.gui.mouseportal_panel import MousePortalPanel
@@ -35,6 +36,10 @@ from mesofield.gui.mouseportal_config import (
 
 class MousePortalController(QWidget):
     """Editable view of the MousePortal config block."""
+
+    # Emitted after Save changes the bound task, so the ConfigController can
+    # rebuild its task dropdown from the new choices.
+    tasksChanged = pyqtSignal()
 
     def __init__(self, procedure, parent=None) -> None:
         super().__init__(parent)
@@ -51,6 +56,22 @@ class MousePortalController(QWidget):
             layout.addWidget(self._panel)
         else:
             self._panel = None
+
+        # --- Task binding --------------------------------------------------
+        # Each MousePortal configuration corresponds to one task ID. Selecting
+        # this task in ExperimentConfig is what launches MousePortal for the run
+        # (leave blank to launch for every task, as a single-stimulus rig does).
+        task_box = QGroupBox("Task")
+        task_form = QFormLayout(task_box)
+        self.task_edit = QLineEdit()
+        self.task_edit.setPlaceholderText("e.g. corridor (blank = serves every task)")
+        self.task_edit.setToolTip(
+            "ExperimentConfig task that runs this MousePortal configuration. "
+            "On a rig with multiple stimulus apps, only the device bound to the "
+            "selected task launches."
+        )
+        task_form.addRow("task", self.task_edit)
+        layout.addWidget(task_box)
 
         # --- Experiment scalars -------------------------------------------
         exp_box = QGroupBox("Experiment")
@@ -113,7 +134,7 @@ class MousePortalController(QWidget):
         layout.addStretch(1)
 
         # The editable area locks while a Procedure is running.
-        self._editors = [exp_box, cond_box, seq_box, self.save_btn]
+        self._editors = [task_box, exp_box, cond_box, seq_box, self.save_btn]
         # The Procedure outlives this controller -- a fresh controller is built
         # on every config/hardware reload (see maingui._rebuild_config_controller)
         # while the Procedure (and its `events`) persists. Keep references to the
@@ -202,6 +223,8 @@ class MousePortalController(QWidget):
     # ---- load / save --------------------------------------------------
     def _reload(self) -> None:
         block = self.config.mouseportal
+        task = (block or {}).get("task", "")
+        self.task_edit.setText("" if task is None else str(task))
         exp = (block or {}).get("experiment", {}) or {}
         self.num_blocks.setValue(int(exp.get("num_blocks", 1)))
         self.trials_per_block.setValue(int(exp.get("trials_per_block", 1)))
@@ -222,6 +245,11 @@ class MousePortalController(QWidget):
 
     def _collect_block(self) -> Dict[str, Any]:
         block = dict(self.config.mouseportal)  # preserve window/fog/etc.
+        task = self.task_edit.text().strip()
+        if task:
+            block["task"] = task
+        else:
+            block.pop("task", None)
         experiment = dict(block.get("experiment", {}))
         experiment.update({
             "num_blocks": self.num_blocks.value(),
@@ -253,3 +281,4 @@ class MousePortalController(QWidget):
         if self._panel is not None:
             self._panel.refresh_summary()
         self.save_btn.setToolTip(f"Saved {datetime.now().strftime('%H:%M:%S')}")
+        self.tasksChanged.emit()

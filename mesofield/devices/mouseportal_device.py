@@ -79,6 +79,20 @@ class MousePortalDevice(SubprocessStimulusDevice):
         self._forward: Optional[Callable[..., None]] = None
 
     # -- SubprocessStimulusDevice hooks ---------------------------------
+    def serves_task(self, task, config) -> bool:
+        """Serve a task iff it matches the MousePortal config block's ``task``.
+
+        Each MousePortal configuration corresponds to a single task ID (a list
+        is honored for the future multi-config case). With no ``task`` bound,
+        MousePortal serves every task, preserving the single-stimulus behavior.
+        """
+        bound = config.mouseportal.get("task")
+        if not bound:
+            return True
+        if isinstance(bound, (list, tuple, set)):
+            return task in {str(t) for t in bound}
+        return task == str(bound)
+
     def prepare(self, config) -> None:
         """Generate the MousePortal cfg.json and wire treadmill forwarding.
 

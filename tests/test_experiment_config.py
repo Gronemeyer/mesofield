@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from mesofield.config import ExperimentConfig
+from mesofield.config import ExperimentConfig, parse_task_from_filename
 
 
 @pytest.fixture
@@ -107,3 +107,159 @@ def test_load_dict_flat_mapping(cfg):
     cfg.load_dict({"duration": 9, "task": "abc"})
     assert cfg.get("duration") == 9
     assert cfg.get("task") == "abc"
+
+
+# --- PsychoPy task->script mapping -------------------------------------------
+
+
+def test_parse_task_from_filename():
+    assert parse_task_from_filename("Gratings_task-grat_v0.9.py") == "grat"
+    assert parse_task_from_filename("/abs/path/task-mov_natural.py") == "mov"
+    assert parse_task_from_filename("no_token_here.py") is None
+
+
+def test_psychopy_block_drives_task_choices_and_path(tmp_path, cfg):
+    j = tmp_path / "experiment.json"
+    j.write_text(
+        json.dumps(
+            {
+                "Configuration": {"duration": 5},
+                "Subjects": {"S1": {"session": "01"}},
+                "PsychoPy": {
+                    "grat": "Gratings_task-grat.py",
+                    "mov": "natural_task-mov.py",
+                },
+                "DisplayKeys": ["task"],
+            }
+        )
+    )
+    cfg.load_json(str(j))
+
+    # Task choices are derived from the map keys (sorted), defaulting to the first.
+    assert cfg.get_choices("task") == ["grat", "mov"]
+    assert cfg.get("task") == "grat"
+    assert cfg.psychopy_path == str(tmp_path / "Gratings_task-grat.py")
+
+    # Switching the task switches the resolved script.
+    cfg.set("task", "mov")
+    assert cfg.psychopy_path == str(tmp_path / "natural_task-mov.py")
+
+
+def test_psychopy_entry_with_trial_duration(tmp_path, cfg):
+    cfg.experiment_dir = str(tmp_path)
+    cfg.set("duration", 100)
+    cfg.update_psychopy(
+        {
+            "mov": {"file": "task-mov.py", "trial_duration": 20},
+            "grat": "task-grat.py",  # plain string -> no per-task trial duration
+        }
+    )
+
+    # Dict entry: script resolves, trial_duration drives num_trials (100 // 20).
+    cfg.set("task", "mov")
+    assert cfg.psychopy_path == str(tmp_path / "task-mov.py")
+    assert cfg.trial_duration == 20
+    assert cfg.num_trials == 5
+    assert cfg.psychopy_parameters["num_trials"] == 5
+    assert cfg.psychopy_parameters["trial_duration"] == 20
+
+    # Plain-string entry: falls back to the stored num_trials default.
+    cfg.set("task", "grat")
+    assert cfg.psychopy_path == str(tmp_path / "task-grat.py")
+    assert cfg.num_trials == 20
+
+    # The dict entry round-trips to disk as a dict.
+    j = tmp_path / "experiment.json"
+    j.write_text(json.dumps({"Configuration": {}, "Subjects": {}}))
+    cfg._json_file_path = str(j)
+    cfg.update_psychopy({"mov": {"file": "task-mov.py", "trial_duration": 20}})
+    written = json.loads(j.read_text())
+    assert written["PsychoPy"] == {"mov": {"file": "task-mov.py", "trial_duration": 20}}
+
+
+def test_psychopy_path_legacy_fallback(tmp_path, cfg):
+    cfg.experiment_dir = str(tmp_path)
+    cfg.set("psychopy_filename", "single_script.py")
+    # No PsychoPy map -> legacy single-script behavior.
+    assert cfg.psychopy_path == str(tmp_path / "single_script.py")
+
+
+def test_psychopy_path_absolute_entry(tmp_path, cfg):
+    cfg.experiment_dir = str(tmp_path)
+    abs_script = tmp_path / "elsewhere" / "task-spont.py"
+    cfg.set("task", "spont")
+    cfg.set("psychopy", {"spont": str(abs_script)})
+    assert cfg.psychopy_path == str(abs_script)
+
+
+def test_update_psychopy_persists_block(tmp_path, cfg):
+    j = tmp_path / "experiment.json"
+    j.write_text(
+        json.dumps(
+            {
+                "Configuration": {"duration": 5},
+                "Subjects": {"S1": {"session": "01"}},
+                "DisplayKeys": ["task"],
+            }
+        )
+    )
+    cfg.load_json(str(j))
+
+    cfg.update_psychopy({"a": "task-a.py", "b": "task-b.py"})
+
+    # In-memory choices updated.
+    assert cfg.get_choices("task") == ["a", "b"]
+    assert cfg.get("task") == "a"
+
+    # Top-level PsychoPy block written back to disk.
+    written = json.loads(j.read_text())
+    assert written["PsychoPy"] == {"a": "task-a.py", "b": "task-b.py"}
+
+
+# --- Task-gated stimulus selection (PsychoPy + MousePortal on one rig) --------
+
+
+def test_stimulus_task_choices_are_unioned(tmp_path, cfg):
+    j = tmp_path / "experiment.json"
+    j.write_text(
+        json.dumps(
+            {
+                "Configuration": {"duration": 5, "task": ["baseline"]},
+                "Subjects": {"S1": {"session": "01"}},
+                "PsychoPy": {"grat": "task-grat.py"},
+                "MousePortal": {"task": "corridor", "experiment": {"num_blocks": 1}},
+                "DisplayKeys": ["task"],
+            }
+        )
+    )
+    cfg.load_json(str(j))
+
+    # The dropdown is the union of the plain Configuration task, the PsychoPy
+    # map keys, and MousePortal's bound task.
+    assert cfg.get_choices("task") == ["baseline", "corridor", "grat"]
+    # A still-valid current task (from Configuration) is preserved.
+    assert cfg.get("task") == "baseline"
+
+
+def test_psychopy_device_serves_only_its_tasks(cfg):
+    from mesofield.devices.psychopy_device import PsychoPyDevice
+
+    dev = PsychoPyDevice({})
+    cfg.set("psychopy", {"grat": "task-grat.py"})
+    assert dev.serves_task("grat", cfg) is True
+    assert dev.serves_task("mov", cfg) is False
+    # No map -> legacy single-script behavior: serves every task.
+    cfg.set("psychopy", {})
+    assert dev.serves_task("anything", cfg) is True
+
+
+def test_mouseportal_device_serves_only_its_task(cfg):
+    from mesofield.devices.mouseportal_device import MousePortalDevice
+
+    dev = MousePortalDevice({})
+    cfg.set("mouseportal", {"task": "corridor"})
+    assert dev.serves_task("corridor", cfg) is True
+    assert dev.serves_task("grat", cfg) is False
+    # No bound task -> serves every task (single-stimulus rig).
+    cfg.set("mouseportal", {})
+    assert dev.serves_task("anything", cfg) is True

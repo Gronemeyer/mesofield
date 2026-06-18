@@ -25,6 +25,7 @@ Typical lifecycle:
 """
 
 import os
+import re
 import json
 import dataclasses
 import datetime
@@ -39,6 +40,21 @@ from mesofield.protocols import DataProducer
 from mesofield.utils._logger import get_logger, hyperlink
 
 T = TypeVar('T')
+
+# A PsychoPy script declares the task it implements by embedding ``task-{name}``
+# in its filename -- the same token used for BIDS paths (see make_path /
+# psychopy_save_path). This is the single place the convention is parsed, shared
+# by ExperimentConfig (load-time task discovery) and the PsychoPy GUI tab.
+_TASK_RE = re.compile(r"task-([A-Za-z0-9]+)")
+
+
+def parse_task_from_filename(name: str) -> Optional[str]:
+    """Return the task token from a ``task-{name}`` filename, or ``None``.
+
+    Example: ``parse_task_from_filename("Gratings_task-grat_v0.9.py") == "grat"``.
+    """
+    match = _TASK_RE.search(os.path.basename(name))
+    return match.group(1) if match else None
 
 
 class ConfigRegister:
@@ -207,6 +223,12 @@ class ExperimentConfig(ConfigRegister):
         self.register("trial_duration", None, int, "Trial duration in seconds", "experiment")
         self.register("led_pattern", ["4", "4"], list, "Arduino LED sequence pattern", "hardware")
         self.register("psychopy_filename", "experiment.py", str, "PsychoPy experiment filename", "experiment")
+        # Task -> PsychoPy-script map (e.g. {"grat": "Gratings_task-grat.py"}).
+        # Lives in its own top-level "PsychoPy" block in experiment.json, edited
+        # via the PsychoPy tab and persisted with update_psychopy(). The selected
+        # `task` keys this map at runtime to choose which script to launch; the
+        # legacy single `psychopy_filename` remains a fallback.
+        self.register("psychopy", {}, dict, "Task->PsychoPy-script map", "stimulus")
         # MousePortal stimulus config (corridor + gain-trial design). Lives in
         # its own top-level "MousePortal" block in experiment.json, edited via
         # the MousePortal tab and persisted with update_mouseportal().
@@ -338,13 +360,30 @@ class ExperimentConfig(ConfigRegister):
     
     @property
     def trial_duration(self) -> int:
-        """Get the trial duration in seconds."""
+        """Trial duration in seconds.
+
+        The selected task's PsychoPy ``trial_duration`` (when set) wins over the
+        plain ``trial_duration`` config value, so per-task stimulus timing is
+        data-driven instead of hardcoded in a Procedure subclass.
+        """
+        per_task = self._current_psychopy_trial_duration()
+        if per_task is not None:
+            return per_task
         trial_dur = self.get("trial_duration")
         return int(trial_dur) if trial_dur is not None else None
-        
+
     @property
     def num_trials(self) -> int:
-        """Calculate the number of trials."""
+        """Number of trials.
+
+        When the selected task declares a PsychoPy ``trial_duration``, derive it
+        as ``sequence_duration // trial_duration`` (at least 1) -- the rule the
+        legacy vis-stim Procedure hardcoded, now driven by the task map.
+        Otherwise fall back to the stored ``num_trials`` (default 20).
+        """
+        per_task = self._current_psychopy_trial_duration()
+        if per_task and per_task > 0:
+            return max(1, self.sequence_duration // per_task)
         return int(self.get("num_trials", 20))
     
     
@@ -407,9 +446,61 @@ class ExperimentConfig(ConfigRegister):
         return self.get("psychopy_filename")
 
     @property
+    def psychopy(self) -> dict:
+        """The task -> PsychoPy-script map.
+
+        Each value is either a bare filename (legacy) or a dict
+        ``{"file": ..., "trial_duration": ...}`` -- the optional per-task
+        ``trial_duration`` (seconds) drives ``num_trials`` and is passed to the
+        script. Use :meth:`_psychopy_entry` to read either shape.
+        """
+        value = self.get("psychopy")
+        return value if isinstance(value, dict) else {}
+
+    @staticmethod
+    def _psychopy_entry(value: Any) -> tuple:
+        """Normalize a PsychoPy map value to ``(filename, trial_duration|None)``."""
+        if isinstance(value, dict):
+            raw = value.get("trial_duration")
+            try:
+                trial = int(raw) if raw not in (None, "") else None
+            except (TypeError, ValueError):
+                trial = None
+            return str(value.get("file", "")), trial
+        return ("" if value is None else str(value)), None
+
+    @staticmethod
+    def _normalize_psychopy_map(block: dict) -> dict:
+        """Coerce a task->script map to canonical storage (str or {file,trial_duration})."""
+        out: dict = {}
+        for key, value in dict(block).items():
+            filename, trial = ExperimentConfig._psychopy_entry(value)
+            if trial is not None:
+                out[str(key)] = {"file": filename, "trial_duration": trial}
+            else:
+                out[str(key)] = filename
+        return out
+
+    def _current_psychopy_trial_duration(self) -> Optional[int]:
+        """Per-task ``trial_duration`` for the selected task's PsychoPy entry, or None."""
+        _, trial = self._psychopy_entry(self.psychopy.get(self.task))
+        return trial
+
+    @property
     def psychopy_path(self) -> str:
-        """Get the PsychoPy script path."""
-        return os.path.join(self._save_dir, self.psychopy_filename)
+        """Resolve the PsychoPy script path for the currently selected task.
+
+        When a ``task -> script`` map is present (the ``PsychoPy`` block) and has
+        an entry for the current ``task``, that script wins: an absolute path is
+        used as-is, a relative one is resolved against ``experiment_dir``. With no
+        map (or no entry for this task) it falls back to the legacy single
+        ``psychopy_filename`` so existing one-script experiments keep working.
+        """
+        mapped_file, _ = self._psychopy_entry(self.psychopy.get(self.task))
+        filename = mapped_file or self.psychopy_filename
+        if os.path.isabs(filename):
+            return filename
+        return os.path.join(self._save_dir, filename)
     
     @property
     def psychopy_save_path(self) -> str:
@@ -424,6 +515,7 @@ class ExperimentConfig(ConfigRegister):
             'session': self.session,
             'save_dir': self.save_dir,
             'num_trials': self.num_trials,
+            'trial_duration': self.trial_duration,
             'save_path': self.psychopy_save_path
         }
     
@@ -592,6 +684,18 @@ class ExperimentConfig(ConfigRegister):
         if isinstance(loaded_config.get("MousePortal"), dict):
             self.set("mouseportal", loaded_config["MousePortal"])
 
+        # PsychoPy task->script map is also its own top-level block. When present
+        # it owns the `task` choices (derived from its keys), overriding any plain
+        # Configuration.task list -- the scripts are the source of truth for which
+        # tasks exist. Round-tripped via update_psychopy().
+        psychopy_block = loaded_config.get("PsychoPy")
+        if isinstance(psychopy_block, dict):
+            self.set("psychopy", self._normalize_psychopy_map(psychopy_block))
+
+        # Derive the `task` dropdown from every stimulus binding (PsychoPy map
+        # keys + MousePortal's task) unioned with any plain Configuration tasks.
+        self._register_stimulus_tasks()
+
         if "Plugins" in loaded_config:
             self.plugins: dict = loaded_config.get("Plugins", {})
             for plugin in self.plugins:
@@ -733,11 +837,54 @@ class ExperimentConfig(ConfigRegister):
         edits, but for MousePortal's structured block.
         """
         self.set("mouseportal", dict(block))
+        self._register_stimulus_tasks()
         data = self._read_json_file()
         if data is not None:
             data["MousePortal"] = dict(block)
             self._write_json_file(data)
             self.logger.info("Persisted MousePortal config block to experiment.json")
+
+    def update_psychopy(self, block: dict) -> None:
+        """Apply and persist the task -> PsychoPy-script map.
+
+        Updates the in-memory registry (so the next run's ``arm`` resolves the
+        right script), re-derives the ``task`` dropdown choices from the map
+        keys, and writes the top-level ``PsychoPy`` block back to experiment.json.
+        Mirrors :meth:`update_mouseportal` for PsychoPy's task->script map.
+        """
+        block = self._normalize_psychopy_map(block)
+        self.set("psychopy", block)
+        self._register_stimulus_tasks()
+        data = self._read_json_file()
+        if data is not None:
+            data["PsychoPy"] = dict(block)
+            self._write_json_file(data)
+            self.logger.info("Persisted PsychoPy task->script map to experiment.json")
+
+    def _register_stimulus_tasks(self) -> None:
+        """Refresh the ``task`` choices from every stimulus device's bindings.
+
+        Each stimulus binding declares the task(s) it serves -- PsychoPy via its
+        task->script map keys, MousePortal via its config block's ``task`` -- and
+        selecting that task is what launches the matching stimulus at run time
+        (see ``Procedure._gate_stimuli_by_task``). The dropdown is the union of
+        those stimulus tasks with any plain tasks already declared in
+        ``Configuration`` (a stimulus-free baseline keeps its entry). Keeps the
+        current task selected when still valid; otherwise defaults to the first.
+        """
+        stimulus_tasks = set(self.psychopy.keys())
+        mp_task = self.mouseportal.get("task")
+        if isinstance(mp_task, (list, tuple, set)):
+            stimulus_tasks.update(str(t) for t in mp_task if t)
+        elif isinstance(mp_task, str) and mp_task:
+            stimulus_tasks.add(mp_task)
+        if not stimulus_tasks:
+            return
+        existing = self.get_choices("task") or []
+        tasks = sorted(set(existing) | stimulus_tasks)
+        self.register_choices("task", tasks)
+        if self.get("task") not in tasks:
+            self.set("task", tasks[0])
 
     def _read_json_file(self) -> Optional[dict]:
         path = getattr(self, "_json_file_path", "")

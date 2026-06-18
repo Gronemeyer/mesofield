@@ -110,6 +110,18 @@ class SubprocessStimulusDevice:
             self.logger.debug(f"status_changed emit failed: {exc}")
 
     # -- subclass hooks (override as needed) ----------------------------
+    def serves_task(self, task: str, config: Any) -> bool:
+        """Whether this stimulus participates in *task*.
+
+        Drives per-run gating: before arming, a Procedure enables only the
+        stimulus device(s) that serve the selected task (see
+        ``Procedure._gate_stimuli_by_task``), so a rig with several stimulus apps
+        launches only what the task needs. The default serves **every** task --
+        correct for a single-stimulus rig or a device with no task binding.
+        Subclasses that bind to specific tasks override this.
+        """
+        return True
+
     def prepare(self, config: Any) -> None:
         """Per-run prep before launch (config files, side channels). No-op."""
         return None
@@ -190,7 +202,12 @@ class SubprocessStimulusDevice:
         # ``self._process``, which would otherwise make ``start`` a no-op via
         # its "already launched" guard. Terminate defensively in case it is
         # somehow still alive, then drop the handle.
-        if self._process is not None and self._process.is_running():
+        # Always tear down the previous run's process tree before dropping the
+        # handle -- not just when the parent is still alive. A parent that
+        # crashed (e.g. PsychoPy on an iohub error) can leave an orphaned helper
+        # holding a port; terminate() is idempotent and reaps that whole tree, so
+        # the relaunch below can't collide with a lingering subprocess.
+        if self._process is not None:
             self._process.terminate()
         self._process = None
         self._started = None
@@ -293,9 +310,13 @@ class SubprocessStimulusDevice:
 
         if self._gui_status == "failed":
             tail = getattr(self._process, "output_tail", "") if self._process else ""
-            # A required handshake that timed out can leave the child alive but
-            # unusable -- terminate it so we don't orphan the process.
-            if self._process is not None and self._process.is_running():
+            # Always tear down on failure, even when the parent already exited:
+            # a crashed launcher can leave an orphaned helper (e.g. PsychoPy's
+            # iohub) holding a port, and that helper may also be inheriting the
+            # parent's stdout pipe -- which keeps the reader thread's own
+            # exit-reap from firing until the helper dies. terminate() reaps the
+            # whole process tree now and is a no-op on an already-dead parent.
+            if self._process is not None:
                 self._process.terminate()
             self.present_failure(
                 f"{self.device_id} did not report ready ('{self.ready_token}').",
