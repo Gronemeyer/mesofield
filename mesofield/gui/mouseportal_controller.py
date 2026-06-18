@@ -114,18 +114,59 @@ class MousePortalController(QWidget):
 
         # The editable area locks while a Procedure is running.
         self._editors = [exp_box, cond_box, seq_box, self.save_btn]
-        events = getattr(self.procedure, "events", None)
-        if events is not None:
-            events.procedure_started.connect(lambda *_: self._set_editable(False))
-            events.procedure_finished.connect(lambda *_: self._set_editable(True))
-            events.procedure_error.connect(lambda *_: self._set_editable(True))
+        # The Procedure outlives this controller -- a fresh controller is built
+        # on every config/hardware reload (see maingui._rebuild_config_controller)
+        # while the Procedure (and its `events`) persists. Keep references to the
+        # handlers so cleanup() can sever them: an undisconnected stale controller
+        # keeps reacting to procedure_started/finished/error and calls
+        # _set_editable() on its already-deleted QGroupBoxes, which raises
+        # RuntimeError out of procedure_started.emit() and aborts the whole run.
+        self._events = getattr(self.procedure, "events", None)
+        self._lock_handler = lambda *_: self._set_editable(False)
+        self._unlock_handler = lambda *_: self._set_editable(True)
+        if self._events is not None:
+            self._events.procedure_started.connect(self._lock_handler)
+            self._events.procedure_finished.connect(self._unlock_handler)
+            self._events.procedure_error.connect(self._unlock_handler)
 
         self._reload()
 
     # ------------------------------------------------------------------
+    def cleanup(self) -> None:
+        """Disconnect from the shared Procedure's events before destruction.
+
+        Must be called before ``deleteLater()`` when this controller is
+        rebuilt (config/hardware hot-swap). Idempotent.
+        """
+        events = self._events
+        self._events = None
+        if events is None:
+            return
+        for sig, handler in (
+            (events.procedure_started, self._lock_handler),
+            (events.procedure_finished, self._unlock_handler),
+            (events.procedure_error, self._unlock_handler),
+        ):
+            try:
+                sig.disconnect(handler)
+            except (TypeError, RuntimeError):
+                # Already disconnected, or never connected.
+                pass
+
+    def closeEvent(self, event):  # noqa: N802 - Qt naming
+        """Safety net: disconnect if the widget is closed without an explicit cleanup()."""
+        self.cleanup()
+        super().closeEvent(event)
+
+    # ------------------------------------------------------------------
     def _set_editable(self, on: bool) -> None:
         for w in self._editors:
-            w.setEnabled(on)
+            try:
+                w.setEnabled(on)
+            except RuntimeError:
+                # Underlying C++ widget already deleted (a stale handler firing
+                # during teardown before cleanup()). Ignore -- nothing to lock.
+                pass
 
     # ---- conditions table helpers ------------------------------------
     def _add_condition_row(self, label: str, ttype: str, value: float) -> None:

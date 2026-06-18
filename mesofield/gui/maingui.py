@@ -284,6 +284,13 @@ class MainWindow(QMainWindow):
             idx = self.right_tabs.indexOf(self._mouseportal_controller)
             if idx >= 0:
                 self.right_tabs.removeTab(idx)
+            # Sever its connections to the (persistent) Procedure events before
+            # deletion, or the dead controller keeps reacting to procedure_started
+            # and crashes on its deleted widgets.
+            try:
+                self._mouseportal_controller.cleanup()
+            except Exception:
+                pass
             self._mouseportal_controller.deleteLater()
             self._mouseportal_controller = None
         if self.procedure.config.hardware.devices.get("mouseportal") is not None:
