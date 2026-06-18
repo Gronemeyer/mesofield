@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 import pyqtgraph as pg
 
 
@@ -83,9 +83,14 @@ class SerialWidget(QWidget):
 
         self.start_button.clicked.connect(self.toggle_serial_thread)
 
-        self.layout.addWidget(self.status_label)
-        self.layout.addWidget(self.info_label)
-        self.layout.addWidget(self.start_button)
+        # Status label, info label, and button share a single row above the plot.
+        self.controls_row = QHBoxLayout()
+        self.controls_row.addWidget(self.status_label)
+        self.controls_row.addWidget(self.info_label)
+        self.controls_row.addStretch(1)
+        self.controls_row.addWidget(self.start_button)
+
+        self.layout.addLayout(self.controls_row)
         self.layout.addWidget(self.plot_widget)
         self.setLayout(self.layout)
 
@@ -95,7 +100,9 @@ class SerialWidget(QWidget):
         self.plot_widget.setLabel('bottom', 'Time', units='s')
         self.data_curve = self.plot_widget.plot(pen='y')
 
-        self.plot_widget.setYRange(*self.y_range)
+        # Auto-scale the Y axis to the incoming data rather than pinning it to
+        # a fixed initial range.
+        self.plot_widget.enableAutoRange(axis='y', enable=True)
         self.plot_widget.showGrid(x=True, y=True)
 
         if self._signal is not None:

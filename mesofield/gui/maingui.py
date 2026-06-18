@@ -88,6 +88,12 @@ class MainWindow(QMainWindow):
         self._top_row.addLayout(self._mda_layout, 1)
         self._top_row.addWidget(self.right_tabs, 0)
         self.main_layout.addLayout(self._top_row)
+
+        # Row that holds every live SerialWidget (device + processor plots),
+        # laid out left-to-right so multiple serial traces sit side-by-side on
+        # a single row rather than stacked vertically.
+        self._plots_row = QHBoxLayout()
+        self.main_layout.addLayout(self._plots_row)
         #--------------------------------------------------------------------#
 
         # Tracking for widgets that get built after config is loaded
@@ -359,7 +365,7 @@ class MainWindow(QMainWindow):
         for widget in self._device_widgets.values():
             try:
                 widget.cleanup()
-                self.main_layout.removeWidget(widget)
+                self._plots_row.removeWidget(widget)
                 widget.deleteLater()
             except Exception:
                 pass
@@ -414,7 +420,7 @@ class MainWindow(QMainWindow):
             except Exception as exc:
                 self._log_exception(f"build SerialWidget for {dev_id}", exc)
                 continue
-            self.main_layout.addWidget(widget)
+            self._plots_row.addWidget(widget)
             self._device_widgets[dev_id] = widget
 
     def _build_processor_plots(self) -> None:
@@ -430,7 +436,7 @@ class MainWindow(QMainWindow):
         for widget in self._processor_widgets:
             try:
                 widget.cleanup()
-                self.main_layout.removeWidget(widget)
+                self._plots_row.removeWidget(widget)
                 widget.deleteLater()
             except Exception:
                 pass
@@ -471,7 +477,7 @@ class MainWindow(QMainWindow):
                         f"build SerialWidget for {attr}:{channel}", exc
                     )
                     continue
-                self.main_layout.addWidget(widget)
+                self._plots_row.addWidget(widget)
                 self._processor_widgets.append(widget)
 
     def _log_exception(self, ctx: str, exc: Exception) -> None:
