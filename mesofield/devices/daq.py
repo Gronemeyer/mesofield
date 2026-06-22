@@ -61,38 +61,20 @@ class Nidaq(BaseDataProducer):
         self._do: Any = None
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
-        # Running tally of TTL rising edges seen since the last start()
+        # Running tally of TTL rising edges since the last start() (drives the
+        # GUI indicator). Recorded rows still carry payload=1 per edge.
         self.pulse_count: int = 0
 
     # -- hardware helpers ------------------------------------------------
-    def _close_tasks(self) -> None:
-        """Close and drop any CI/DO tasks, swallowing per-task errors. """
-        for name in ("_ci", "_do"):
-            task = getattr(self, name, None)
-            if task is not None:
-                try:
-                    task.close()
-                except Exception as exc:
-                    self.logger.debug(f"{name} close failed: {exc}")
-            setattr(self, name, None)
-
-    def _reset_device(self, context: str) -> None:
-        """Best-effort hardware reset; logs (never raises) on failure."""
-        if self.development_mode:
-            return
-        try:
-            import nidaqmx.system
-
-            nidaqmx.system.Device(self.device_name).reset_device()
-        except Exception as exc:
-            self.logger.debug(f"device reset ({context}) failed: {exc}")
-
     def reset(self) -> None:
         """Stop the worker (if running) and reset the NI-DAQ device."""
         if self._thread and self._thread.is_alive():
             self.stop()
-        self._close_tasks()
-        self._reset_device("reset")
+        if self.development_mode:
+            return
+        import nidaqmx.system
+
+        nidaqmx.system.Device(self.device_name).reset_device()
 
     def test_connection(self) -> None:
         """Pulse the DO line high ~3 s as a wiring check (logs, never raises)."""
@@ -125,32 +107,19 @@ class Nidaq(BaseDataProducer):
             import nidaqmx
             from nidaqmx.constants import Edge
 
-            # Tear down anything lingering and reset the board before creating new tasks
-            self._close_tasks()
-            self._reset_device("pre-start")
+            # 1) Arm the counter FIRST so no returned TTL is missed.
+            self._ci = nidaqmx.Task()
+            self._ci.ci_channels.add_ci_count_edges_chan(
+                f"{self.device_name}/{self.ctr}", edge=Edge.RISING, initial_count=0
+            )
+            self._ci.start()
 
-            try:
-                # 1) Arm the counter FIRST so no returned TTL is missed.
-                self._ci = nidaqmx.Task()
-                self._ci.ci_channels.add_ci_count_edges_chan(
-                    f"{self.device_name}/{self.ctr}", edge=Edge.RISING, initial_count=0
-                )
-                self._ci.start()
-
-                # 2) Then pulse the DO line once to start the external system.
-                self._do = nidaqmx.Task()
-                self._do.do_channels.add_do_chan(f"{self.device_name}/{self.lines}")
-                self._do.write(True)
-                time.sleep(self.pulse_width)
-                self._do.write(False)
-            except nidaqmx.DaqError as exc:
-                # Hardware start failed -- drop the half-created tasks
-                self.logger.error(f"NI-DAQ start failed: {exc}")
-                self._close_tasks()
-                self._reset_device("failed-start")
-                raise RuntimeError(
-                    f"NI-DAQ {self.device_name} start failed: {exc}"
-                ) from exc
+            # 2) Then pulse the DO line once to start the external system.
+            self._do = nidaqmx.Task()
+            self._do.do_channels.add_do_chan(f"{self.device_name}/{self.lines}")
+            self._do.write(True)
+            time.sleep(self.pulse_width)
+            self._do.write(False)
 
         self._thread = threading.Thread(
             target=self._worker, name=f"Nidaq-{self.device_id}", daemon=True
@@ -163,13 +132,7 @@ class Nidaq(BaseDataProducer):
         prev = 0
         while not self._stop_event.is_set():
             if self._ci is not None:
-                try:
-                    count = int(self._ci.read())
-                except Exception as exc:
-                    # A device removed/aborted mid-run shouldn't spin the loop
-                    self.logger.debug(f"counter read failed: {exc}")
-                    self._stop_event.wait(self.poll_interval)
-                    continue
+                count = int(self._ci.read())
                 ts = time.time()
                 for _ in range(count - prev):
                     self.pulse_count += 1
@@ -182,8 +145,20 @@ class Nidaq(BaseDataProducer):
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=2.0)
         self._thread = None
-        self._close_tasks()
-        self._reset_device("stop")
+        for task in (self._ci, self._do):
+            if task is not None:
+                try:
+                    task.close()
+                except Exception as exc:
+                    self.logger.debug(f"task close failed: {exc}")
+        self._ci = self._do = None
+        if not self.development_mode:
+            try:
+                import nidaqmx.system
+
+                nidaqmx.system.Device(self.device_name).reset_device()
+            except Exception as exc:
+                self.logger.debug(f"device reset on stop failed: {exc}")
         return super().stop()
 
     def shutdown(self) -> None:

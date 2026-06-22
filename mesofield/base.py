@@ -570,11 +570,6 @@ class Procedure:
             self._arm_duration_timer()
         except Exception as e:
             self.logger.error(f"Error during experiment: {e}")
-            # Tear the run down cleanly so the next start isn't poisoned.
-            try:
-                self._cleanup_procedure()
-            except Exception:
-                self.logger.exception("cleanup after a failed start also failed")
             self.events.procedure_error.emit(str(e))
             raise
 
