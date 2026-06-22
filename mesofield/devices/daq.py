@@ -11,8 +11,9 @@ Dual purpose, preserved from the original engine-driven design:
    separate system to go. Arming before pulsing means the first TTL returned
    by that system is never missed.
 2. A background thread polls the counter and records one row per new rising
-   edge (payload ``1``) -- the marker downstream parsers align against
-   (``dataqueue_device_match="nidaq"`` in ``psychopy_device.Psychopy``).
+   edge (payload is the cumulative edge count: 1, 2, 3, ...) -- the marker
+   downstream parsers align against (``dataqueue_device_match="nidaq"`` in
+   ``psychopy_device.Psychopy``).
 
 ``nidaqmx`` is imported lazily so this module loads on machines without the NI
 driver; ``development_mode`` short-circuits every hardware call.
@@ -41,7 +42,7 @@ class Nidaq(BaseDataProducer):
         "device_id": "nidaq",
         "payload_format": "scalar",
         "payload_fields": {"pulse": "int"},
-        "description": "One row per counter rising edge; payload=1 marks a TTL pulse.",
+        "description": "One row per counter rising edge; payload is the cumulative edge count.",
     }
 
     def __init__(self, cfg: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
@@ -61,15 +62,28 @@ class Nidaq(BaseDataProducer):
         self._do: Any = None
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
-        # Running tally of TTL rising edges since the last start() (drives the
-        # GUI indicator). Recorded rows still carry payload=1 per edge.
+        # Running tally of TTL rising edges since the last start(); recorded as
+        # the payload so the saved CSV counts up (1, 2, 3, ...). Also drives the
+        # GUI indicator.
         self.pulse_count: int = 0
 
     # -- hardware helpers ------------------------------------------------
+    def _close_tasks(self) -> None:
+        """Close and drop the CI/DO tasks (no device reset)."""
+        for name in ("_ci", "_do"):
+            task = getattr(self, name)
+            if task is not None:
+                try:
+                    task.close()
+                except Exception as exc:
+                    self.logger.debug(f"{name} close failed: {exc}")
+            setattr(self, name, None)
+
     def reset(self) -> None:
         """Stop the worker (if running) and reset the NI-DAQ device."""
         if self._thread and self._thread.is_alive():
             self.stop()
+        self._close_tasks()
         if self.development_mode:
             return
         import nidaqmx.system
@@ -107,15 +121,21 @@ class Nidaq(BaseDataProducer):
             import nidaqmx
             from nidaqmx.constants import Edge
 
+            # Free any task handles a previous start left open. Do NOT reset the
+            # device here: reset_device() is async and leaves the board "being
+            # reset", which fails the counter's routing request on the next
+            # start (-89130 Device not available for routing).
+            self._close_tasks()
+
             # 1) Arm the counter FIRST so no returned TTL is missed.
-            self._ci = nidaqmx.Task()
+            self._ci = nidaqmx.Task(new_task_name=f"{self.device_id}_counter")
             self._ci.ci_channels.add_ci_count_edges_chan(
                 f"{self.device_name}/{self.ctr}", edge=Edge.RISING, initial_count=0
             )
             self._ci.start()
 
             # 2) Then pulse the DO line once to start the external system.
-            self._do = nidaqmx.Task()
+            self._do = nidaqmx.Task(new_task_name=f"{self.device_id}_trigger")
             self._do.do_channels.add_do_chan(f"{self.device_name}/{self.lines}")
             self._do.write(True)
             time.sleep(self.pulse_width)
@@ -136,7 +156,7 @@ class Nidaq(BaseDataProducer):
                 ts = time.time()
                 for _ in range(count - prev):
                     self.pulse_count += 1
-                    self.record(1, ts)
+                    self.record(self.pulse_count, ts)
                 prev = count
             self._stop_event.wait(self.poll_interval)
 
@@ -145,20 +165,7 @@ class Nidaq(BaseDataProducer):
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=2.0)
         self._thread = None
-        for task in (self._ci, self._do):
-            if task is not None:
-                try:
-                    task.close()
-                except Exception as exc:
-                    self.logger.debug(f"task close failed: {exc}")
-        self._ci = self._do = None
-        if not self.development_mode:
-            try:
-                import nidaqmx.system
-
-                nidaqmx.system.Device(self.device_name).reset_device()
-            except Exception as exc:
-                self.logger.debug(f"device reset on stop failed: {exc}")
+        self._close_tasks()
         return super().stop()
 
     def shutdown(self) -> None:
