@@ -269,6 +269,10 @@ class MainWindow(QMainWindow):
         if self._config_controller is not None:
             idx = self.right_tabs.indexOf(self._config_controller)
             self.right_tabs.removeTab(idx)
+            try:
+                self._config_controller.cleanup()
+            except Exception:
+                pass
             self._config_controller.deleteLater()
 
         self._config_controller = ConfigController(
@@ -422,10 +426,9 @@ class MainWindow(QMainWindow):
             dev_type = getattr(device, "device_type", None)
             if device in cameras or dev_type == "camera":
                 continue
-            # Stimulus apps (PsychoPy, MousePortal) are not DataProducers -- they
-            # never emit on signals.data, so a Serial Trace would sit forever on
-            # an empty "Start Live View". They have their own tabs/panels instead.
             if dev_type == "stimulus":
+                continue
+            if dev_type == "nidaq":
                 continue
             # Must speak the standard signal contract to be plottable.
             signals = getattr(device, "signals", None)

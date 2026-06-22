@@ -126,7 +126,17 @@ class ConfigRegister:
         if key not in self._callbacks:
             self._callbacks[key] = []
         self._callbacks[key].append(callback)
-    
+
+    def unregister_callback(self, key: str, callback: Callable[[str, Any], None]) -> None:
+        """Remove a previously registered callback for *key*."""
+        callbacks = self._callbacks.get(key)
+        if not callbacks:
+            return
+        try:
+            callbacks.remove(callback)
+        except ValueError:
+            pass
+
     
     def register_choices(self, key: str, choices: List[Any]) -> None:
         """Register a list of selectable choices for a configuration key."""

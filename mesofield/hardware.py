@@ -362,12 +362,25 @@ class HardwareManager():
                     self.logger.error(f"Error arming {name}: {exc}")
 
     def start_all(self) -> None:
-        """Call ``start()`` on every device."""
+        """Call ``start()`` on every device.
+
+        A device that raises during ``start()`` aborts the whole bring-up: the
+        exception is re-raised (wrapped with the device name) so the caller
+        (``Procedure.run``) can tear down cleanly rather than continuing a
+        partial startup where only some of the rig is acquiring. The names of
+        devices already started are logged to aid teardown.
+        """
+        started: List[str] = []
         for name, device in self.devices.items():
             try:
                 device.start()
+                started.append(name)
             except Exception as exc:
-                self.logger.error(f"Error starting {name}: {exc}")
+                self.logger.error(
+                    f"Error starting {name}: {exc} "
+                    f"(already started: {started or 'none'}); aborting start."
+                )
+                raise RuntimeError(f"Device '{name}' failed to start: {exc}") from exc
 
     def deinitialize(self):
         """Tear down all devices and reset to unconfigured state.

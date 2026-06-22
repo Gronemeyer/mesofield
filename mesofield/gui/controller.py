@@ -198,8 +198,13 @@ class ConfigController(QWidget):
 
         # Register live updates for the filename preview. Callbacks fire from
         # ConfigRegister.set() — which is what ConfigFormWidget editors call.
-        for key in ("subject", "session", "task"):
-            self.config.register_callback(key, lambda _k, _v: self._update_filename_preview())
+        # The config object outlives this widget (it's owned by the procedure
+        # and survives a config reload), so we keep references to the exact
+        # callbacks registered here and unregister them in `cleanup()`
+        self._preview_keys = ("subject", "session", "task")
+        self._preview_callback = lambda _k, _v: self._update_filename_preview()
+        for key in self._preview_keys:
+            self.config.register_callback(key, self._preview_callback)
         self._update_filename_preview()
         
         # 4. Record button to start the MDA sequence
@@ -247,6 +252,10 @@ class ConfigController(QWidget):
         # to the bottom edge regardless of window height.
         layout.addStretch(1)
 
+        # NI-DAQ status indicator(s): a trigger-sent light + TTL edge counter
+        self._nidaq_indicators = []
+        self._build_nidaq_indicators(layout)
+
         # Dynamic hardware-specific controls (pinned to bottom of the panel)
         self.dynamic_controller = DynamicController(self.procedure.config, parent=self)
         layout.addWidget(self.dynamic_controller)
@@ -284,6 +293,36 @@ class ConfigController(QWidget):
                 getattr(self.dynamic_controller, btn_attr).clicked.connect(handler)
 
         # ------------------------------------------------------------------------------------- #
+    # ------------------------------- Lifecycle / teardown --------------------------- #
+    def _build_nidaq_indicators(self, layout) -> None:
+        """Add a :class:`NidaqIndicator` for every NI-DAQ device on the rig."""
+        from mesofield.gui.nidaq_indicator import NidaqIndicator
+
+        devices = getattr(self.procedure.config.hardware, "devices", {}) or {}
+        for device in devices.values():
+            if getattr(device, "device_type", None) != "nidaq":
+                continue
+            try:
+                indicator = NidaqIndicator(device, parent=self)
+            except Exception as exc:
+                print(f"Failed to build NidaqIndicator: {exc}")
+                continue
+            layout.addWidget(indicator)
+            self._nidaq_indicators.append(indicator)
+
+    def cleanup(self) -> None:
+        """Sever live connections before this widget is destroyed on a reload."""
+        callback = getattr(self, "_preview_callback", None)
+        if callback is not None:
+            for key in getattr(self, "_preview_keys", ()):  # type: ignore[arg-type]
+                with suppress(Exception):
+                    self.config.unregister_callback(key, callback)
+            self._preview_callback = None
+        for indicator in getattr(self, "_nidaq_indicators", []):
+            with suppress(Exception):
+                indicator.cleanup()
+        self._nidaq_indicators = []
+
     # ------------------------------- Introspection Helpers --------------------------- #
     def displayed_values(self) -> dict:
         """Return the configuration values currently shown in the form widget."""
@@ -448,6 +487,13 @@ class ConfigController(QWidget):
         """Render the BIDS filename template for the currently selected subject."""
         if not hasattr(self, "filename_preview_label"):
             return
+        # Guard against a stale callback
+        try:
+            from PyQt6 import sip
+            if sip.isdeleted(self.filename_preview_label):
+                return
+        except Exception:
+            pass
         subject = self.config.get("subject") or "?"
         session = self.config.get("session") or "?"
         task = self.config.get("task") or "?"
