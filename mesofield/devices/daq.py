@@ -57,43 +57,17 @@ class Nidaq(BaseDataProducer):
         self.poll_interval: float = float(self.cfg.get("poll_interval", 0.01))
         self.development_mode: bool = bool(self.cfg.get("development_mode", False))
 
-        # Timestamping strategy:
-        #   "counter" (default) -- poll the edge counter, stamp each new edge
-        #       with the host clock (``time.time()``). Simple, never misses an
-        #       edge, but timing is bounded by host + USB jitter (~ms).
-        #   "hybrid" / "analog" -- additionally sample the pulse line on an
-        #       analog input at ``sample_rate`` Hz (hardware-timed by the DAQ
-        #       clock) and timestamp each rising edge by its sample index, i.e.
-        #       ``t0 + index/rate``. Frame-to-frame spacing is then jitter-free
-        #       to ±1 sample. On a USB-6001 the AI ceiling is 20 kS/s -> 50 µs.
-        #       The counter still runs in parallel as a never-miss integrity
-        #       check that ``stop()`` reconciles against the AI edge count.
-        # On low-cost USB DAQs (e.g. USB-6001) the counter has no buffered /
-        # hardware-timestamp mode, so AI sampling is the only route to
-        # sub-millisecond, host-jitter-free edge times. Wire the frame TTL to
-        # BOTH the counter terminal (PFI) and ``ai_channel`` for "hybrid".
-        self.timing_mode: str = str(self.cfg.get("timing_mode", "counter")).lower()
-        self.ai_channel: str = self.cfg.get("ai_channel", "ai0")
-        self.sample_rate: float = float(self.cfg.get("sample_rate", 20000.0))
-        self.ai_threshold: float = float(self.cfg.get("ai_threshold", 2.5))
-
         self._ci: Any = None
         self._do: Any = None
-        self._ai: Any = None
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
-        # Authoritative edge count read from the hardware counter (the AI path's
-        # integrity reference); kept up to date in hybrid/analog mode.
-        self.counter_total: int = 0
-        # Wall-clock anchor for the AI sample clock, and the coerced actual AI
-        # rate the device reports back after timing config.
-        self._t0: float = 0.0
-        self.actual_rate: float = self.sample_rate
+        # Running tally of TTL rising edges seen since the last start()
+        self.pulse_count: int = 0
 
     # -- hardware helpers ------------------------------------------------
     def _close_tasks(self) -> None:
         """Close and drop any CI/DO tasks, swallowing per-task errors. """
-        for name in ("_ci", "_do", "_ai"):
+        for name in ("_ci", "_do"):
             task = getattr(self, name, None)
             if task is not None:
                 try:
@@ -145,24 +119,38 @@ class Nidaq(BaseDataProducer):
             return False
 
         self._stop_event.clear()
+        self.pulse_count = 0
 
         if not self.development_mode:
             import nidaqmx
             from nidaqmx.constants import Edge
 
-            # 1) Arm the counter FIRST so no returned TTL is missed.
-            self._ci = nidaqmx.Task()
-            self._ci.ci_channels.add_ci_count_edges_chan(
-                f"{self.device_name}/{self.ctr}", edge=Edge.RISING, initial_count=0
-            )
-            self._ci.start()
+            # Tear down anything lingering and reset the board before creating new tasks
+            self._close_tasks()
+            self._reset_device("pre-start")
 
-            # 2) Then pulse the DO line once to start the external system.
-            self._do = nidaqmx.Task()
-            self._do.do_channels.add_do_chan(f"{self.device_name}/{self.lines}")
-            self._do.write(True)
-            time.sleep(self.pulse_width)
-            self._do.write(False)
+            try:
+                # 1) Arm the counter FIRST so no returned TTL is missed.
+                self._ci = nidaqmx.Task()
+                self._ci.ci_channels.add_ci_count_edges_chan(
+                    f"{self.device_name}/{self.ctr}", edge=Edge.RISING, initial_count=0
+                )
+                self._ci.start()
+
+                # 2) Then pulse the DO line once to start the external system.
+                self._do = nidaqmx.Task()
+                self._do.do_channels.add_do_chan(f"{self.device_name}/{self.lines}")
+                self._do.write(True)
+                time.sleep(self.pulse_width)
+                self._do.write(False)
+            except nidaqmx.DaqError as exc:
+                # Hardware start failed -- drop the half-created tasks
+                self.logger.error(f"NI-DAQ start failed: {exc}")
+                self._close_tasks()
+                self._reset_device("failed-start")
+                raise RuntimeError(
+                    f"NI-DAQ {self.device_name} start failed: {exc}"
+                ) from exc
 
         self._thread = threading.Thread(
             target=self._worker, name=f"Nidaq-{self.device_id}", daemon=True
@@ -175,9 +163,16 @@ class Nidaq(BaseDataProducer):
         prev = 0
         while not self._stop_event.is_set():
             if self._ci is not None:
-                count = int(self._ci.read())
+                try:
+                    count = int(self._ci.read())
+                except Exception as exc:
+                    # A device removed/aborted mid-run shouldn't spin the loop
+                    self.logger.debug(f"counter read failed: {exc}")
+                    self._stop_event.wait(self.poll_interval)
+                    continue
                 ts = time.time()
                 for _ in range(count - prev):
+                    self.pulse_count += 1
                     self.record(1, ts)
                 prev = count
             self._stop_event.wait(self.poll_interval)
