@@ -1,0 +1,6 @@
+frame\_mean
+===========
+
+.. automodule:: mesofield.processors.frame_mean
+   :members:
+   :show-inheritance:

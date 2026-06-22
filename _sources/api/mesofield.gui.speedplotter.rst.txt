@@ -1,0 +1,6 @@
+speedplotter
+============
+
+.. automodule:: mesofield.gui.speedplotter
+   :members:
+   :show-inheritance:

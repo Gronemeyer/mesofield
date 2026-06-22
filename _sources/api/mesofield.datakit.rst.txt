@@ -1,0 +1,29 @@
+datakit
+=======
+
+.. automodule:: mesofield.datakit
+   :members:
+   :show-inheritance:
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 1
+
+   mesofield.datakit.sources
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   mesofield.datakit.config
+   mesofield.datakit.core
+   mesofield.datakit.datamodel
+   mesofield.datakit.discover
+   mesofield.datakit.explore
+   mesofield.datakit.profile
+   mesofield.datakit.shell
+   mesofield.datakit.timeline

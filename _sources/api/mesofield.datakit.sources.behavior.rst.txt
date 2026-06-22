@@ -1,0 +1,17 @@
+behavior
+========
+
+.. automodule:: mesofield.datakit.sources.behavior
+   :members:
+   :show-inheritance:
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   mesofield.datakit.sources.behavior.dataqueue
+   mesofield.datakit.sources.behavior.psychopy
+   mesofield.datakit.sources.behavior.treadmill
+   mesofield.datakit.sources.behavior.wheel

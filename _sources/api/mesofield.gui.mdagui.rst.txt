@@ -1,0 +1,6 @@
+mdagui
+======
+
+.. automodule:: mesofield.gui.mdagui
+   :members:
+   :show-inheritance:

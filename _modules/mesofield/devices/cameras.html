@@ -1,0 +1,1388 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mesofield.devices.cameras &#8212; Mesofield</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=f0c42745" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=a95f357e85573c9b56d5"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5" />
+
+    <script src="../../../_static/documentation_options.js?v=d6279c7f"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/mesofield/devices/cameras';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.4" />
+  
+    
+    <script src="../../../_static/searchtools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script src="../../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/logo.png" class="logo__image only-light" alt=""/>
+    <img src="../../../_static/logo.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">MESOFIELD</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">mesofield.devices.cameras</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for mesofield.devices.cameras</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">PyQt6.QtCore</span><span class="w"> </span><span class="kn">import</span> <span class="n">QThread</span><span class="p">,</span> <span class="n">pyqtSignal</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymmcore_plus</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMMCorePlus</span><span class="p">,</span> <span class="n">DeviceType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymmcore_plus.core._device</span><span class="w"> </span><span class="kn">import</span> <span class="n">CameraDevice</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.protocols</span><span class="w"> </span><span class="kn">import</span> <span class="n">HardwareDevice</span><span class="p">,</span> <span class="n">DataProducer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.engines</span><span class="w"> </span><span class="kn">import</span> <span class="n">DevEngine</span><span class="p">,</span> <span class="n">MesoEngine</span><span class="p">,</span> <span class="n">PupilEngine</span>
+<span class="c1">#from tests.arducam import VideoThread</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.devices.base_camera</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseCamera</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">CustomWriter</span><span class="p">,</span> <span class="n">CV2Writer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.data.codecs</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">configure_opencv_codec</span><span class="p">,</span>
+    <span class="n">default_fourcc</span><span class="p">,</span>
+    <span class="n">default_cv_backend</span><span class="p">,</span>
+    <span class="n">default_cap_fourcc</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceRegistry</span>
+
+
+<div class="viewcode-block" id="MMCamera">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.MMCamera">[docs]</a>
+<span class="nd">@DeviceRegistry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;camera&quot;</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MMCamera</span><span class="p">(</span><span class="n">BaseCamera</span><span class="p">,</span> <span class="n">DataProducer</span><span class="p">,</span> <span class="n">HardwareDevice</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Micro-Manager-backed camera.</span>
+
+<span class="sd">    Inherits the common camera surface (identity, output paths, manifest</span>
+<span class="sd">    metadata, ``arm`` / ``set_sequence`` defaults, ``status``, ``calibration``)</span>
+<span class="sd">    from :class:`BaseCamera`, and duck-types the ``DataProducer`` /</span>
+<span class="sd">    ``HardwareDevice`` Protocols so existing isinstance() checks keep</span>
+<span class="sd">    working. The actual frame flow is driven by pymmcore-plus&#39;s MDA event</span>
+<span class="sd">    system; this class wires those events into the standard</span>
+<span class="sd">    :class:`DeviceSignals` bundle and constructs a :class:`CustomWriter`</span>
+<span class="sd">    (OME-TIFF) or :class:`CV2Writer` (MP4) for the output.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span>  <span class="c1"># Default sampling rate in Hz</span>
+    <span class="n">file_type</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;ome.tiff&quot;</span>
+    <span class="n">bids_type</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="s2">&quot;func&quot;</span>
+    <span class="n">writer</span><span class="p">:</span> <span class="n">CustomWriter</span> <span class="o">|</span> <span class="n">CV2Writer</span>
+
+<div class="viewcode-block" id="MMCamera.__init__">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.MMCamera.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="c1"># BaseCamera surface (signals, identity, viewer cosmetics, output</span>
+        <span class="c1"># slots, logger). MMCamera carries an explicit `backend` (set from</span>
+        <span class="c1"># cfg), so we pass through the cfg-declared value here.</span>
+        <span class="n">backend</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;backend&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">backend</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;micromanager&quot;</span><span class="p">,</span> <span class="s2">&quot;opencv&quot;</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown camera backend &#39;</span><span class="si">{</span><span class="n">backend</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init_camera_surface</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="n">backend</span><span class="p">)</span>
+        <span class="c1"># MMCamera-specific state.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">camera_device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CameraDevice</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CMMCorePlus</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">properties</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;properties&quot;</span><span class="p">,</span> <span class="p">{})</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;micromanager&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_setup_micromanager</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;opencv&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_setup_opencv</span><span class="p">()</span>
+
+        <span class="c1"># automatically apply all YAML properties</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_wire_signals</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_wire_signals</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Bridge MMCore MDA events to the standard DeviceSignals.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">!=</span> <span class="s2">&quot;micromanager&quot;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">evt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">mda</span><span class="o">.</span><span class="n">events</span>  <span class="c1"># type: ignore[union-attr]</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_on_started</span><span class="p">(</span><span class="o">*</span><span class="n">_args</span><span class="p">,</span> <span class="o">**</span><span class="n">_kw</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">started</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_on_finished</span><span class="p">(</span><span class="o">*</span><span class="n">_args</span><span class="p">,</span> <span class="o">**</span><span class="n">_kw</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">finished</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_on_frame</span><span class="p">(</span><span class="n">_img</span><span class="p">,</span> <span class="n">_event</span><span class="p">,</span> <span class="n">metadata</span><span class="p">):</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">ts</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">cam_meta</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;camera_metadata&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="p">{}</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">cam_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ImageNumber&quot;</span><span class="p">)</span>
+                <span class="n">ts</span> <span class="o">=</span> <span class="n">cam_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;TimeReceivedByCore&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">ts</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">pass</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">_img</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">ts</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">evt</span><span class="o">.</span><span class="n">sequenceStarted</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">_on_started</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">evt</span><span class="o">.</span><span class="n">sequenceFinished</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">_on_finished</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">evt</span><span class="o">.</span><span class="n">frameReady</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">_on_frame</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_setup_micromanager</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">):</span>
+        <span class="n">core</span> <span class="o">=</span> <span class="n">CMMCorePlus</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;micromanager_path&quot;</span><span class="p">))</span>
+        <span class="n">cfg_path</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;configuration_path&quot;</span><span class="p">)</span>
+        <span class="n">core</span><span class="o">.</span><span class="n">loadSystemConfiguration</span><span class="p">(</span><span class="n">cfg_path</span><span class="p">)</span> <span class="k">if</span> <span class="n">cfg_path</span> <span class="k">else</span> <span class="n">core</span><span class="o">.</span><span class="n">loadSystemConfiguration</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">camera_device</span> <span class="o">=</span> <span class="n">core</span><span class="o">.</span><span class="n">getDeviceObject</span><span class="p">(</span><span class="n">core</span><span class="o">.</span><span class="n">getCameraDevice</span><span class="p">(),</span>
+                                                  <span class="n">DeviceType</span><span class="o">.</span><span class="n">Camera</span><span class="p">)</span>
+        <span class="n">Engine</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;ThorCam&quot;</span><span class="p">:</span> <span class="n">PupilEngine</span><span class="p">,</span>
+                  <span class="s2">&quot;Dhyana&quot;</span><span class="p">:</span> <span class="n">MesoEngine</span><span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">DevEngine</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span> <span class="o">=</span> <span class="n">Engine</span><span class="p">(</span><span class="n">core</span><span class="p">,</span> <span class="n">use_hardware_sequencing</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># Back-reference so engines can call camera helpers (e.g. LED control).</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">camera</span> <span class="o">=</span> <span class="bp">self</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="n">core</span><span class="o">.</span><span class="n">mda</span><span class="o">.</span><span class="n">set_engine</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">core</span> <span class="o">=</span> <span class="n">core</span>
+
+    <span class="c1"># `set_writer` is inherited from BaseCamera: it resolves the output path</span>
+    <span class="c1"># and picks the writer (CustomWriter for OME-TIFF, CV2Writer for MP4)</span>
+    <span class="c1"># from the shared `_WRITER_FOR_FILE_TYPE` mapping. Override only if you</span>
+    <span class="c1"># need to swap the mapping for a specific MMCamera subclass.</span>
+
+<div class="viewcode-block" id="MMCamera.set_sequence">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.MMCamera.set_sequence">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_sequence</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">build_mda</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">DataProducer</span><span class="p">],</span> <span class="n">Any</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the MDA sequence (Micro-Manager backend only).&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;micromanager&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sequence</span> <span class="o">=</span> <span class="n">build_mda</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;MDA sequence set for Micromanager backend.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Setting sequence is not supported for OpenCV backend.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MMCamera.initialize">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.MMCamera.initialize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the YAML ``properties`` block to the underlying camera.</span>
+
+<span class="sd">        Each ``{device_id: {property: value}}`` pair is forwarded to the</span>
+<span class="sd">        backend (``core.setROI`` for ROIs, ``core.setProperty`` otherwise)</span>
+<span class="sd">        with special handling for the synthetic ``fps``, ``viewer_type``,</span>
+<span class="sd">        and ``auto_contrast`` keys.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">dev_id</span><span class="p">,</span> <span class="n">props</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">props</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">for</span> <span class="n">prop</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">props</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Setting </span><span class="si">{</span><span class="n">dev_id</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">prop</span><span class="si">}</span><span class="s2"> → </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">prop</span> <span class="o">==</span> <span class="s2">&quot;ROI&quot;</span><span class="p">:</span>
+                    <span class="n">roi_setter</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="p">,</span> <span class="s2">&quot;setROI&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;micromanager&quot;</span> <span class="k">else</span> <span class="kc">None</span>
+                    <span class="k">if</span> <span class="n">roi_setter</span><span class="p">:</span>
+                        <span class="n">roi_setter</span><span class="p">(</span><span class="n">dev_id</span><span class="p">,</span> <span class="o">*</span><span class="n">val</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">prop</span> <span class="o">==</span> <span class="s2">&quot;fps&quot;</span><span class="p">:</span>
+                    <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;sampling_rate&quot;</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">prop</span> <span class="o">==</span> <span class="s2">&quot;viewer_type&quot;</span><span class="p">:</span>
+                    <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;viewer&quot;</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">prop</span> <span class="o">==</span> <span class="s2">&quot;auto_contrast&quot;</span><span class="p">:</span>
+                    <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;auto_contrast&quot;</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;micromanager&quot;</span><span class="p">:</span>
+                        <span class="n">setter</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="p">,</span> <span class="s2">&quot;setProperty&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">setter</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">camera_device</span><span class="p">,</span> <span class="s2">&quot;setProperty&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">setter</span><span class="p">:</span>
+                        <span class="n">setter</span><span class="p">(</span><span class="n">dev_id</span><span class="p">,</span> <span class="n">prop</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span></div>
+
+
+    <span class="c1"># `arm()` is inherited from BaseCamera: it calls set_writer + set_sequence.</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># LED control</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># The Arduino-Switch device adapter in some Micro-Manager configs becomes</span>
+    <span class="c1"># unusable when certain Dhyana camera properties are set (its sequenced</span>
+    <span class="c1"># ``State`` property no longer responds to ``loadSequence``/``startSequence``).</span>
+    <span class="c1"># The underlying serial port still works, so when ``led_serial`` is present</span>
+    <span class="c1"># in the camera YAML block we bypass the MM Arduino device and write raw</span>
+    <span class="c1"># bytes through MM&#39;s SerialManager (which already owns the COM port).</span>
+    <span class="c1">#</span>
+    <span class="c1"># YAML schema (sibling of ``properties``)::</span>
+    <span class="c1">#</span>
+    <span class="c1">#     led_serial:</span>
+    <span class="c1">#       port: &quot;COM3&quot;                 # MM SerialManager device label</span>
+    <span class="c1">#       start_command:               # list of byte sequences sent in order</span>
+    <span class="c1">#         - [5, 0, 4]</span>
+    <span class="c1">#         - [6, 1]</span>
+    <span class="c1">#         - [8]</span>
+    <span class="c1">#       stop_command:</span>
+    <span class="c1">#         - [9]</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_led_serial_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+        <span class="n">cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;led_serial&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">cfg</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_send_serial_commands</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">commands</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write a list of byte sequences to the configured MM serial port.&quot;&quot;&quot;</span>
+        <span class="n">led</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_led_serial_cfg</span><span class="p">()</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">port</span> <span class="o">=</span> <span class="n">led</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;port&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">port</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">commands</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">writer</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="p">,</span> <span class="s2">&quot;writeToSerialPort&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">writer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;core has no writeToSerialPort; cannot send LED bytes&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">for</span> <span class="n">cmd</span> <span class="ow">in</span> <span class="n">commands</span><span class="p">:</span>
+            <span class="n">byte_list</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xFF</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">cmd</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;writeToSerialPort(</span><span class="si">{</span><span class="n">port</span><span class="si">!r}</span><span class="s2">, </span><span class="si">{</span><span class="n">byte_list</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+            <span class="n">writer</span><span class="p">(</span><span class="n">port</span><span class="p">,</span> <span class="n">byte_list</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MMCamera.start_led_sequence">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.MMCamera.start_led_sequence">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start_led_sequence</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Start the LED pattern.</span>
+
+<span class="sd">        If ``led_serial`` is configured on this camera, sends the configured</span>
+<span class="sd">        raw byte sequences via MM&#39;s SerialManager.  Otherwise falls back to</span>
+<span class="sd">        the original ``Arduino-Switch.State.loadSequence/startSequence`` path.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">led</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_led_serial_cfg</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;start_led_sequence: led_serial=</span><span class="si">{</span><span class="s1">&#39;present&#39;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">led</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;absent&#39;</span><span class="si">}</span><span class="s2"> &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;pattern=</span><span class="si">{</span><span class="n">pattern</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">led</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_send_serial_commands</span><span class="p">(</span><span class="n">led</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;start_command&quot;</span><span class="p">,</span> <span class="p">[]))</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">!=</span> <span class="s2">&quot;micromanager&quot;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">prop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getPropertyObject</span><span class="p">(</span><span class="s2">&quot;Arduino-Switch&quot;</span><span class="p">,</span> <span class="s2">&quot;State&quot;</span><span class="p">)</span>
+        <span class="n">prop</span><span class="o">.</span><span class="n">loadSequence</span><span class="p">(</span><span class="n">pattern</span><span class="p">)</span>
+        <span class="n">prop</span><span class="o">.</span><span class="n">setValue</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>  <span class="c1"># seems essential to initiate serial communication</span>
+        <span class="n">prop</span><span class="o">.</span><span class="n">startSequence</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="MMCamera.stop_led_sequence">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.MMCamera.stop_led_sequence">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop_led_sequence</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stop the LED pattern (mirror of :meth:`start_led_sequence`).&quot;&quot;&quot;</span>
+        <span class="n">led</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_led_serial_cfg</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;stop_led_sequence: led_serial=</span><span class="si">{</span><span class="s1">&#39;present&#39;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">led</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;absent&#39;</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">led</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_send_serial_commands</span><span class="p">(</span><span class="n">led</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;stop_command&quot;</span><span class="p">,</span> <span class="p">[]))</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">!=</span> <span class="s2">&quot;micromanager&quot;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getPropertyObject</span><span class="p">(</span><span class="s2">&quot;Arduino-Switch&quot;</span><span class="p">,</span> <span class="s2">&quot;State&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">stopSequence</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;stopSequence failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MMCamera.start">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.MMCamera.start">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Launch the MDA sequence non-blocking.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Always ``True``. The sequence runs asynchronously on the</span>
+<span class="sd">            camera backend; lifecycle is reported via ``self.signals``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_started</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">run_mda</span><span class="p">(</span><span class="n">events</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sequence</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="MMCamera.stop">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.MMCamera.stop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stop acquisition.</span>
+
+<span class="sd">        Non-primary Micro-Manager cameras must be told explicitly to halt</span>
+<span class="sd">        their sequence acquisition — the primary camera&#39;s MDA driver</span>
+<span class="sd">        does not stop them.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;micromanager&quot;</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_primary</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">stopSequenceAcquisition</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;stopSequenceAcquisition failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="MMCamera.get_data">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.MMCamera.get_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the latest captured frame, or ``None`` if not active.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">camera_device</span><span class="p">,</span> <span class="s2">&quot;get_frame&quot;</span><span class="p">,</span> <span class="k">lambda</span><span class="p">:</span> <span class="kc">None</span><span class="p">)()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_active</span> <span class="k">else</span> <span class="kc">None</span></div>
+
+
+    <span class="c1"># --- live preview contract (BaseCamera abstract methods) ------------</span>
+    <span class="c1"># Implementations delegate to mmcore so the GUI&#39;s snap/live buttons</span>
+    <span class="c1"># work without touching pymmcore directly.</span>
+
+<div class="viewcode-block" id="MMCamera.snap">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.MMCamera.snap">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">snap</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Capture a single frame via ``mmcore.snap()`` and save a snapshot PNG.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">!=</span> <span class="s2">&quot;micromanager&quot;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;snap() requires the micromanager backend&quot;</span><span class="p">)</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">snap</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_snap_png</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">frame</span></div>
+
+
+<div class="viewcode-block" id="MMCamera.start_live">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.MMCamera.start_live">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start_live</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Begin continuous (untimed) sequence acquisition for preview.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">!=</span> <span class="s2">&quot;micromanager&quot;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;start_live() requires the micromanager backend&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">isSequenceRunning</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">startContinuousSequenceAcquisition</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="MMCamera.stop_live">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.MMCamera.stop_live">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop_live</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;End the continuous sequence acquisition started by start_live.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">!=</span> <span class="s2">&quot;micromanager&quot;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">stopSequenceAcquisition</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;stopSequenceAcquisition: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MMCamera.shutdown">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.MMCamera.shutdown">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cancel any in-flight MDA on the Micro-Manager backend.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;micromanager&quot;</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="p">,</span> <span class="s2">&quot;reset&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">mda</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span></div>
+
+    
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Any attribute not found on MMCamera will be looked up</span>
+<span class="sd">        on the wrapped camera_device automatically.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">camera_device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">camera_device</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+            <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">camera_device</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">!r}</span><span class="s2"> has no attribute </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__dir__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Include camera_device’s public attributes in dir(self) so</span>
+<span class="sd">        tab‐complete / introspection still works.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__dir__</span><span class="p">())</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">camera_device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">base</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">n</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">camera_device</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">n</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Compact one-liner so HardwareManager listings stay readable.</span>
+        <span class="c1"># Use ``cam.info()`` for the verbose dump.</span>
+        <span class="n">cam_props</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="p">{})</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="n">fps</span> <span class="o">=</span> <span class="n">cam_props</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fps&quot;</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;output&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="n">bits</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;id=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;backend=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">backend</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">fps</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">bits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;fps=</span><span class="si">{</span><span class="n">fps</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_primary</span><span class="p">:</span>
+            <span class="n">bits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;primary=True&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;suffix&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;file_type&quot;</span><span class="p">):</span>
+            <span class="n">bits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;output=</span><span class="si">{</span><span class="n">out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;suffix&#39;</span><span class="p">,</span><span class="s1">&#39;?&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;file_type&#39;</span><span class="p">,</span><span class="s1">&#39;?&#39;</span><span class="p">)</span><span class="si">!r}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">bits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;engine=</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;MMCamera </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bits</span><span class="p">)</span><span class="si">}</span><span class="s2">&gt;&quot;</span>
+
+<div class="viewcode-block" id="MMCamera.info">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.MMCamera.info">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the verbose multi-line description (module path, MRO, properties).&quot;&quot;&quot;</span>
+        <span class="n">module</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmodule</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">module_name</span> <span class="o">=</span> <span class="n">module</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">if</span> <span class="n">module</span> <span class="k">else</span> <span class="s2">&quot;&lt;unknown&gt;&quot;</span>
+        <span class="n">module_file</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="s2">&quot;__file__&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;built-in&gt;&quot;</span><span class="p">)</span>
+        <span class="n">mro</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmro</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">)</span>
+        <span class="n">inheritance</span> <span class="o">=</span> <span class="s2">&quot; -&gt; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">mro</span><span class="p">))</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;&lt;MMCamera.</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&gt;</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;  backend     = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">backend</span><span class="si">!r}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;  module      = </span><span class="si">{</span><span class="n">module_name</span><span class="si">!r}</span><span class="s2"> (</span><span class="si">{</span><span class="n">module_file</span><span class="si">!r}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;  properties  = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="si">!r}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;  engine      = </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">!r}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;  inheritance = </span><span class="si">{</span><span class="n">inheritance</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="p">)</span></div>
+</div>
+
+
+<span class="c1"># ============================ OpenCV camera ============================ #</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_cv_backend</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve a backend name (e.g. ``&quot;MSMF&quot;``) or numeric id to an OpenCV</span>
+<span class="sd">    ``CAP_*`` constant. Falls back to ``CAP_ANY`` when unknown.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">name</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">cv2</span><span class="o">.</span><span class="n">CAP_ANY</span>
+    <span class="n">upper</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">upper</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;CAP_&quot;</span><span class="p">):</span>
+        <span class="n">upper</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;CAP_</span><span class="si">{</span><span class="n">upper</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">cv2</span><span class="p">,</span> <span class="n">upper</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">CAP_ANY</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="OpenCVCamera">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.OpenCVCamera">[docs]</a>
+<span class="nd">@DeviceRegistry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;opencv_camera&quot;</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">OpenCVCamera</span><span class="p">(</span><span class="n">BaseCamera</span><span class="p">,</span> <span class="n">QThread</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Background-thread OpenCV camera capturing to MP4.</span>
+
+<span class="sd">    Emits via ``self.signals`` (a :class:`mesofield.signals.DeviceSignals`):</span>
+<span class="sd">      - ``signals.started`` / ``signals.finished`` for lifecycle.</span>
+<span class="sd">      - ``signals.data(idx, device_ts)`` per frame, consumed by</span>
+<span class="sd">        :meth:`DataManager.register_hardware_device`.</span>
+<span class="sd">    Plus Qt live-preview signals (GUI-only, decoupled from DataQueue):</span>
+<span class="sd">      - ``frame_ready(np.ndarray)`` / ``image_ready(np.ndarray)``.</span>
+
+<span class="sd">    Inherits the common camera surface (identity, output paths, manifest</span>
+<span class="sd">    metadata, ``arm``/``set_sequence`` defaults) from :class:`BaseCamera`,</span>
+<span class="sd">    and runs its own capture loop on top of :class:`QThread`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># ----- Qt signals (GUI-only live preview) ----------------------------</span>
+    <span class="c1"># Class-level pyqtSignals are valid because QThread is a QObject.</span>
+    <span class="n">frame_ready</span> <span class="o">=</span> <span class="n">pyqtSignal</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span>
+    <span class="c1"># Alias used by the mesofield GUI&#39;s `InteractivePreview` (matches the</span>
+    <span class="c1"># signal name expected by `arducam.VideoThread`).</span>
+    <span class="n">image_ready</span> <span class="o">=</span> <span class="n">pyqtSignal</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span>
+    <span class="c1"># Recording progress: (frames_written, expected_total). expected_total is</span>
+    <span class="c1"># 0 when the duration is unknown (drives an indeterminate progress bar).</span>
+    <span class="n">progress</span> <span class="o">=</span> <span class="n">pyqtSignal</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+
+    <span class="c1"># ----- Camera surface overrides (BaseCamera defaults are tiff/func) --</span>
+    <span class="n">file_type</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;mp4&quot;</span>
+    <span class="n">bids_type</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="s2">&quot;beh&quot;</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;video&quot;</span>
+
+<div class="viewcode-block" id="OpenCVCamera.__init__">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.OpenCVCamera.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+        <span class="n">QThread</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="c1"># BaseCamera surface (signals, identity, viewer cosmetics, output</span>
+        <span class="c1"># slots, logger). image_ready is already a class-level pyqtSignal,</span>
+        <span class="c1"># so _init_camera_surface&#39;s `if not hasattr(self, &#39;image_ready&#39;)`</span>
+        <span class="c1"># guard leaves it alone.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init_camera_surface</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s2">&quot;opencv&quot;</span><span class="p">)</span>
+        <span class="c1"># OpenCV-specific knobs.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;device_index&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cv_backend_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;cv_backend&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">default_cv_backend</span><span class="p">())</span>
+        <span class="c1"># Default fps if cfg didn&#39;t carry one (BaseCamera reads `fps` from cfg).</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="o">=</span> <span class="mf">30.0</span>
+        <span class="c1"># None -&gt; CV2Writer picks the portable platform default (honours</span>
+        <span class="c1"># MESOFIELD_FOURCC). Set a &#39;fourcc&#39; in cfg to force a codec (e.g. H264).</span>
+        <span class="n">_cfg_fourcc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fourcc&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fourcc</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">_cfg_fourcc</span><span class="p">)</span> <span class="k">if</span> <span class="n">_cfg_fourcc</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="c1"># Capture pixel format (CAP_PROP_FOURCC) forced on the VideoCapture.</span>
+        <span class="c1"># Distinct from `fourcc` (the writer codec)</span>
+        <span class="n">_cfg_cap_fourcc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;cap_fourcc&quot;</span><span class="p">,</span> <span class="n">default_cap_fourcc</span><span class="p">())</span>
+        <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">_cfg_cap_fourcc</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;none&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cap_fourcc</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cap_fourcc</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">_cfg_cap_fourcc</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_color</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;color&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">))</span>
+
+        <span class="c1"># Optional explicit width/height overrides; otherwise driver default</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_req_width</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;width&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_req_height</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;height&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Apply YAML &quot;properties&quot; block (mirrors MMCamera semantics).</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;properties&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;fps&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;viewer_type&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">viewer</span> <span class="o">=</span> <span class="n">val</span>
+            <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;auto_contrast&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">auto_contrast</span> <span class="o">=</span> <span class="n">val</span>
+
+        <span class="c1"># Capture loop state.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_capture</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># cv2.VideoCapture</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frame_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frame_timestamps</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># (idx, perf_counter)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="c1"># Expected recording length in frames (0 = unknown); set by set_writer.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_expected_frames</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_open_capture</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Open a ``cv2.VideoCapture`` configured for this camera.</span>
+
+<span class="sd">        The single place that opens the device — used by ``initialize``,</span>
+<span class="sd">        ``run`` and ``snap`` so backend, capture pixel format, and resolution</span>
+<span class="sd">        stay consistent. Sets ``CAP_PROP_FOURCC`` *before* resolution because</span>
+<span class="sd">        on Windows many USB webcams under MSMF deliver no frames in their</span>
+<span class="sd">        default mode until MJPG is forced. Returns the capture; the caller</span>
+<span class="sd">        checks ``isOpened()``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
+
+        <span class="n">backend_id</span> <span class="o">=</span> <span class="n">_resolve_cv_backend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cv_backend_name</span><span class="p">)</span>
+        <span class="n">cap</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">VideoCapture</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span> <span class="n">backend_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cap</span><span class="o">.</span><span class="n">isOpened</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">cap</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cap_fourcc</span><span class="p">:</span>
+            <span class="n">cap</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_FOURCC</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">VideoWriter</span><span class="o">.</span><span class="n">fourcc</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">cap_fourcc</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_req_width</span><span class="p">:</span>
+            <span class="n">cap</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_FRAME_WIDTH</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_req_width</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_req_height</span><span class="p">:</span>
+            <span class="n">cap</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_FRAME_HEIGHT</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_req_height</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">cap</span>
+
+    <span class="c1"># ----- HardwareDevice protocol ----------------------------------------</span>
+<div class="viewcode-block" id="OpenCVCamera.initialize">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.OpenCVCamera.initialize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify the camera opens *and actually delivers a frame*.</span>
+
+<span class="sd">        ``isOpened()`` is not proof on Windows: it returns True while</span>
+<span class="sd">        ``read()`` fails forever (wrong backend / capture format), which</span>
+<span class="sd">        manifests as a camera that &quot;initializes&quot; but shows no live view. So we</span>
+<span class="sd">        read a frame here and fail loudly if none arrives.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">configure_opencv_codec</span><span class="p">()</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
+
+        <span class="n">cap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_open_capture</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cap</span><span class="o">.</span><span class="n">isOpened</span><span class="p">():</span>
+            <span class="n">cap</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Could not open OpenCV camera index=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;backend=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cv_backend_name</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frame_width</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_FRAME_WIDTH</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frame_height</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_FRAME_HEIGHT</span><span class="p">))</span>
+        <span class="n">cap_fps</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_FPS</span><span class="p">)</span> <span class="ow">or</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cap_fps</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fps&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;fps&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="o">=</span> <span class="n">cap_fps</span>
+        <span class="c1"># Warm up: some cameras need a few attempts before the first frame.</span>
+        <span class="n">got_frame</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">30</span><span class="p">):</span>
+            <span class="n">ok</span><span class="p">,</span> <span class="n">frame</span> <span class="o">=</span> <span class="n">cap</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">ok</span> <span class="ow">and</span> <span class="n">frame</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">got_frame</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">break</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.05</span><span class="p">)</span>
+        <span class="n">cap</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">got_frame</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;OpenCV camera index=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="si">}</span><span class="s2"> opened &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(backend=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cv_backend_name</span><span class="si">}</span><span class="s2">) but delivered no frames. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;On Windows USB webcams, try cv_backend=DSHOW and/or &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;cap_fourcc=MJPG. (cap_fourcc=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cap_fourcc</span><span class="si">!r}</span><span class="s2">)&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;OpenCV camera ready: index=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="si">}</span><span class="s2"> &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;backend=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cv_backend_name</span><span class="si">}</span><span class="s2"> cap_fourcc=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cap_fourcc</span><span class="si">!r}</span><span class="s2"> &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_frame_width</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_frame_height</span><span class="si">}</span><span class="s2"> @ </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="si">}</span><span class="s2"> fps&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">st</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">status</span><span class="p">()</span>
+        <span class="n">st</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+            <span class="s2">&quot;device_index&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="s2">&quot;cv_backend&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cv_backend_name</span><span class="p">,</span>
+            <span class="s2">&quot;frames_written&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_frame_index</span><span class="p">,</span>
+        <span class="p">})</span>
+        <span class="k">return</span> <span class="n">st</span>
+
+    <span class="c1"># Backwards-compat alias used elsewhere in the codebase</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_status</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">md</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">metadata</span>
+        <span class="n">md</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+            <span class="s2">&quot;device_index&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="p">,</span>
+            <span class="s2">&quot;cv_backend&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cv_backend_name</span><span class="p">,</span>
+            <span class="s2">&quot;width&quot;</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_frame_width&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="s2">&quot;height&quot;</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_frame_height&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="s2">&quot;fourcc&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">fourcc</span> <span class="ow">or</span> <span class="n">default_fourcc</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_path</span> <span class="ow">or</span> <span class="s2">&quot;.mp4&quot;</span><span class="p">),</span>
+        <span class="p">})</span>
+        <span class="k">return</span> <span class="n">md</span>
+
+    <span class="c1"># ----- DataProducer protocol -------------------------------------------</span>
+<div class="viewcode-block" id="OpenCVCamera.set_writer">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.OpenCVCamera.set_writer">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_writer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">make_path</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">],</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve the output path and build the :class:`CV2Writer`.</span>
+
+<span class="sd">        ``BaseCamera.set_writer`` resolves ``output_path``, constructs the</span>
+<span class="sd">        ``CV2Writer`` (the project&#39;s shared MP4 writer), and copies its</span>
+<span class="sd">        sidecar path onto ``metadata_path``. The capture loop drives the</span>
+<span class="sd">        writer directly via ``begin``/``add_frame``/``finish``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">set_writer</span><span class="p">(</span><span class="n">make_path</span><span class="p">)</span>
+        <span class="c1"># Reset timing so saved timestamps reflect the recording start, not</span>
+        <span class="c1"># whenever the live-preview thread first launched.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_started</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frame_timestamps</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frame_index</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="c1"># Expected frame count drives the GUI progress bar. Falls back to 0</span>
+        <span class="c1"># (indeterminate) when the experiment duration is unavailable.</span>
+        <span class="n">duration</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;sequence_duration&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_expected_frames</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">duration</span><span class="p">))</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_expected_frames</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Writer set to </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">output_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="OpenCVCamera.start">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.OpenCVCamera.start">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Spawn the capture thread and begin writing frames to MP4.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            ``True`` if the thread started, ``False`` if it was already</span>
+<span class="sd">            running.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">isRunning</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;OpenCVCamera.start: already running&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frame_index</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frame_timestamps</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_started</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_active</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">started</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>  <span class="c1"># spawns QThread.run</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="OpenCVCamera.stop">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.OpenCVCamera.stop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Signal the capture thread to stop and wait for it to join.&quot;&quot;&quot;</span>
+        <span class="c1"># When a primary camera self-terminates, it emits `finished` from its</span>
+        <span class="c1"># own run() thread, which drives Procedure cleanup -&gt; stop_all -&gt; here.</span>
+        <span class="c1"># We are already inside (and exiting) run(), so skip the join/emit to</span>
+        <span class="c1"># avoid a thread-waits-on-itself deadlock; run()&#39;s finally already</span>
+        <span class="c1"># released the writer and emitted `finished`.</span>
+        <span class="k">if</span> <span class="n">QThread</span><span class="o">.</span><span class="n">currentThread</span><span class="p">()</span> <span class="ow">is</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">is_active</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">isRunning</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">requestInterruption</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="mi">5000</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_active</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">finished</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="OpenCVCamera.shutdown">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.OpenCVCamera.shutdown">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Tear down the capture thread.</span>
+
+<span class="sd">        ``stop()`` joins the capture thread; its ``run()`` finally-block</span>
+<span class="sd">        releases the :class:`CV2Writer` and writes the sidecar JSON.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span></div>
+
+
+    <span class="c1"># --- live preview contract (BaseCamera abstract methods) ------------</span>
+    <span class="c1"># `snap()` reads a frame from a one-shot VideoCapture; the live capture</span>
+    <span class="c1"># thread is the same one driven by start()/stop(), just without a</span>
+    <span class="c1"># writer attached.</span>
+
+<div class="viewcode-block" id="OpenCVCamera.snap">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.OpenCVCamera.snap">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">snap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Open the camera, read one frame, return it without recording.&quot;&quot;&quot;</span>
+        <span class="n">cap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_open_capture</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">cap</span><span class="o">.</span><span class="n">isOpened</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;OpenCVCamera.snap: could not open camera&quot;</span><span class="p">)</span>
+            <span class="n">ok</span><span class="p">,</span> <span class="n">frame</span> <span class="o">=</span> <span class="n">cap</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">ok</span> <span class="ow">or</span> <span class="n">frame</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;OpenCVCamera.snap: VideoCapture.read failed&quot;</span><span class="p">)</span>
+            <span class="c1"># Fan the snapped frame out to GUI subscribers too.</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">image_ready</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">pass</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_save_snap_png</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">frame</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">cap</span><span class="o">.</span><span class="n">release</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="OpenCVCamera.start_live">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.OpenCVCamera.start_live">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start_live</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Start the capture thread WITHOUT a writer (preview-only).&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">isRunning</span><span class="p">():</span>
+            <span class="k">return</span>
+        <span class="c1"># Ensure no writer is attached so the capture loop&#39;s</span>
+        <span class="c1"># `if self.writer is not None` guard skips disk writes.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">writer</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frame_index</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frame_timestamps</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_active</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">start</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="OpenCVCamera.stop_live">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.OpenCVCamera.stop_live">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop_live</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;End preview capture started by start_live.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">isRunning</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">requestInterruption</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="mi">5000</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_active</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="OpenCVCamera.get_data">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.OpenCVCamera.get_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the most recent frame index/timestamp pair, or ``None``.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_frame_timestamps</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">idx</span><span class="p">,</span> <span class="n">ts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_frame_timestamps</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;frame_index&quot;</span><span class="p">:</span> <span class="n">idx</span><span class="p">,</span> <span class="s2">&quot;device_ts&quot;</span><span class="p">:</span> <span class="n">ts</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="OpenCVCamera.save_data">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.OpenCVCamera.save_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;No-op: the MP4 and its ``_frame_metadata.json`` sidecar are written</span>
+<span class="sd">        by the :class:`CV2Writer` when the capture loop finishes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_frame_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Per-frame timestamp metadata handed to ``CV2Writer.finish``.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="s2">&quot;started&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_started</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s2">&quot;stopped&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s2">&quot;frames&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">{</span><span class="s2">&quot;index&quot;</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span> <span class="s2">&quot;device_ts&quot;</span><span class="p">:</span> <span class="n">ts</span><span class="p">}</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ts</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_frame_timestamps</span>
+            <span class="p">],</span>
+        <span class="p">}</span>
+
+    <span class="c1"># ----- Internal --------------------------------------------------------</span>
+<div class="viewcode-block" id="OpenCVCamera.run">
+<a class="viewcode-back" href="../../../api/mesofield.devices.cameras.html#mesofield.devices.OpenCVCamera.run">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># QThread entry point</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
+
+        <span class="n">cap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_open_capture</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cap</span><span class="o">.</span><span class="n">isOpened</span><span class="p">():</span>
+            <span class="n">cap</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">is_active</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Failed to open camera in capture thread&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_capture</span> <span class="o">=</span> <span class="n">cap</span>
+        <span class="c1"># where `start_live()` clears `self.writer`). If `begin` fails (e.g. a</span>
+        <span class="c1"># missing codec on Linux), abort the recording instead of entering the</span>
+        <span class="c1"># loop — otherwise every `add_frame` would raise &quot;called before</span>
+        <span class="c1"># begin()&quot; once per frame.        # where `start_live()` clears `self.writer`).</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">writer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">begin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_frame_width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_frame_height</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_color</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># pragma: no cover - codec failure</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CV2Writer.begin failed, aborting recording: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">cap</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_capture</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">is_active</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">progress</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="c1"># Surface the failure so the procedure tears down cleanly</span>
+                <span class="c1"># rather than spinning forever on a primary that never writes.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">finished</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+                <span class="k">return</span>
+        <span class="c1"># A primary OpenCV camera has no externally-driven sequence length, so</span>
+        <span class="c1"># it must self-terminate after the expected number of frames; that</span>
+        <span class="c1"># emission of `signals.finished` is what drives Procedure cleanup.</span>
+        <span class="n">stop_at_expected</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_primary</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">writer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_expected_frames</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="n">period</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">next_t</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+        <span class="c1"># Watchdog: a wrong backend / capture format makes read() fail forever</span>
+        <span class="c1"># while isOpened() stays True. Warn once instead of spinning silently.</span>
+        <span class="n">consecutive_failures</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">warned_no_frames</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">isInterruptionRequested</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">stop_at_expected</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_frame_index</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_expected_frames</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="n">ok</span><span class="p">,</span> <span class="n">frame</span> <span class="o">=</span> <span class="n">cap</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">ok</span> <span class="ow">or</span> <span class="n">frame</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">consecutive_failures</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">if</span> <span class="n">consecutive_failures</span> <span class="o">&gt;=</span> <span class="mi">100</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">warned_no_frames</span><span class="p">:</span>
+                        <span class="n">warned_no_frames</span> <span class="o">=</span> <span class="kc">True</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;OpenCV camera index=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_index</span><span class="si">}</span><span class="s2"> is open but &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;read() keeps failing — no live view. Try &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;cv_backend=DSHOW and/or cap_fourcc=MJPG &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;(backend=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cv_backend_name</span><span class="si">}</span><span class="s2">, &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;cap_fourcc=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cap_fourcc</span><span class="si">!r}</span><span class="s2">).&quot;</span>
+                        <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">msleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="k">continue</span>
+                <span class="n">consecutive_failures</span> <span class="o">=</span> <span class="mi">0</span>
+
+                <span class="n">ts</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_frame_index</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_frame_index</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_frame_timestamps</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">ts</span><span class="p">))</span>
+
+                <span class="c1"># Write to disk via the shared CV2Writer</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">writer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_color</span> <span class="ow">and</span> <span class="n">frame</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                        <span class="n">frame_to_write</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">COLOR_BGR2GRAY</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">frame_to_write</span> <span class="o">=</span> <span class="n">frame</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">add_frame</span><span class="p">(</span><span class="n">frame_to_write</span><span class="p">)</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># pragma: no cover - codec failure</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CV2Writer.add_frame failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="c1"># GUI live-preview signals (Qt-native, decoupled from queue)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">frame_ready</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">image_ready</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+                <span class="c1"># Recording progress (only meaningful while a writer is attached)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">writer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">progress</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_expected_frames</span><span class="p">)</span>
+                <span class="c1"># Standardized data signal -&gt; DataQueue</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">ts</span><span class="p">)</span>
+                <span class="c1"># Optional raw-frame signal for real-time processors.</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">ts</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">pass</span>
+
+                <span class="c1"># Frame pacing — only sleep if we have headroom</span>
+                <span class="k">if</span> <span class="n">period</span><span class="p">:</span>
+                    <span class="n">next_t</span> <span class="o">+=</span> <span class="n">period</span>
+                    <span class="n">delay</span> <span class="o">=</span> <span class="n">next_t</span> <span class="o">-</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">delay</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">msleep</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">delay</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">))</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">next_t</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="c1"># The loop exited on its own (reached the expected frame count)</span>
+            <span class="c1"># rather than via stop()/abort, which set `_stop` / requested</span>
+            <span class="c1"># interruption.</span>
+            <span class="n">natural_stop</span> <span class="o">=</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">isInterruptionRequested</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">cap</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">pass</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_capture</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">writer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">finish</span><span class="p">(</span><span class="n">extra_metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_frame_metadata</span><span class="p">())</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CV2Writer.finish failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="c1"># `-1` is the &quot;recording done -- hide the progress bar&quot; sentinel.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">progress</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Wrote </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_frame_index</span><span class="si">}</span><span class="s2"> frames via </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="c1"># If we self-terminated as the primary device, drive procedure</span>
+            <span class="c1"># cleanup. (When stop()/abort ended the loop, stop() emits</span>
+            <span class="c1"># `finished` itself, so we must not double-emit here.)</span>
+            <span class="k">if</span> <span class="n">natural_stop</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_primary</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">is_active</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">finished</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span></div>
+</div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2026, Sipe Laboratory, Penn State.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.19.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

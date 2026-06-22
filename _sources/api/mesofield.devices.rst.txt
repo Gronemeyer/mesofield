@@ -1,0 +1,29 @@
+devices
+=======
+
+.. automodule:: mesofield.devices
+   :members:
+   :show-inheritance:
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 1
+
+   mesofield.devices.subprocesses
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   mesofield.devices.base
+   mesofield.devices.base_camera
+   mesofield.devices.cameras
+   mesofield.devices.daq
+   mesofield.devices.encoder
+   mesofield.devices.mocks
+   mesofield.devices.psychopy_device
+   mesofield.devices.treadmill

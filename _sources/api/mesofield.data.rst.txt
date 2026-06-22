@@ -1,0 +1,17 @@
+data
+====
+
+.. automodule:: mesofield.data
+   :members:
+   :show-inheritance:
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   mesofield.data.batch
+   mesofield.data.codecs
+   mesofield.data.manager
+   mesofield.data.writer

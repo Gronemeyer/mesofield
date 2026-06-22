@@ -1,0 +1,682 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mesofield.data.codecs &#8212; Mesofield</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=f0c42745" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=a95f357e85573c9b56d5"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5" />
+
+    <script src="../../../_static/documentation_options.js?v=d6279c7f"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/mesofield/data/codecs';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.4" />
+  
+    
+    <script src="../../../_static/searchtools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script src="../../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/logo.png" class="logo__image only-light" alt=""/>
+    <img src="../../../_static/logo.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">MESOFIELD</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">mesofield.data.codecs</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for mesofield.data.codecs</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;OpenCV video defaults — the single source of truth for fourcc and the</span>
+<span class="sd">platform-dependent capture backend / pixel format.</span>
+
+<span class="sd">Kept deliberately free of heavyweight imports (no ``pymmcore_plus``, ``cv2``</span>
+<span class="sd">only imported lazily inside functions) so that both the acquisition writer</span>
+<span class="sd">(:mod:`mesofield.data.writer`) / camera (:mod:`mesofield.devices.cameras`) and</span>
+<span class="sd">the config wizard (:mod:`mesofield.gui.config_builder`) can import it without</span>
+<span class="sd">dragging in the acquisition stack. Change a default here and every surface</span>
+<span class="sd">follows.</span>
+
+<span class="sd">OpenCV&#39;s FFMPEG ``VideoWriter`` needs a fourcc code. The portable choice — the</span>
+<span class="sd">*only* codec bundled in every opencv-python wheel on Windows, Linux, and macOS</span>
+<span class="sd">with no external library — is MPEG-4 (``mp4v`` in ``.mp4``, ``MJPG`` in</span>
+<span class="sd">``.avi``). H.264 compresses better but needs extra pieces a plain</span>
+<span class="sd">``pip install`` lacks (the Cisco OpenH264 DLL on Windows, libx264 on Linux), so</span>
+<span class="sd">it is opt-in and falls back to the portable codec at runtime.</span>
+
+<span class="sd">Selection precedence (see :func:`default_fourcc`): explicit caller/config value</span>
+<span class="sd">-&gt; ``MESOFIELD_FOURCC`` env var -&gt; portable default for the container.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># ─── Capture backend / pixel format (live view, not the saved file) ───────</span>
+<span class="c1"># OpenCV capture backends offered in the wizard. Names map to ``cv2.CAP_&lt;NAME&gt;``.</span>
+<span class="n">CV_BACKENDS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;ANY&quot;</span><span class="p">,</span> <span class="s2">&quot;AVFOUNDATION&quot;</span><span class="p">,</span> <span class="s2">&quot;MSMF&quot;</span><span class="p">,</span> <span class="s2">&quot;DSHOW&quot;</span><span class="p">,</span> <span class="s2">&quot;V4L2&quot;</span><span class="p">]</span>
+<span class="c1"># Capture pixel formats (CAP_PROP_FOURCC) offered in the wizard. &quot;&quot; = leave the</span>
+<span class="c1"># camera default. This is the format the *camera delivers*, distinct from the</span>
+<span class="c1"># writer codec below.</span>
+<span class="n">CAP_FOURCC_CHOICES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;MJPG&quot;</span><span class="p">,</span> <span class="s2">&quot;YUY2&quot;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="default_cv_backend">
+<a class="viewcode-back" href="../../../api/mesofield.data.codecs.html#mesofield.data.codecs.default_cv_backend">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">default_cv_backend</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Platform default capture backend.</span>
+
+<span class="sd">    Windows uses DSHOW: it&#39;s the most reliable for USB webcams. MSMF (the other</span>
+<span class="sd">    Windows option) frequently opens a camera that then delivers no frames.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;darwin&quot;</span><span class="p">:</span> <span class="s2">&quot;AVFOUNDATION&quot;</span><span class="p">,</span> <span class="s2">&quot;win32&quot;</span><span class="p">:</span> <span class="s2">&quot;DSHOW&quot;</span><span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="p">,</span> <span class="s2">&quot;V4L2&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="default_cap_fourcc">
+<a class="viewcode-back" href="../../../api/mesofield.data.codecs.html#mesofield.data.codecs.default_cap_fourcc">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">default_cap_fourcc</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Platform default capture pixel format — unset (camera default).</span>
+
+<span class="sd">    Leaving ``CAP_PROP_FOURCC`` alone is the safe default: it lets each camera</span>
+<span class="sd">    deliver its native format. Forcing a format is opt-in via the per-camera</span>
+<span class="sd">    ``cap_fourcc`` config key.</span>
+
+<span class="sd">    History: this briefly defaulted to ``MJPG`` on Windows because *some* USB</span>
+<span class="sd">    webcams deliver no frames in their default mode until MJPG is forced. But</span>
+<span class="sd">    forcing MJPG on multiple *identical* cameras makes the DSHOW/MSMF backends</span>
+<span class="sd">    bleed their streams together (torn/composite frames under DSHOW, swapped</span>
+<span class="sd">    frames under MSMF). So MJPG is now opt-in: set ``cap_fourcc: MJPG`` on the</span>
+<span class="sd">    specific camera that needs it, rather than imposing it on every capture.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="s2">&quot;&quot;</span></div>
+
+
+
+<span class="c1"># ─── Writer codec (the saved file) ────────────────────────────────────────</span>
+<span class="n">_PORTABLE_FOURCC</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;.mp4&quot;</span><span class="p">:</span> <span class="s2">&quot;mp4v&quot;</span><span class="p">,</span> <span class="s2">&quot;.avi&quot;</span><span class="p">:</span> <span class="s2">&quot;MJPG&quot;</span><span class="p">}</span>
+<span class="n">DEFAULT_FOURCC</span> <span class="o">=</span> <span class="s2">&quot;mp4v&quot;</span>
+
+<span class="c1"># Codecs offered in the config wizard&#39;s fourcc dropdown. &#39;mp4v&#39; leads because</span>
+<span class="c1"># it&#39;s the portable default; H264/avc1 are opt-in and fall back to mp4v.</span>
+<span class="n">FOURCC_CHOICES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;mp4v&quot;</span><span class="p">,</span> <span class="s2">&quot;MJPG&quot;</span><span class="p">,</span> <span class="s2">&quot;H264&quot;</span><span class="p">,</span> <span class="s2">&quot;avc1&quot;</span><span class="p">,</span> <span class="s2">&quot;XVID&quot;</span><span class="p">]</span>
+
+<span class="c1"># OpenH264 DLL for H.264 encoding (Windows). Point ``MESOFIELD_OPENH264_LIBRARY``</span>
+<span class="c1"># at a downloaded ``openh264-*.dll`` to enable H.264; otherwise we fall back to</span>
+<span class="c1"># a repo-local copy if present (dev checkouts) and leave OpenCV to its own</span>
+<span class="c1"># defaults when neither exists.</span>
+<span class="n">_REPO_CODEC_DIR</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">&quot;external&quot;</span> <span class="o">/</span> <span class="s2">&quot;video-codecs&quot;</span>
+<span class="n">_REPO_OPENH264_DLL</span> <span class="o">=</span> <span class="n">_REPO_CODEC_DIR</span> <span class="o">/</span> <span class="s2">&quot;openh264-1.8.0-win64.dll&quot;</span>
+
+
+<div class="viewcode-block" id="openh264_dll_path">
+<a class="viewcode-back" href="../../../api/mesofield.data.codecs.html#mesofield.data.codecs.openh264_dll_path">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">openh264_dll_path</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Locate an OpenH264 DLL, or ``None`` if no usable copy is found.&quot;&quot;&quot;</span>
+    <span class="n">env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;MESOFIELD_OPENH264_LIBRARY&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">env</span> <span class="ow">and</span> <span class="n">Path</span><span class="p">(</span><span class="n">env</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">_REPO_OPENH264_DLL</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">_REPO_OPENH264_DLL</span>
+    <span class="k">return</span> <span class="kc">None</span></div>
+
+
+
+<div class="viewcode-block" id="default_fourcc">
+<a class="viewcode-back" href="../../../api/mesofield.data.codecs.html#mesofield.data.codecs.default_fourcc">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">default_fourcc</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Codec to use when a caller doesn&#39;t specify one.</span>
+
+<span class="sd">    Honours ``MESOFIELD_FOURCC`` (a global override), else picks the portable</span>
+<span class="sd">    codec matching the container extension.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;MESOFIELD_FOURCC&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">env</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">env</span>
+    <span class="n">ext</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">_PORTABLE_FOURCC</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ext</span><span class="p">,</span> <span class="n">DEFAULT_FOURCC</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="open_video_writer">
+<a class="viewcode-back" href="../../../api/mesofield.data.codecs.html#mesofield.data.codecs.open_video_writer">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">open_video_writer</span><span class="p">(</span>
+    <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">fourcc</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">fps</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">size</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+    <span class="n">is_color</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Open a ``cv2.VideoWriter``, falling back to a portable codec.</span>
+
+<span class="sd">    Returns ``(writer, fourcc_used)``. If the requested fourcc can&#39;t be opened</span>
+<span class="sd">    (e.g. H.264 on a box without the codec), retries once with the portable</span>
+<span class="sd">    codec for the container and logs a warning naming the swap. Raises</span>
+<span class="sd">    ``RuntimeError`` only if even the fallback fails to open.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_try</span><span class="p">(</span><span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">VideoWriter</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">VideoWriter</span><span class="o">.</span><span class="n">fourcc</span><span class="p">(</span><span class="o">*</span><span class="n">code</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">fps</span><span class="p">),</span> <span class="n">size</span><span class="p">,</span> <span class="n">isColor</span><span class="o">=</span><span class="n">is_color</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">w</span> <span class="k">if</span> <span class="n">w</span><span class="o">.</span><span class="n">isOpened</span><span class="p">()</span> <span class="k">else</span> <span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">release</span><span class="p">()</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">writer</span> <span class="o">=</span> <span class="n">_try</span><span class="p">(</span><span class="n">fourcc</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">writer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">writer</span><span class="p">,</span> <span class="n">fourcc</span>
+
+    <span class="n">ext</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">fallback</span> <span class="o">=</span> <span class="n">_PORTABLE_FOURCC</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ext</span><span class="p">,</span> <span class="n">DEFAULT_FOURCC</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">fallback</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">!=</span> <span class="n">fourcc</span><span class="o">.</span><span class="n">upper</span><span class="p">():</span>
+        <span class="n">writer</span> <span class="o">=</span> <span class="n">_try</span><span class="p">(</span><span class="n">fallback</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">writer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;cv2.VideoWriter could not open &#39;</span><span class="si">%s</span><span class="s2">&#39; with fourcc &#39;</span><span class="si">%s</span><span class="s2">&#39;; fell back &quot;</span>
+                <span class="s2">&quot;to &#39;</span><span class="si">%s</span><span class="s2">&#39;. Set the device &#39;fourcc&#39; or MESOFIELD_FOURCC to silence &quot;</span>
+                <span class="s2">&quot;this, or MESOFIELD_OPENH264_LIBRARY to enable H.264.&quot;</span><span class="p">,</span>
+                <span class="n">filename</span><span class="p">,</span> <span class="n">fourcc</span><span class="p">,</span> <span class="n">fallback</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">writer</span><span class="p">,</span> <span class="n">fallback</span>
+
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;cv2.VideoWriter failed to open &#39;</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">&#39; with fourcc &#39;</span><span class="si">{</span><span class="n">fourcc</span><span class="si">}</span><span class="s2">&#39; &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;and fallback &#39;</span><span class="si">{</span><span class="n">fallback</span><span class="si">}</span><span class="s2">&#39; (fps=</span><span class="si">{</span><span class="n">fps</span><span class="si">}</span><span class="s2">, size=</span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">).&quot;</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="configure_opencv_codec">
+<a class="viewcode-back" href="../../../api/mesofield.data.codecs.html#mesofield.data.codecs.configure_opencv_codec">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">configure_opencv_codec</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Quiet OpenCV/FFMPEG logging and wire up the OpenH264 DLL if available.</span>
+
+<span class="sd">    Safe to call repeatedly. Always silences OpenCV/FFMPEG logging. Only touches</span>
+<span class="sd">    PATH / ``OPENH264_LIBRARY`` / the DLL search path when a usable OpenH264 DLL</span>
+<span class="sd">    is actually found (via ``MESOFIELD_OPENH264_LIBRARY`` or a dev checkout);</span>
+<span class="sd">    otherwise it leaves OpenCV&#39;s own codec resolution untouched.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Set environment variables to suppress OpenCV/FFMPEG output BEFORE importing cv2</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;OPENCV_LOG_LEVEL&#39;</span><span class="p">,</span> <span class="s1">&#39;SILENT&#39;</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;OPENCV_FFMPEG_CAPTURE_OPTIONS&#39;</span><span class="p">,</span> <span class="s1">&#39;loglevel;quiet&#39;</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;OPENCV_VIDEOIO_DEBUG&#39;</span><span class="p">,</span> <span class="s1">&#39;0&#39;</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>  <span class="c1"># noqa: F401</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># pragma: no cover - optional dependency</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;opencv-python is required. Please `pip install opencv-python`.&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="c1"># OpenCV log silencing is version-dependent.</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">cv2</span><span class="p">,</span> <span class="s1">&#39;setLogLevel&#39;</span><span class="p">):</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">setLogLevel</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># 0 = Silent</span>
+        <span class="k">elif</span> <span class="p">(</span>
+            <span class="nb">hasattr</span><span class="p">(</span><span class="n">cv2</span><span class="p">,</span> <span class="s1">&#39;utils&#39;</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">utils</span><span class="p">,</span> <span class="s1">&#39;logging&#39;</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">logging</span><span class="p">,</span> <span class="s1">&#39;setLogLevel&#39;</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">setLogLevel</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+    <span class="n">dll</span> <span class="o">=</span> <span class="n">openh264_dll_path</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">dll</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">codec_dir</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">dll</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;OPENH264_LIBRARY&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">dll</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">codec_dir</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;PATH&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">):</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;PATH&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">codec_dir</span> <span class="o">+</span> <span class="n">os</span><span class="o">.</span><span class="n">pathsep</span> <span class="o">+</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;PATH&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">os</span><span class="p">,</span> <span class="s1">&#39;add_dll_directory&#39;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">add_dll_directory</span><span class="p">(</span><span class="n">codec_dir</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">FileNotFoundError</span><span class="p">):</span>
+            <span class="k">pass</span></div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2026, Sipe Laboratory, Penn State.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.19.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

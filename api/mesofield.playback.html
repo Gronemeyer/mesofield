@@ -1,0 +1,918 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>playback &#8212; Mesofield</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=f0c42745" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=a95f357e85573c9b56d5"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5" />
+
+    <script src="../_static/documentation_options.js?v=d6279c7f"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'api/mesofield.playback';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.4" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/logo.png" class="logo__image only-light" alt=""/>
+    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">MESOFIELD</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">playback</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="module-mesofield.playback">
+<span id="playback"></span><h1>playback<a class="headerlink" href="#module-mesofield.playback" title="Link to this heading">#</a></h1>
+<p>Replay a saved mesofield session as if it were a live acquisition.</p>
+<p>A playback run instantiates <a class="reference internal" href="#mesofield.playback.PlaybackCamera" title="mesofield.playback.PlaybackCamera"><code class="xref py py-class docutils literal notranslate"><span class="pre">PlaybackCamera</span></code></a> and <a class="reference internal" href="#mesofield.playback.PlaybackEncoder" title="mesofield.playback.PlaybackEncoder"><code class="xref py py-class docutils literal notranslate"><span class="pre">PlaybackEncoder</span></code></a>
+devices that read recorded OME-TIFF frames and encoder CSVs off disk and re-emit
+them through the standard <a class="reference internal" href="mesofield.signals.html#mesofield.signals.DeviceSignals" title="mesofield.signals.DeviceSignals"><code class="xref py py-class docutils literal notranslate"><span class="pre">DeviceSignals</span></code></a> bundle. The
+<a class="reference internal" href="mesofield.data.manager.html#mesofield.data.manager.DataManager" title="mesofield.data.manager.DataManager"><code class="xref py py-class docutils literal notranslate"><span class="pre">DataManager</span></code></a> registers them like any other
+producer, so the in-memory <a class="reference internal" href="mesofield.data.manager.html#mesofield.data.manager.DataQueue" title="mesofield.data.manager.DataQueue"><code class="xref py py-class docutils literal notranslate"><span class="pre">DataQueue</span></code></a>, every
+subscribed processor and the GUI viewer see the data move through the same
+pipeline they would during a live capture.</p>
+<p>Public surface used by <code class="docutils literal notranslate"><span class="pre">mesofield</span> <span class="pre">playback</span> <span class="pre">&lt;experiment_dir&gt;</span></code>:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#mesofield.playback.discover_playback_context" title="mesofield.playback.discover_playback_context"><code class="xref py py-func docutils literal notranslate"><span class="pre">discover_playback_context()</span></code></a> – locate <code class="docutils literal notranslate"><span class="pre">manifest.json</span></code>, build a
+<code class="xref py py-class docutils literal notranslate"><span class="pre">PlaybackProcedure</span></code> with one playback device per producer.</p></li>
+<li><p><a class="reference internal" href="#mesofield.playback.launch_playback_app" title="mesofield.playback.launch_playback_app"><code class="xref py py-func docutils literal notranslate"><span class="pre">launch_playback_app()</span></code></a> – run that procedure inside the standard
+<code class="xref py py-class docutils literal notranslate"><span class="pre">MainWindow</span></code>.</p></li>
+</ul>
+<p>Playback is read-only: devices do not allocate writers, and the procedure
+skips the dataqueue logger, the per-device <code class="docutils literal notranslate"><span class="pre">save_data</span></code> step, and the
+<code class="docutils literal notranslate"><span class="pre">manifest.json</span></code> re-write so the original session folder is left untouched.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackClock">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mesofield.playback.</span></span><span class="sig-name descname"><span class="pre">PlaybackClock</span></span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackClock"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackClock" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Wall-clock anchor shared by every playback device in a session.</p>
+<p><code class="docutils literal notranslate"><span class="pre">t0_original</span></code> is the earliest device timestamp across all producers in
+the manifest; <code class="docutils literal notranslate"><span class="pre">t0_wall</span></code> is captured at <code class="docutils literal notranslate"><span class="pre">arm()</span></code> time. Each replay thread
+sleeps until <code class="docutils literal notranslate"><span class="pre">t0_wall</span> <span class="pre">+</span> <span class="pre">(original_ts</span> <span class="pre">-</span> <span class="pre">t0_original)</span> <span class="pre">/</span> <span class="pre">speed</span></code>, which keeps
+the two cameras and the encoder in their original relative order.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackClock.sleep_until">
+<span class="sig-name descname"><span class="pre">sleep_until</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">original_ts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop_event</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackClock.sleep_until"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackClock.sleep_until" title="Link to this definition">#</a></dt>
+<dd><p>Block until the wall-clock moment matching <code class="docutils literal notranslate"><span class="pre">original_ts</span></code>.</p>
+<p>Returns <code class="docutils literal notranslate"><span class="pre">True</span></code> when interrupted via <code class="docutils literal notranslate"><span class="pre">stop_event</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>original_ts</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>stop_event</strong> (<a class="reference external" href="https://docs.python.org/3/library/threading.html#threading.Event" title="(in Python v3.14)"><em>Event</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackClock.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t0_original</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">speed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t0_wall</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mesofield.playback.PlaybackClock.__init__" title="Link to this definition">#</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t0_original</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>speed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>t0_wall</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackCamera">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mesofield.playback.</span></span><span class="sig-name descname"><span class="pre">PlaybackCamera</span></span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackCamera"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackCamera" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="mesofield.devices.base_camera.html#mesofield.devices.base_camera.BaseCamera" title="mesofield.devices.base_camera.BaseCamera"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseCamera</span></code></a>, <a class="reference internal" href="mesofield.devices.base.html#mesofield.devices.base.BaseDataProducer" title="mesofield.devices.base.BaseDataProducer"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseDataProducer</span></code></a></p>
+<p>Replays an OME-TIFF + sidecar JSON pair through the standard camera surface.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackCamera.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cfg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackCamera.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackCamera.__init__" title="Link to this definition">#</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cfg</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackCamera.arm">
+<span class="sig-name descname"><span class="pre">arm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackCamera.arm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackCamera.arm" title="Link to this definition">#</a></dt>
+<dd><p>Per-run prep: set up the writer + (optionally) an MDA sequence.</p>
+<p>The default body fits both MMCamera (which needs a sequence) and
+OpenCV/Mock (where <code class="docutils literal notranslate"><span class="pre">set_sequence</span></code> is a no-op). Subclasses
+override only when they need additional prep.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<a class="reference internal" href="mesofield.config.html#mesofield.config.ExperimentConfig" title="mesofield.config.ExperimentConfig"><em>ExperimentConfig</em></a>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackCamera.set_writer">
+<span class="sig-name descname"><span class="pre">set_writer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">make_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackCamera.set_writer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackCamera.set_writer" title="Link to this definition">#</a></dt>
+<dd><p>No-op: playback never allocates a writer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>make_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackCamera.snap">
+<span class="sig-name descname"><span class="pre">snap</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackCamera.snap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackCamera.snap" title="Link to this definition">#</a></dt>
+<dd><p>Capture a single frame outside any recording, return it as an ndarray.</p>
+<p>Used by the GUI’s snap button. Implementations should NOT alter
+recording state – snap is preview-only – but they SHOULD call
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">_save_snap_png()</span></code> so each snap also lands a <code class="docutils literal notranslate"><span class="pre">*_snap.png</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>ndarray</em></a> | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackCamera.start_live">
+<span class="sig-name descname"><span class="pre">start_live</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackCamera.start_live"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackCamera.start_live" title="Link to this definition">#</a></dt>
+<dd><p>Begin continuous live preview WITHOUT writing to disk.</p>
+<p>Subscribers receive frames via <code class="docutils literal notranslate"><span class="pre">image_ready</span></code> (Qt) / <code class="docutils literal notranslate"><span class="pre">signals.data</span></code>
+(psygnal). No recording side-effects; pair with <a class="reference internal" href="#mesofield.playback.PlaybackCamera.stop_live" title="mesofield.playback.PlaybackCamera.stop_live"><code class="xref py py-meth docutils literal notranslate"><span class="pre">stop_live()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackCamera.stop_live">
+<span class="sig-name descname"><span class="pre">stop_live</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackCamera.stop_live"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackCamera.stop_live" title="Link to this definition">#</a></dt>
+<dd><p>End the continuous live preview started by <a class="reference internal" href="#mesofield.playback.PlaybackCamera.start_live" title="mesofield.playback.PlaybackCamera.start_live"><code class="xref py py-meth docutils literal notranslate"><span class="pre">start_live()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackCamera.calibration">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">calibration</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#mesofield.playback.PlaybackCamera.calibration" title="Link to this definition">#</a></dt>
+<dd><p>Camera-specific constants worth recording in the AcquisitionManifest.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackEncoder">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mesofield.playback.</span></span><span class="sig-name descname"><span class="pre">PlaybackEncoder</span></span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackEncoder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackEncoder" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="mesofield.devices.base.html#mesofield.devices.base.BaseDataProducer" title="mesofield.devices.base.BaseDataProducer"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseDataProducer</span></code></a></p>
+<p>Replays a saved encoder/treadmill CSV through <code class="docutils literal notranslate"><span class="pre">signals.data</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackEncoder.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cfg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackEncoder.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackEncoder.__init__" title="Link to this definition">#</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cfg</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackEncoder.arm">
+<span class="sig-name descname"><span class="pre">arm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackEncoder.arm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackEncoder.arm" title="Link to this definition">#</a></dt>
+<dd><p>Default <code class="docutils literal notranslate"><span class="pre">arm</span></code>: clear buffer and resolve <code class="docutils literal notranslate"><span class="pre">output_path</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">config</span></code> is expected to expose <code class="docutils literal notranslate"><span class="pre">make_path(name,</span> <span class="pre">ext,</span> <span class="pre">bids)</span></code>
+(see <a class="reference internal" href="mesofield.config.html#mesofield.config.ExperimentConfig" title="mesofield.config.ExperimentConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">mesofield.config.ExperimentConfig</span></code></a>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<a class="reference internal" href="mesofield.config.html#mesofield.config.ExperimentConfig" title="mesofield.config.ExperimentConfig"><em>ExperimentConfig</em></a>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackEncoder.calibration">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">calibration</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#mesofield.playback.PlaybackEncoder.calibration" title="Link to this definition">#</a></dt>
+<dd><p>Device-specific constants worth recording with the data.</p>
+<p>Default: everything in <cite>cfg</cite> that isn’t an orchestration key. Override
+on a subclass to curate the list explicitly.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackContext">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mesofield.playback.</span></span><span class="sig-name descname"><span class="pre">PlaybackContext</span></span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackContext"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackContext" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Bundle returned by <a class="reference internal" href="#mesofield.playback.discover_playback_context" title="mesofield.playback.discover_playback_context"><code class="xref py py-func docutils literal notranslate"><span class="pre">discover_playback_context()</span></code></a>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackContext.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">procedure</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">speed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clock</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">producers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mesofield.playback.PlaybackContext.__init__" title="Link to this definition">#</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>procedure</strong> (<a class="reference internal" href="mesofield.base.html#mesofield.base.Procedure" title="mesofield.base.Procedure"><em>Procedure</em></a>)</p></li>
+<li><p><strong>session_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><em>Path</em></a>)</p></li>
+<li><p><strong>speed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>loop</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>clock</strong> (<a class="reference internal" href="#mesofield.playback.PlaybackClock" title="mesofield.playback.PlaybackClock"><em>PlaybackClock</em></a>)</p></li>
+<li><p><strong>producers</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackSession">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mesofield.playback.</span></span><span class="sig-name descname"><span class="pre">PlaybackSession</span></span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackSession"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackSession" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>One <code class="docutils literal notranslate"><span class="pre">(subject,</span> <span class="pre">session)</span></code> directory discovered on disk.</p>
+<p>Holds just enough metadata for the ConfigController dropdowns to present
+a choice: the parsed subject/session ids, the absolute session directory,
+the path to its manifest, and the task/protocol read from the manifest’s
+session block (used as display hints and to seed <code class="docutils literal notranslate"><span class="pre">ExperimentConfig</span></code>).</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackSession.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">manifest_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">protocol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mesofield.playback.PlaybackSession.__init__" title="Link to this definition">#</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subject</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>session</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>session_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><em>Path</em></a>)</p></li>
+<li><p><strong>manifest_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><em>Path</em></a>)</p></li>
+<li><p><strong>task</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>protocol</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mesofield.playback.discover_playback_context">
+<span class="sig-prename descclassname"><span class="pre">mesofield.playback.</span></span><span class="sig-name descname"><span class="pre">discover_playback_context</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">experiment_dir</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">speed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/playback.html#discover_playback_context"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.discover_playback_context" title="Link to this definition">#</a></dt>
+<dd><p>Build a <a class="reference internal" href="#mesofield.playback.PlaybackContext" title="mesofield.playback.PlaybackContext"><code class="xref py py-class docutils literal notranslate"><span class="pre">PlaybackContext</span></code></a> from a recorded session directory.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>experiment_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><em>Path</em></a>)</p></li>
+<li><p><strong>speed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>loop</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#mesofield.playback.PlaybackContext" title="mesofield.playback.PlaybackContext"><em>PlaybackContext</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mesofield.playback.discover_playback_sessions">
+<span class="sig-prename descclassname"><span class="pre">mesofield.playback.</span></span><span class="sig-name descname"><span class="pre">discover_playback_sessions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">experiment_dir</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/playback.html#discover_playback_sessions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.discover_playback_sessions" title="Link to this definition">#</a></dt>
+<dd><p>Enumerate every <code class="docutils literal notranslate"><span class="pre">data/sub-*/ses-*/manifest.json</span></code> under <em>experiment_dir</em>.</p>
+<p>Falls back to scanning <em>experiment_dir</em> itself when it points directly at
+a session directory. Sessions are returned sorted by (subject, session) so
+the dropdowns have a predictable order.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>experiment_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><em>Path</em></a>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a>[<a class="reference internal" href="#mesofield.playback.PlaybackSession" title="mesofield.playback.PlaybackSession"><em>PlaybackSession</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackBrowser">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mesofield.playback.</span></span><span class="sig-name descname"><span class="pre">PlaybackBrowser</span></span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackBrowser"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackBrowser" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Drives <code class="xref py py-class docutils literal notranslate"><span class="pre">ConfigController</span></code> for playback.</p>
+<p>Two responsibilities:</p>
+<ol class="arabic simple">
+<li><p>Re-seed <code class="docutils literal notranslate"><span class="pre">ExperimentConfig.subjects</span></code> from the set of recorded sessions
+on disk so the subject dropdown lists what is actually playable, and
+register the per-subject session ids as <code class="docutils literal notranslate"><span class="pre">register_choices</span></code> on the
+<code class="docutils literal notranslate"><span class="pre">session</span></code> key so it renders as a dropdown.</p></li>
+<li><p>When the user picks a different subject or session, tear down the
+current playback procedure and swap a freshly-built one into
+<code class="xref py py-class docutils literal notranslate"><span class="pre">MainWindow</span></code>, re-using the existing
+widget-rebuild path (<code class="docutils literal notranslate"><span class="pre">_build_acquisition_ui</span></code> + <code class="docutils literal notranslate"><span class="pre">_on_config_applied</span></code>).</p></li>
+</ol>
+<p>Implementation note: the actual swap is deferred via <code class="docutils literal notranslate"><span class="pre">QTimer.singleShot</span></code>
+because the change callback fires inside a QComboBox signal handler –
+rebuilding the parent ConfigController during that callback would delete
+the QObject that emitted the signal.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.playback.PlaybackBrowser.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">main_window</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sessions</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">speed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/playback.html#PlaybackBrowser.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.PlaybackBrowser.__init__" title="Link to this definition">#</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>main_window</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a>)</p></li>
+<li><p><strong>sessions</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference internal" href="#mesofield.playback.PlaybackSession" title="mesofield.playback.PlaybackSession"><em>PlaybackSession</em></a><em>]</em>)</p></li>
+<li><p><strong>speed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>loop</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mesofield.playback.launch_playback_app">
+<span class="sig-prename descclassname"><span class="pre">mesofield.playback.</span></span><span class="sig-name descname"><span class="pre">launch_playback_app</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">browser_sessions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/playback.html#launch_playback_app"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.playback.launch_playback_app" title="Link to this definition">#</a></dt>
+<dd><p>Open the standard mesofield GUI against a <a class="reference internal" href="#mesofield.playback.PlaybackContext" title="mesofield.playback.PlaybackContext"><code class="xref py py-class docutils literal notranslate"><span class="pre">PlaybackContext</span></code></a>.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">browser_sessions</span></code> is supplied, a <a class="reference internal" href="#mesofield.playback.PlaybackBrowser" title="mesofield.playback.PlaybackBrowser"><code class="xref py py-class docutils literal notranslate"><span class="pre">PlaybackBrowser</span></code></a> is wired
+into the MainWindow’s ConfigController so the subject/session dropdowns
+swap playback targets on change.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>context</strong> (<a class="reference internal" href="#mesofield.playback.PlaybackContext" title="mesofield.playback.PlaybackContext"><em>PlaybackContext</em></a>)</p></li>
+<li><p><strong>browser_sessions</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference internal" href="#mesofield.playback.PlaybackSession" title="mesofield.playback.PlaybackSession"><em>PlaybackSession</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackClock"><code class="docutils literal notranslate"><span class="pre">PlaybackClock</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackClock.sleep_until"><code class="docutils literal notranslate"><span class="pre">PlaybackClock.sleep_until()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackClock.__init__"><code class="docutils literal notranslate"><span class="pre">PlaybackClock.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackCamera"><code class="docutils literal notranslate"><span class="pre">PlaybackCamera</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackCamera.__init__"><code class="docutils literal notranslate"><span class="pre">PlaybackCamera.__init__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackCamera.arm"><code class="docutils literal notranslate"><span class="pre">PlaybackCamera.arm()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackCamera.set_writer"><code class="docutils literal notranslate"><span class="pre">PlaybackCamera.set_writer()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackCamera.snap"><code class="docutils literal notranslate"><span class="pre">PlaybackCamera.snap()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackCamera.start_live"><code class="docutils literal notranslate"><span class="pre">PlaybackCamera.start_live()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackCamera.stop_live"><code class="docutils literal notranslate"><span class="pre">PlaybackCamera.stop_live()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackCamera.calibration"><code class="docutils literal notranslate"><span class="pre">PlaybackCamera.calibration</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackEncoder"><code class="docutils literal notranslate"><span class="pre">PlaybackEncoder</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackEncoder.__init__"><code class="docutils literal notranslate"><span class="pre">PlaybackEncoder.__init__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackEncoder.arm"><code class="docutils literal notranslate"><span class="pre">PlaybackEncoder.arm()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackEncoder.calibration"><code class="docutils literal notranslate"><span class="pre">PlaybackEncoder.calibration</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackContext"><code class="docutils literal notranslate"><span class="pre">PlaybackContext</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackContext.__init__"><code class="docutils literal notranslate"><span class="pre">PlaybackContext.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackSession"><code class="docutils literal notranslate"><span class="pre">PlaybackSession</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackSession.__init__"><code class="docutils literal notranslate"><span class="pre">PlaybackSession.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.discover_playback_context"><code class="docutils literal notranslate"><span class="pre">discover_playback_context()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.discover_playback_sessions"><code class="docutils literal notranslate"><span class="pre">discover_playback_sessions()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackBrowser"><code class="docutils literal notranslate"><span class="pre">PlaybackBrowser</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.PlaybackBrowser.__init__"><code class="docutils literal notranslate"><span class="pre">PlaybackBrowser.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.playback.launch_playback_app"><code class="docutils literal notranslate"><span class="pre">launch_playback_app()</span></code></a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  
+  <div class="tocsection editthispage">
+    <a href="https://github.com/Gronemeyer/mesofield/edit/main/docs/api/mesofield.playback.rst">
+      <i class="fa-solid fa-pencil"></i>
+      
+      
+        
+          Edit on GitHub
+        
+      
+    </a>
+  </div>
+</div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/api/mesofield.playback.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2026, Sipe Laboratory, Penn State.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.19.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

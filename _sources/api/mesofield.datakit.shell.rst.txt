@@ -1,0 +1,6 @@
+shell
+=====
+
+.. automodule:: mesofield.datakit.shell
+   :members:
+   :show-inheritance:

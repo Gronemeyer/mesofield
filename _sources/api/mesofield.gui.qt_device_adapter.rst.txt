@@ -1,0 +1,6 @@
+qt\_device\_adapter
+===================
+
+.. automodule:: mesofield.gui.qt_device_adapter
+   :members:
+   :show-inheritance:

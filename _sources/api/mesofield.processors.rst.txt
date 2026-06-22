@@ -1,0 +1,15 @@
+processors
+==========
+
+.. automodule:: mesofield.processors
+   :members:
+   :show-inheritance:
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   mesofield.processors.base
+   mesofield.processors.frame_mean

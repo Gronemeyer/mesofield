@@ -1,0 +1,976 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>base &#8212; Mesofield</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=f0c42745" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=a95f357e85573c9b56d5"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5" />
+
+    <script src="../_static/documentation_options.js?v=d6279c7f"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'api/mesofield.base';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="config" href="mesofield.config.html" />
+    <link rel="prev" title="API Reference" href="index.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.4" />
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/logo.png" class="logo__image only-light" alt=""/>
+    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">MESOFIELD</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item pst-sidebar-collapse"><button id="pst-collapse-sidebar-button" aria-expanded="true" aria-controls="pst-primary-sidebar"><svg class="pst-icon svg-inline--fa" role="img" aria-hidden="true" focusable="false" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path fill="currentColor" d="M3 15.5C2.36232 15.5 1.74874 15.2564 1.28478 14.8189C0.820828 14.3815 0.541576 13.7832 0.504167 13.1467L0.5 13L0.5 3C0.499965 2.36232 0.743605 1.74874 1.18107 1.28478C1.61854 0.820828 2.21676 0.541576 2.85333 0.504167L3 0.5L13 0.5C13.6377 0.499965 14.2513 0.743605 14.7152 1.18107C15.1792 1.61854 15.4584 2.21676 15.4958 2.85333L15.5 3L15.5 13C15.5 13.6377 15.2564 14.2513 14.8189 14.7152C14.3815 15.1792 13.7832 15.4584 13.1467 15.4958L13 15.5L3 15.5ZM3 13.8333L10.5 13.8333L10.5 2.16667L3 2.16667C2.79589 2.16669 2.59889 2.24163 2.44636 2.37726C2.29383 2.5129 2.19638 2.69979 2.1725 2.9025L2.16667 3L2.16667 13C2.16669 13.2041 2.24163 13.4011 2.37726 13.5536C2.5129 13.7062 2.69979 13.8036 2.9025 13.8275L3 13.8333ZM6.65583 10.325L6.5775 10.2558L4.91083 8.58917C4.76735 8.44567 4.68116 8.25476 4.66843 8.05223C4.65569 7.84971 4.71729 7.6495 4.84167 7.48917L4.91083 7.41083L6.5775 5.74417C6.72747 5.59471 6.9287 5.50794 7.14032 5.50148C7.35194 5.49502 7.55809 5.56935 7.7169 5.70937C7.8757 5.8494 7.97525 6.04463 7.99533 6.25539C8.01541 6.46616 7.95451 6.67667 7.825 6.84417L7.75583 6.9225L6.67917 8L7.75583 9.0775C7.89931 9.22099 7.98551 9.41191 7.99824 9.61443C8.01097 9.81695 7.94938 10.0172 7.825 10.1775L7.75583 10.2558C7.61234 10.3993 7.42142 10.4855 7.2189 10.4982C7.01638 10.511 6.81617 10.4494 6.65583 10.325Z"/>
+  </svg>
+  <span class="pst-collapse-sidebar-label">Collapse Sidebar</span>
+  <span class="pst-expand-sidebar-label">Expand Sidebar</span>
+</button></div>
+        <div class="sidebar-primary-item">
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">base</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesofield.config.html">config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesofield.protocols.html">protocols</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesofield.signals.html">signals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesofield.hardware.html">hardware</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesofield.engines.html">engines</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="mesofield.devices.html">devices</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="mesofield.devices.subprocesses.html">subprocesses</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="mesofield.devices.subprocesses.psychopy.html">psychopy</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.devices.base.html">base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.devices.base_camera.html">base_camera</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.devices.cameras.html">cameras</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.devices.daq.html">daq</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.devices.encoder.html">encoder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.devices.mocks.html">mocks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.devices.psychopy_device.html">psychopy_device</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.devices.treadmill.html">treadmill</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="mesofield.data.html">data</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.data.batch.html">batch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.data.codecs.html">codecs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.data.manager.html">manager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.data.writer.html">writer</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="mesofield.datakit.html">datakit</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="mesofield.datakit.sources.html">sources</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="mesofield.datakit.sources.behavior.html">behavior</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="mesofield.datakit.sources.behavior.dataqueue.html">dataqueue</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mesofield.datakit.sources.behavior.psychopy.html">psychopy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mesofield.datakit.sources.behavior.treadmill.html">treadmill</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mesofield.datakit.sources.behavior.wheel.html">wheel</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3"><a class="reference internal" href="mesofield.datakit.sources.register.html">register</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.datakit.config.html">config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.datakit.core.html">core</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.datakit.datamodel.html">datamodel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.datakit.discover.html">discover</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.datakit.explore.html">explore</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.datakit.profile.html">profile</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.datakit.shell.html">shell</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.datakit.timeline.html">timeline</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="mesofield.processing.html">processing</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.processing.runner.html">runner</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="mesofield.processors.html">processors</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.processors.base.html">base</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.processors.frame_mean.html">frame_mean</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="mesofield.scaffold.html">scaffold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.scaffold.experiment.html">experiment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.scaffold.rigs.html">rigs</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="mesofield.gui.html">gui</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.gui.config_builder.html">config_builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.gui.config_wizard.html">config_wizard</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.gui.controller.html">controller</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.gui.dynamic_controller.html">dynamic_controller</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.gui.maingui.html">maingui</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.gui.mdagui.html">mdagui</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.gui.qt_device_adapter.html">qt_device_adapter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.gui.speedplotter.html">speedplotter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.gui.theme.html">theme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.gui.tiff_viewer.html">tiff_viewer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.gui.viewer.html">viewer</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="mesofield.utils.html">utils</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.utils.retrofit.html">retrofit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mesofield.utils.utils.html">utils</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">API Reference</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">base</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="module-mesofield.base">
+<span id="base"></span><h1>base<a class="headerlink" href="#module-mesofield.base" title="Link to this heading">#</a></h1>
+<p>Base procedure classes for implementing experimental workflows in Mesofield.</p>
+<p>This module defines a <em>generic</em> <a class="reference internal" href="#mesofield.base.Procedure" title="mesofield.base.Procedure"><code class="xref py py-class docutils literal notranslate"><span class="pre">Procedure</span></code></a> orchestrator that contains
+zero device-specific logic.  Custom experiment subclasses live outside the
+package (typically under <code class="docutils literal notranslate"><span class="pre">experiments/&lt;name&gt;/procedure.py</span></code>) and are
+discovered via <a class="reference internal" href="#mesofield.base.load_procedure_from_config" title="mesofield.base.load_procedure_from_config"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_procedure_from_config()</span></code></a>, which reads the optional
+<code class="docutils literal notranslate"><span class="pre">procedure_file</span></code> and <code class="docutils literal notranslate"><span class="pre">procedure_class</span></code> fields from <code class="docutils literal notranslate"><span class="pre">experiment.json</span></code>.</p>
+<p>Lifecycle (subclass hooks shown in <strong>bold</strong>):</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">initialize_hardware</span></code>  – bring devices up</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">prerun</span></code>               – <strong>subclass hook</strong> (default: no-op)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hardware.arm_all</span></code>     – per-run prep on every device</p></li>
+<li><p>connect <code class="docutils literal notranslate"><span class="pre">hardware.primary.signals.finished</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">_cleanup_procedure</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">on_started</span></code>           – <strong>subclass hook</strong> (default: no-op)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hardware.start_all</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">on_finished</span></code>          – <strong>subclass hook</strong> (default: no-op)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">save_data</span></code> + cleanup</p></li>
+</ol>
+<dl class="py function">
+<dt class="sig sig-object py" id="mesofield.base.processor">
+<span class="sig-prename descclassname"><span class="pre">mesofield.base.</span></span><span class="sig-name descname"><span class="pre">processor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">camera</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">plot_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#processor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.processor" title="Link to this definition">#</a></dt>
+<dd><p>Mark a <a class="reference internal" href="#mesofield.base.Procedure" title="mesofield.base.Procedure"><code class="xref py py-class docutils literal notranslate"><span class="pre">Procedure</span></code></a> method as a per-frame compute function.</p>
+<p>The decorated function is called as <code class="docutils literal notranslate"><span class="pre">func(self,</span> <span class="pre">img,</span> <span class="pre">idx,</span> <span class="pre">ts)</span></code> and
+should return a <code class="docutils literal notranslate"><span class="pre">float</span> <span class="pre">|</span> <span class="pre">None</span></code>.  At procedure init the framework
+builds a <a class="reference internal" href="mesofield.processors.html#mesofield.processors.FrameProcessor" title="mesofield.processors.FrameProcessor"><code class="xref py py-class docutils literal notranslate"><span class="pre">FrameProcessor</span></code></a> that wraps it,
+attaches it to the hardware device whose <code class="docutils literal notranslate"><span class="pre">device_id</span></code> matches
+<code class="docutils literal notranslate"><span class="pre">camera</span></code>, registers it on <a class="reference internal" href="mesofield.data.manager.html#mesofield.data.manager.DataManager" title="mesofield.data.manager.DataManager"><code class="xref py py-class docutils literal notranslate"><span class="pre">DataManager</span></code></a>,
+and (when <code class="docutils literal notranslate"><span class="pre">plot=True</span></code>) tells the GUI to add a
+<code class="xref py py-class docutils literal notranslate"><span class="pre">SerialWidget</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">plot_kwargs</span></code> are forwarded straight to the widget — recognized
+keys: <code class="docutils literal notranslate"><span class="pre">label</span></code>, <code class="docutils literal notranslate"><span class="pre">value_label</span></code>, <code class="docutils literal notranslate"><span class="pre">value_units</span></code>, <code class="docutils literal notranslate"><span class="pre">y_range</span></code>,
+<code class="docutils literal notranslate"><span class="pre">value_scale</span></code>, <code class="docutils literal notranslate"><span class="pre">max_points</span></code>.</p>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MyProcedure</span><span class="p">(</span><span class="n">Procedure</span><span class="p">):</span>
+    <span class="nd">@processor</span><span class="p">(</span><span class="n">camera</span><span class="o">=</span><span class="s2">&quot;meso&quot;</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Frame Mean&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">frame_mean</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">ts</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">img</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>camera</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>plot</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>plot_kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mesofield.base.ProcedureSignals">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mesofield.base.</span></span><span class="sig-name descname"><span class="pre">ProcedureSignals</span></span><a class="reference internal" href="../_modules/mesofield/base.html#ProcedureSignals"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.ProcedureSignals" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">QObject</span></code></p>
+<p>All procedure-level signals that a Qt GUI can connect to.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mesofield.base.Procedure">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mesofield.base.</span></span><span class="sig-name descname"><span class="pre">Procedure</span></span><a class="reference internal" href="../_modules/mesofield/base.html#Procedure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.Procedure" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Generic orchestrator for a Mesofield experiment.</p>
+<p>Subclass this in <code class="docutils literal notranslate"><span class="pre">experiments/&lt;name&gt;/procedure.py</span></code> and override the
+extension hooks (<a class="reference internal" href="#mesofield.base.Procedure.prerun" title="mesofield.base.Procedure.prerun"><code class="xref py py-meth docutils literal notranslate"><span class="pre">prerun()</span></code></a>, <a class="reference internal" href="#mesofield.base.Procedure.on_started" title="mesofield.base.Procedure.on_started"><code class="xref py py-meth docutils literal notranslate"><span class="pre">on_started()</span></code></a>, <a class="reference internal" href="#mesofield.base.Procedure.on_finished" title="mesofield.base.Procedure.on_finished"><code class="xref py py-meth docutils literal notranslate"><span class="pre">on_finished()</span></code></a>)
+and/or the lifecycle methods (<a class="reference internal" href="#mesofield.base.Procedure.run" title="mesofield.base.Procedure.run"><code class="xref py py-meth docutils literal notranslate"><span class="pre">run()</span></code></a>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">save_data()</span></code>,
+<a class="reference internal" href="#mesofield.base.Procedure.cleanup" title="mesofield.base.Procedure.cleanup"><code class="xref py py-meth docutils literal notranslate"><span class="pre">cleanup()</span></code></a>) as needed.  The base class never references a specific
+device type – multi-camera sync is driven by the YAML <code class="docutils literal notranslate"><span class="pre">primary:</span> <span class="pre">true</span></code>
+flag and <code class="docutils literal notranslate"><span class="pre">HardwareManager.start_all/stop_all</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.base.Procedure.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hardware</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment_directory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#Procedure.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.Procedure.__init__" title="Link to this definition">#</a></dt>
+<dd><p>Build a procedure.</p>
+<section id="parameters">
+<h2>Parameters<a class="headerlink" href="#parameters" title="Link to this heading">#</a></h2>
+<dl>
+<dt>hardware:</dt><dd><p>Either a path to a <code class="docutils literal notranslate"><span class="pre">hardware.yaml</span></code> rig file, <strong>or</strong> a list of
+already-constructed device objects, e.g.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">proc</span> <span class="o">=</span> <span class="n">Procedure</span><span class="p">(</span><span class="n">hardware</span><span class="o">=</span><span class="p">[</span><span class="n">LickDetector</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="s2">&quot;COM3&quot;</span><span class="p">)],</span> <span class="o">...</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>A single device is automatically the primary, so one-device
+scripts never set <code class="docutils literal notranslate"><span class="pre">primary=True</span></code>. <code class="docutils literal notranslate"><span class="pre">None</span></code> falls back to the
+<a class="reference internal" href="#mesofield.base.Procedure.define_hardware" title="mesofield.base.Procedure.define_hardware"><code class="xref py py-meth docutils literal notranslate"><span class="pre">define_hardware()</span></code></a> hook.</p>
+</dd>
+<dt>experiment:</dt><dd><p>Path to an <code class="docutils literal notranslate"><span class="pre">experiment.json</span></code> parameter file (or <code class="docutils literal notranslate"><span class="pre">None</span></code>).</p>
+</dd>
+<dt>experiment_directory:</dt><dd><p>Where acquisition data is written (<code class="docutils literal notranslate"><span class="pre">&lt;dir&gt;/data/sub-.../ses-...</span></code>).
+This is the simplest way for a standalone script to choose its
+output location; relative paths resolve against the current working
+directory. Overrides any value from <code class="docutils literal notranslate"><span class="pre">define_config</span></code> / JSON.</p>
+</dd>
+<dt><a href="#id1"><span class="problematic" id="id2">**</span></a>params:</dt><dd><p>Any other experiment parameters (<code class="docutils literal notranslate"><span class="pre">subject</span></code>, <code class="docutils literal notranslate"><span class="pre">session</span></code>,
+<code class="docutils literal notranslate"><span class="pre">task</span></code>, <code class="docutils literal notranslate"><span class="pre">duration</span></code>, …) set straight onto the config. These
+also override <code class="docutils literal notranslate"><span class="pre">define_config</span></code> / JSON, so a script can stay a
+single <code class="docutils literal notranslate"><span class="pre">Procedure(...)</span></code> call with no <code class="docutils literal notranslate"><span class="pre">define_config</span></code> override.</p>
+</dd>
+</dl>
+</section>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hardware</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>experiment</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>experiment_directory</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>params</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.base.Procedure.initialize_hardware">
+<span class="sig-name descname"><span class="pre">initialize_hardware</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#Procedure.initialize_hardware"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.Procedure.initialize_hardware" title="Link to this definition">#</a></dt>
+<dd><p>Boot up hardware and a <code class="xref py py-class docutils literal notranslate"><span class="pre">DataManager</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.base.Procedure.load_config">
+<span class="sig-name descname"><span class="pre">load_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hardware</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">experiment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#Procedure.load_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.Procedure.load_config" title="Link to this definition">#</a></dt>
+<dd><p>Hot-load a hardware YAML and/or experiment JSON into the live config.</p>
+<p>The two inputs are independent: loading experiment params never touches
+hardware. Callers pass explicit paths (the GUI wizard resolves them from
+its pickers).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hardware</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>experiment</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.base.Procedure.define_config">
+<span class="sig-name descname"><span class="pre">define_config</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#Procedure.define_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.Procedure.define_config" title="Link to this definition">#</a></dt>
+<dd><p>Subclass hook to declare experiment parameters in Python.</p>
+<p>Override to return a <code class="docutils literal notranslate"><span class="pre">&#64;dataclass</span></code> instance or a plain mapping; it is
+applied to <code class="xref py py-attr docutils literal notranslate"><span class="pre">config</span></code> via <code class="xref py py-meth docutils literal notranslate"><span class="pre">ExperimentConfig.load_dict()</span></code>,
+superseding any <code class="docutils literal notranslate"><span class="pre">experiment.json</span></code>. Default <code class="docutils literal notranslate"><span class="pre">None</span></code> -&gt; load JSON.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.base.Procedure.define_hardware">
+<span class="sig-name descname"><span class="pre">define_hardware</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#Procedure.define_hardware"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.Procedure.define_hardware" title="Link to this definition">#</a></dt>
+<dd><p>Subclass hook to construct hardware devices in Python.</p>
+<p>Override to return a list of pre-built device objects (imported and
+instantiated in the procedure file). They are handed to a fresh
+<code class="xref py py-class docutils literal notranslate"><span class="pre">HardwareManager</span></code>, superseding any <code class="docutils literal notranslate"><span class="pre">hardware.yaml</span></code>. Default
+<code class="docutils literal notranslate"><span class="pre">None</span></code> -&gt; load YAML. Device classes should be decorated with
+<code class="docutils literal notranslate"><span class="pre">&#64;DeviceRegistry.register(...)</span></code> so the setup can later be exported
+to a <code class="docutils literal notranslate"><span class="pre">hardware.yaml</span></code> rig file via <code class="docutils literal notranslate"><span class="pre">HardwareManager.to_yaml</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.base.Procedure.prerun">
+<span class="sig-name descname"><span class="pre">prerun</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#Procedure.prerun"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.Procedure.prerun" title="Link to this definition">#</a></dt>
+<dd><p>Subclass hook called before arming devices.  Override as needed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.base.Procedure.await_trigger">
+<span class="sig-name descname"><span class="pre">await_trigger</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#Procedure.await_trigger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.Procedure.await_trigger" title="Link to this definition">#</a></dt>
+<dd><p>Subclass hook called after arming, before starting devices.</p>
+<p>Default no-op. Override to gate the run on an external or manual
+trigger (e.g. a spacebar “start on trigger” gate). Devices are armed
+but nothing has started yet, so blocking here holds the whole run.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.base.Procedure.on_started">
+<span class="sig-name descname"><span class="pre">on_started</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#Procedure.on_started"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.Procedure.on_started" title="Link to this definition">#</a></dt>
+<dd><p>Subclass hook called immediately after <code class="docutils literal notranslate"><span class="pre">start_all</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.base.Procedure.on_finished">
+<span class="sig-name descname"><span class="pre">on_finished</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#Procedure.on_finished"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.Procedure.on_finished" title="Link to this definition">#</a></dt>
+<dd><p>Subclass hook called immediately after the primary device finishes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.base.Procedure.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#Procedure.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.Procedure.run" title="Link to this definition">#</a></dt>
+<dd><p>Drive a standard experiment run.</p>
+<p>Subclasses may override, but the default body is generic and handles
+any combination of devices declared in <code class="docutils literal notranslate"><span class="pre">hardware.yaml</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.base.Procedure.cleanup">
+<span class="sig-name descname"><span class="pre">cleanup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#Procedure.cleanup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.Procedure.cleanup" title="Link to this definition">#</a></dt>
+<dd><p>Public cleanup entry-point (manual stop).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.base.Procedure.launch">
+<span class="sig-name descname"><span class="pre">launch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">splash</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#Procedure.launch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.Procedure.launch" title="Link to this definition">#</a></dt>
+<dd><p>Open the Mesofield GUI for this procedure and block until closed.</p>
+<p>The ordinary-Python alternative to <code class="docutils literal notranslate"><span class="pre">mesofield</span> <span class="pre">launch</span></code>: build the
+procedure in a script, then call <code class="docutils literal notranslate"><span class="pre">proc.launch()</span></code>. The acquisition is
+started from the GUI’s Record button (which calls <a class="reference internal" href="#mesofield.base.Procedure.run" title="mesofield.base.Procedure.run"><code class="xref py py-meth docutils literal notranslate"><span class="pre">run()</span></code></a>), so the
+window comes up ready to configure and record.</p>
+<p>Returns the Qt application exit code. <code class="docutils literal notranslate"><span class="pre">splash=False</span></code> skips the
+ASCII splash screen. The heavy GUI dependencies are imported lazily so
+headless scripts that never call this keep a light import footprint.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>splash</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.base.Procedure.run_until_finished">
+<span class="sig-name descname"><span class="pre">run_until_finished</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#Procedure.run_until_finished"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.Procedure.run_until_finished" title="Link to this definition">#</a></dt>
+<dd><p>Run the procedure and block until cleanup completes.</p>
+<p>Starts the procedure via <a class="reference internal" href="#mesofield.base.Procedure.run" title="mesofield.base.Procedure.run"><code class="xref py py-meth docutils literal notranslate"><span class="pre">run()</span></code></a>, then waits for the
+<code class="docutils literal notranslate"><span class="pre">procedure_finished</span></code> (or <code class="docutils literal notranslate"><span class="pre">procedure_error</span></code>) signal.  Handles
+<code class="docutils literal notranslate"><span class="pre">KeyboardInterrupt</span></code> and <code class="docutils literal notranslate"><span class="pre">timeout</span></code> by invoking <a class="reference internal" href="#mesofield.base.Procedure.cleanup" title="mesofield.base.Procedure.cleanup"><code class="xref py py-meth docutils literal notranslate"><span class="pre">cleanup()</span></code></a>
+automatically, so callers (e.g. <code class="docutils literal notranslate"><span class="pre">__main__</span></code> blocks in experiment
+scripts) do not need to wire up their own threading events.</p>
+<section id="id3">
+<h2>Parameters<a class="headerlink" href="#id3" title="Link to this heading">#</a></h2>
+<dl class="simple">
+<dt>timeout:</dt><dd><p>Optional hard ceiling in seconds.  When <code class="docutils literal notranslate"><span class="pre">None</span></code> (default), waits
+indefinitely for the primary device’s <code class="docutils literal notranslate"><span class="pre">finished</span></code> signal.  When
+provided, forces cleanup if the deadline passes.</p>
+</dd>
+</dl>
+</section>
+<section id="returns">
+<h2>Returns<a class="headerlink" href="#returns" title="Link to this heading">#</a></h2>
+<dl class="simple">
+<dt>bool</dt><dd><p><code class="docutils literal notranslate"><span class="pre">True</span></code> if the procedure finished on its own, <code class="docutils literal notranslate"><span class="pre">False</span></code> if
+cleanup was forced by timeout or interrupt.</p>
+</dd>
+</dl>
+</section>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>timeout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mesofield.base.Procedure.manifest_extra">
+<span class="sig-name descname"><span class="pre">manifest_extra</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#Procedure.manifest_extra"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.Procedure.manifest_extra" title="Link to this definition">#</a></dt>
+<dd><p>Override to inject extra session-level metadata into the
+AcquisitionManifest’s <code class="docutils literal notranslate"><span class="pre">extra</span></code> block. Default: empty.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><em>Any</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mesofield.base.load_procedure_from_config">
+<span class="sig-prename descclassname"><span class="pre">mesofield.base.</span></span><span class="sig-name descname"><span class="pre">load_procedure_from_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/mesofield/base.html#load_procedure_from_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mesofield.base.load_procedure_from_config" title="Link to this definition">#</a></dt>
+<dd><p>Build the right <a class="reference internal" href="#mesofield.base.Procedure" title="mesofield.base.Procedure"><code class="xref py py-class docutils literal notranslate"><span class="pre">Procedure</span></code></a> for a launch <em>target</em>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">target</span></code> may be a <code class="docutils literal notranslate"><span class="pre">hardware.yaml</span></code>, an <code class="docutils literal notranslate"><span class="pre">experiment.json</span></code>, a scripted
+<code class="docutils literal notranslate"><span class="pre">procedure.py</span></code>, an experiment directory, or <code class="docutils literal notranslate"><span class="pre">None</span></code>. Discovery of the
+hardware/experiment pair is delegated to <code class="xref py py-func docutils literal notranslate"><span class="pre">_resolve_target()</span></code>.</p>
+<p>When the experiment JSON declares <code class="docutils literal notranslate"><span class="pre">procedure_file</span></code> + <code class="docutils literal notranslate"><span class="pre">procedure_class</span></code>,
+that subclass is imported and used; otherwise a base <a class="reference internal" href="#mesofield.base.Procedure" title="mesofield.base.Procedure"><code class="xref py py-class docutils literal notranslate"><span class="pre">Procedure</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>target</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#mesofield.base.Procedure" title="mesofield.base.Procedure"><em>Procedure</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.processor"><code class="docutils literal notranslate"><span class="pre">processor()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.ProcedureSignals"><code class="docutils literal notranslate"><span class="pre">ProcedureSignals</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.Procedure"><code class="docutils literal notranslate"><span class="pre">Procedure</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.Procedure.__init__"><code class="docutils literal notranslate"><span class="pre">Procedure.__init__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.Procedure.initialize_hardware"><code class="docutils literal notranslate"><span class="pre">Procedure.initialize_hardware()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.Procedure.load_config"><code class="docutils literal notranslate"><span class="pre">Procedure.load_config()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.Procedure.define_config"><code class="docutils literal notranslate"><span class="pre">Procedure.define_config()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.Procedure.define_hardware"><code class="docutils literal notranslate"><span class="pre">Procedure.define_hardware()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.Procedure.prerun"><code class="docutils literal notranslate"><span class="pre">Procedure.prerun()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.Procedure.await_trigger"><code class="docutils literal notranslate"><span class="pre">Procedure.await_trigger()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.Procedure.on_started"><code class="docutils literal notranslate"><span class="pre">Procedure.on_started()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.Procedure.on_finished"><code class="docutils literal notranslate"><span class="pre">Procedure.on_finished()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.Procedure.run"><code class="docutils literal notranslate"><span class="pre">Procedure.run()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.Procedure.cleanup"><code class="docutils literal notranslate"><span class="pre">Procedure.cleanup()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.Procedure.launch"><code class="docutils literal notranslate"><span class="pre">Procedure.launch()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.Procedure.run_until_finished"><code class="docutils literal notranslate"><span class="pre">Procedure.run_until_finished()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.Procedure.manifest_extra"><code class="docutils literal notranslate"><span class="pre">Procedure.manifest_extra()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mesofield.base.load_procedure_from_config"><code class="docutils literal notranslate"><span class="pre">load_procedure_from_config()</span></code></a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  
+  <div class="tocsection editthispage">
+    <a href="https://github.com/Gronemeyer/mesofield/edit/main/docs/api/mesofield.base.rst">
+      <i class="fa-solid fa-pencil"></i>
+      
+      
+        
+          Edit on GitHub
+        
+      
+    </a>
+  </div>
+</div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/api/mesofield.base.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2026, Sipe Laboratory, Penn State.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.19.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

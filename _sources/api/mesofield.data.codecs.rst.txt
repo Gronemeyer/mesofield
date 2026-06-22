@@ -1,0 +1,6 @@
+codecs
+======
+
+.. automodule:: mesofield.data.codecs
+   :members:
+   :show-inheritance:

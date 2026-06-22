@@ -1,0 +1,6 @@
+base\_camera
+============
+
+.. automodule:: mesofield.devices.base_camera
+   :members:
+   :show-inheritance:

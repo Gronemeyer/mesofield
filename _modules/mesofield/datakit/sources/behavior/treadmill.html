@@ -1,0 +1,806 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mesofield.datakit.sources.behavior.treadmill &#8212; Mesofield</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../../../_static/styles/theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+<link href="../../../../../_static/styles/pydata-sphinx-theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/custom.css?v=f0c42745" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../../../../_static/scripts/fontawesome.js?digest=a95f357e85573c9b56d5"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../../../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5" />
+<link rel="preload" as="script" href="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5" />
+
+    <script src="../../../../../_static/documentation_options.js?v=d6279c7f"></script>
+    <script src="../../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/mesofield/datakit/sources/behavior/treadmill';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../../../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.4" />
+  
+    
+    <script src="../../../../../_static/searchtools.js"></script>
+    <script src="../../../../../_static/language_data.js"></script>
+    <script src="../../../../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../../../_static/logo.png" class="logo__image only-light" alt=""/>
+    <img src="../../../../../_static/logo.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">MESOFIELD</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../../../index.html" class="nav-link">Module code</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="../../sources.html" class="nav-link">mesofield.datakit.sources</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">mesofield.datakit.sources.behavior.treadmill</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for mesofield.datakit.sources.behavior.treadmill</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Treadmill loader.</span>
+
+<span class="sd">Data is reconstructed entirely from the central ``*_dataqueue.csv`` log: each</span>
+<span class="sd">``EncoderData(timestamp=..., distance=..., speed=...)`` payload row carries the</span>
+<span class="sd">full sample, already published on the master clock via ``queue_elapsed``. The</span>
+<span class="sd">per-session ``*_treadmill.csv`` is only consulted as a fallback when no</span>
+<span class="sd">dataqueue is available for that session (e.g. legacy fixtures used by the</span>
+<span class="sd">``treadmill_csv_fallback`` test).</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.datakit.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">settings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.datakit.sources.register</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoadContext</span><span class="p">,</span> <span class="n">TimeseriesSource</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.datakit.timeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataqueueIndex</span>
+
+
+<div class="viewcode-block" id="TreadmillSource">
+<a class="viewcode-back" href="../../../../../api/mesofield.datakit.sources.behavior.treadmill.html#mesofield.datakit.sources.TreadmillSource">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TreadmillSource</span><span class="p">(</span><span class="n">TimeseriesSource</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load treadmill samples aligned to the experiment window.&quot;&quot;&quot;</span>
+
+    <span class="n">tag</span> <span class="o">=</span> <span class="s2">&quot;treadmill&quot;</span>
+    <span class="c1"># Discovered from either the dataqueue (primary, parsed from EncoderData</span>
+    <span class="c1"># payloads) or — when no dataqueue exists for the session — the standalone</span>
+    <span class="c1"># treadmill CSV.</span>
+    <span class="n">patterns</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;**/*_dataqueue.csv&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;**/*_treadmill.csv&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;**/*_treadmill_data.csv&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">camera_tag</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">requires</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;dataqueue&quot;</span><span class="p">,)</span>
+
+    <span class="n">timestamp_column</span> <span class="o">=</span> <span class="s2">&quot;timestamp&quot;</span>
+    <span class="n">distance_columns</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;distance_mm&quot;</span><span class="p">,</span> <span class="s2">&quot;distance&quot;</span><span class="p">)</span>
+    <span class="n">speed_columns</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;speed_mm&quot;</span><span class="p">,</span> <span class="s2">&quot;speed_mm_s&quot;</span><span class="p">,</span> <span class="s2">&quot;speed&quot;</span><span class="p">)</span>
+    <span class="n">output_distance_column</span> <span class="o">=</span> <span class="s2">&quot;distance_mm&quot;</span>
+    <span class="n">output_speed_column</span> <span class="o">=</span> <span class="s2">&quot;speed_mm&quot;</span>
+    <span class="n">timestamp_to_seconds</span> <span class="o">=</span> <span class="mf">1e-6</span>
+
+    <span class="n">dataqueue_queue_column</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">timeline</span><span class="o">.</span><span class="n">queue_column</span>
+    <span class="n">dataqueue_device_id_column</span> <span class="o">=</span> <span class="s2">&quot;device_id&quot;</span>
+    <span class="n">dataqueue_payload_column</span> <span class="o">=</span> <span class="s2">&quot;payload&quot;</span>
+
+    <span class="n">dataqueue_payload_prefix</span> <span class="o">=</span> <span class="s2">&quot;EncoderData&quot;</span>
+    <span class="n">timeline_master_patterns</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;dhyana&quot;</span><span class="p">,</span> <span class="s2">&quot;mesoscope&quot;</span><span class="p">)</span>
+    <span class="n">_encoder_ts_re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;timestamp\s*=\s*(\d+)&quot;</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">)</span>
+    <span class="n">_encoder_payload_re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+        <span class="sa">r</span><span class="s2">&quot;EncoderData\s*\(&quot;</span>
+        <span class="sa">r</span><span class="s2">&quot;\s*timestamp\s*=\s*(?P&lt;ts&gt;\d+)\s*,&quot;</span>
+        <span class="sa">r</span><span class="s2">&quot;\s*distance\s*=\s*(?P&lt;dist&gt;-?\d+(?:\.\d+)?)&quot;</span>
+        <span class="sa">r</span><span class="s2">&quot;(?:\s*[A-Za-z/]+)?\s*,&quot;</span>
+        <span class="sa">r</span><span class="s2">&quot;\s*speed\s*=\s*(?P&lt;speed&gt;-?\d+(?:\.\d+)?)&quot;</span>
+        <span class="sa">r</span><span class="s2">&quot;(?:\s*[A-Za-z/]+)?\s*\)&quot;</span><span class="p">,</span>
+        <span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">,</span>
+    <span class="p">)</span>
+
+<div class="viewcode-block" id="TreadmillSource.build_timeseries">
+<a class="viewcode-back" href="../../../../../api/mesofield.datakit.sources.behavior.treadmill.html#mesofield.datakit.sources.TreadmillSource.build_timeseries">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_timeseries</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">context</span><span class="p">:</span> <span class="n">LoadContext</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_require_context</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+        <span class="n">dq_path</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">path_for</span><span class="p">(</span><span class="s2">&quot;dataqueue&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Primary path: build from the dataqueue alone — the per-session</span>
+        <span class="c1"># treadmill CSV (if it exists) is ignored.</span>
+        <span class="k">if</span> <span class="n">dq_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">context</span><span class="o">.</span><span class="n">dataqueue_frame</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">aligned</span><span class="p">,</span> <span class="n">meta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_from_dataqueue</span><span class="p">(</span>
+                <span class="n">dq_path</span><span class="o">=</span><span class="n">dq_path</span><span class="p">,</span>
+                <span class="n">dataqueue_frame</span><span class="o">=</span><span class="n">context</span><span class="o">.</span><span class="n">dataqueue_frame</span><span class="p">,</span>
+                <span class="n">window</span><span class="o">=</span><span class="n">context</span><span class="o">.</span><span class="n">experiment_window</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">aligned</span><span class="p">[</span><span class="s2">&quot;time_elapsed_s&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;source_file&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">dq_path</span><span class="p">)</span> <span class="k">if</span> <span class="n">dq_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s2">&quot;dataqueue_file&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">dq_path</span><span class="p">)</span> <span class="k">if</span> <span class="n">dq_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s2">&quot;n_samples&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">aligned</span><span class="p">)),</span>
+                <span class="o">**</span><span class="n">meta</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="k">return</span> <span class="n">t</span><span class="p">,</span> <span class="n">aligned</span><span class="p">,</span> <span class="n">meta</span>
+
+        <span class="c1"># Fallback path: standalone treadmill CSV with no dataqueue available.</span>
+        <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">or</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;_dataqueue.csv&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+                <span class="s2">&quot;TreadmillSource: no dataqueue available and no treadmill CSV path&quot;</span>
+            <span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="n">dist</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">distance_columns</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">speed</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">speed_columns</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp_column</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="ow">or</span> <span class="n">dist</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">speed</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected timestamp/distance/speed columns in </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="n">dist</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_distance_column</span><span class="p">,</span> <span class="n">speed</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_speed_column</span><span class="p">})</span>
+
+        <span class="n">aligned</span><span class="p">,</span> <span class="n">meta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_from_csv_fallback</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">aligned</span><span class="p">[</span><span class="s2">&quot;time_elapsed_s&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;source_file&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span>
+            <span class="s2">&quot;dataqueue_file&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s2">&quot;n_samples&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">aligned</span><span class="p">)),</span>
+            <span class="o">**</span><span class="n">meta</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">t</span><span class="p">,</span> <span class="n">aligned</span><span class="p">,</span> <span class="n">meta</span></div>
+
+
+    <span class="c1"># --- dataqueue path -------------------------------------------------------</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_from_dataqueue</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">dq_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dataqueue_frame</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">window</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+        <span class="n">t0</span><span class="p">,</span> <span class="n">t1</span> <span class="o">=</span> <span class="n">window</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_window</span><span class="p">(</span><span class="n">dq_path</span><span class="p">,</span> <span class="n">dataqueue_frame</span><span class="p">)</span>
+        <span class="n">duration</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">t1</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">duration</span><span class="p">)</span> <span class="ow">or</span> <span class="n">duration</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid camera window duration from dataqueue: start=</span><span class="si">{</span><span class="n">t0</span><span class="si">}</span><span class="s2">, end=</span><span class="si">{</span><span class="n">t1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">samples</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_encoder_samples</span><span class="p">(</span><span class="n">dq_path</span><span class="p">,</span> <span class="n">dataqueue_frame</span><span class="p">)</span>
+        <span class="n">queue_elapsed</span> <span class="o">=</span> <span class="n">samples</span><span class="p">[</span><span class="s2">&quot;queue_elapsed&quot;</span><span class="p">]</span>
+        <span class="n">distance</span> <span class="o">=</span> <span class="n">samples</span><span class="p">[</span><span class="s2">&quot;distance_mm&quot;</span><span class="p">]</span>
+        <span class="n">speed</span> <span class="o">=</span> <span class="n">samples</span><span class="p">[</span><span class="s2">&quot;speed_mm&quot;</span><span class="p">]</span>
+        <span class="n">encoder_ts</span> <span class="o">=</span> <span class="n">samples</span><span class="p">[</span><span class="s2">&quot;encoder_ts&quot;</span><span class="p">]</span>
+
+        <span class="n">time_s</span> <span class="o">=</span> <span class="n">queue_elapsed</span> <span class="o">-</span> <span class="n">t0</span>
+        <span class="n">finite_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">distance</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">speed</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">time_s</span><span class="p">)</span>
+            <span class="o">&amp;</span> <span class="n">finite_vals</span>
+            <span class="o">&amp;</span> <span class="p">(</span><span class="n">time_s</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">)</span>
+            <span class="o">&amp;</span> <span class="p">(</span><span class="n">time_s</span> <span class="o">&lt;=</span> <span class="n">duration</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">mask</span><span class="p">):</span>
+            <span class="c1"># No treadmill samples in this session: return empty DataFrame and meta</span>
+            <span class="n">aligned</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">timestamp_column</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_distance_column</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_speed_column</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
+                <span class="s2">&quot;time_elapsed_s&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
+            <span class="p">})</span>
+            <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;source_method&quot;</span><span class="p">:</span> <span class="s2">&quot;dataqueue_encoder_payload&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;experiment_window&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;start&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">t0</span><span class="p">),</span> <span class="s2">&quot;end&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">t1</span><span class="p">)},</span>
+                <span class="s2">&quot;n_encoder_payloads&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">queue_elapsed</span><span class="o">.</span><span class="n">size</span><span class="p">),</span>
+                <span class="s2">&quot;n_kept&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="k">return</span> <span class="n">aligned</span><span class="p">,</span> <span class="n">meta</span>
+
+        <span class="n">aligned</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">timestamp_column</span><span class="p">:</span> <span class="n">encoder_ts</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_distance_column</span><span class="p">:</span> <span class="n">distance</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_speed_column</span><span class="p">:</span> <span class="n">speed</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span>
+                <span class="s2">&quot;time_elapsed_s&quot;</span><span class="p">:</span> <span class="n">time_s</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="n">aligned</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;time_elapsed_s&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">aligned</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;source_method&quot;</span><span class="p">:</span> <span class="s2">&quot;dataqueue_encoder_payload&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;experiment_window&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;start&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">t0</span><span class="p">),</span> <span class="s2">&quot;end&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">t1</span><span class="p">)},</span>
+            <span class="s2">&quot;n_encoder_payloads&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">queue_elapsed</span><span class="o">.</span><span class="n">size</span><span class="p">),</span>
+            <span class="s2">&quot;n_kept&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">mask</span><span class="p">)),</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">aligned</span><span class="p">,</span> <span class="n">meta</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_encoder_samples</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dq_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dataqueue_frame</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return parallel arrays parsed from EncoderData payloads.</span>
+
+<span class="sd">        Treadmill owns this parsing — the ``dataqueue`` source intentionally</span>
+<span class="sd">        treats payloads as opaque. We use the upstream frame only if the</span>
+<span class="sd">        payload column is still in its original string dtype (which is no</span>
+<span class="sd">        longer the case once ``DataqueueSource`` has run), otherwise we</span>
+<span class="sd">        re-read the raw CSV via ``dq_path``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">dq</span> <span class="o">=</span> <span class="n">dataqueue_frame</span>
+        <span class="k">if</span> <span class="n">dq</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">payload</span> <span class="o">=</span> <span class="n">dq</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataqueue_payload_column</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">payload</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">is_object_dtype</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span> <span class="ow">or</span> <span class="n">pd</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">is_string_dtype</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_dataqueue_payloads</span><span class="p">(</span><span class="n">dq</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dq_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;TreadmillSource: dataqueue payload is not string-typed and no path is &quot;</span>
+                <span class="s2">&quot;available to re-read EncoderData strings&quot;</span>
+            <span class="p">)</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+            <span class="n">dq_path</span><span class="p">,</span>
+            <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">dataqueue_queue_column</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataqueue_payload_column</span><span class="p">],</span>
+            <span class="n">low_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_dataqueue_payloads</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_dataqueue_payloads</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dq</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dataqueue_payload_column</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dq</span><span class="o">.</span><span class="n">columns</span>
+            <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataqueue_queue_column</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dq</span><span class="o">.</span><span class="n">columns</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Dataqueue frame missing payload or queue_elapsed column&quot;</span><span class="p">)</span>
+
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">dq</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">dataqueue_payload_column</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataqueue_payload_prefix</span><span class="p">,</span> <span class="n">na</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">mask</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No EncoderData payloads found in dataqueue&quot;</span><span class="p">)</span>
+
+        <span class="n">sub_payloads</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">queue_full</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">dq</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">mask</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataqueue_queue_column</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+        <span class="n">ts_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">dist_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">speed_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">q_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">value</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">sub_payloads</span><span class="p">,</span> <span class="n">queue_full</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_encoder_payload_re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">value</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">m</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">ts_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;ts&quot;</span><span class="p">))))</span>
+            <span class="n">dist_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;dist&quot;</span><span class="p">)))</span>
+            <span class="n">speed_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;speed&quot;</span><span class="p">)))</span>
+            <span class="n">q_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">q</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ts_list</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No parseable EncoderData payloads in dataqueue&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;queue_elapsed&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">q_list</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
+            <span class="s2">&quot;encoder_ts&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ts_list</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
+            <span class="s2">&quot;distance_mm&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">dist_list</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
+            <span class="s2">&quot;speed_mm&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">speed_list</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_window</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dq_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dataqueue_frame</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+        <span class="n">dq</span> <span class="o">=</span> <span class="n">dataqueue_frame</span>
+        <span class="k">if</span> <span class="n">dq</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">dq_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="s2">&quot;TreadmillSource: dataqueue path not available&quot;</span><span class="p">)</span>
+            <span class="n">dq</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+                <span class="n">dq_path</span><span class="p">,</span>
+                <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">dataqueue_queue_column</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataqueue_device_id_column</span><span class="p">],</span>
+                <span class="n">low_memory</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">dq</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataqueue_device_id_column</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">str</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dq</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeline_master_patterns</span><span class="p">:</span>
+            <span class="n">mask</span> <span class="o">|=</span> <span class="n">device</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">case</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">na</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">regex</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+        <span class="n">rows</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">dq</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">mask</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataqueue_queue_column</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Could not find &gt;=2 master camera rows in dataqueue&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">rows</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">rows</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1"># --- CSV-only fallback ----------------------------------------------------</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_from_csv_fallback</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">treadmill_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">treadmill_df</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">timestamp_column</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">finite</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">finite</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No valid treadmill timestamp samples&quot;</span><span class="p">)</span>
+
+        <span class="n">aligned</span> <span class="o">=</span> <span class="n">treadmill_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">finite</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">ts</span><span class="p">[</span><span class="n">finite</span><span class="p">]</span>
+        <span class="n">ts_i64</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">rint</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+
+        <span class="n">unwrapped</span> <span class="o">=</span> <span class="n">DataqueueIndex</span><span class="o">.</span><span class="n">fix_32bit_wraparound</span><span class="p">(</span><span class="n">ts_i64</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="c1"># If the file contains a wrap, samples after the wrap may be out of order.</span>
+        <span class="c1"># Sort by unwrapped timestamp before computing elapsed time.</span>
+        <span class="n">sort_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">unwrapped</span><span class="p">)</span>
+        <span class="n">unwrapped</span> <span class="o">=</span> <span class="n">unwrapped</span><span class="p">[</span><span class="n">sort_idx</span><span class="p">]</span>
+        <span class="n">aligned</span> <span class="o">=</span> <span class="n">aligned</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">sort_idx</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">elapsed</span> <span class="o">=</span> <span class="n">DataqueueIndex</span><span class="o">.</span><span class="n">relative</span><span class="p">(</span><span class="n">unwrapped</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp_to_seconds</span>
+        <span class="n">aligned</span><span class="p">[</span><span class="s2">&quot;_elapsed&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">elapsed</span>
+
+        <span class="n">aligned</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">output_distance_column</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span>
+            <span class="n">aligned</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">output_distance_column</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span>
+        <span class="p">)</span>
+        <span class="n">aligned</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">output_speed_column</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span>
+            <span class="n">aligned</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">output_speed_column</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span>
+        <span class="p">)</span>
+        <span class="n">aligned</span> <span class="o">=</span> <span class="n">aligned</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span>
+            <span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">output_distance_column</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_speed_column</span><span class="p">,</span> <span class="s2">&quot;_elapsed&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">aligned</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Treadmill fallback produced no finite elapsed samples&quot;</span><span class="p">)</span>
+
+        <span class="n">elapsed</span> <span class="o">=</span> <span class="n">aligned</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;_elapsed&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">elapsed</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">keep</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(([</span><span class="kc">True</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">elapsed</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="n">aligned</span> <span class="o">=</span> <span class="n">aligned</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">elapsed</span> <span class="o">=</span> <span class="n">elapsed</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">elapsed</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Treadmill fallback produced no usable samples after cleaning&quot;</span><span class="p">)</span>
+
+        <span class="n">aligned</span><span class="p">[</span><span class="s2">&quot;time_elapsed_s&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">elapsed</span>
+        <span class="n">aligned</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;time_elapsed_s&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">aligned</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">aligned</span><span class="p">,</span> <span class="p">{</span>
+            <span class="s2">&quot;source_method&quot;</span><span class="p">:</span> <span class="s2">&quot;treadmill_csv_fallback&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;experiment_window&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s2">&quot;alignment&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../../../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5"></script>
+<script defer src="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2026, Sipe Laboratory, Penn State.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.19.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

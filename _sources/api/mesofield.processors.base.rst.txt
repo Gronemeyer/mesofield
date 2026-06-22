@@ -1,0 +1,6 @@
+base
+====
+
+.. automodule:: mesofield.processors.base
+   :members:
+   :show-inheritance:

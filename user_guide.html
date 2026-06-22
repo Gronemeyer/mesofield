@@ -1,0 +1,728 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>User Guide &#8212; Mesofield</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=f0c42745" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="_static/scripts/fontawesome.js?digest=a95f357e85573c9b56d5"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5" />
+
+    <script src="_static/documentation_options.js?v=d6279c7f"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user_guide';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="_static/favicon.png"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Developer Guide" href="developer_guide.html" />
+    <link rel="prev" title="Tutorial" href="tutorial.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.4" />
+  
+    
+    <script src="_static/searchtools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/logo.png" class="logo__image only-light" alt=""/>
+    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">MESOFIELD</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="#">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="#">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item pst-sidebar-collapse"><button id="pst-collapse-sidebar-button" aria-expanded="true" aria-controls="pst-primary-sidebar"><svg class="pst-icon svg-inline--fa" role="img" aria-hidden="true" focusable="false" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path fill="currentColor" d="M3 15.5C2.36232 15.5 1.74874 15.2564 1.28478 14.8189C0.820828 14.3815 0.541576 13.7832 0.504167 13.1467L0.5 13L0.5 3C0.499965 2.36232 0.743605 1.74874 1.18107 1.28478C1.61854 0.820828 2.21676 0.541576 2.85333 0.504167L3 0.5L13 0.5C13.6377 0.499965 14.2513 0.743605 14.7152 1.18107C15.1792 1.61854 15.4584 2.21676 15.4958 2.85333L15.5 3L15.5 13C15.5 13.6377 15.2564 14.2513 14.8189 14.7152C14.3815 15.1792 13.7832 15.4584 13.1467 15.4958L13 15.5L3 15.5ZM3 13.8333L10.5 13.8333L10.5 2.16667L3 2.16667C2.79589 2.16669 2.59889 2.24163 2.44636 2.37726C2.29383 2.5129 2.19638 2.69979 2.1725 2.9025L2.16667 3L2.16667 13C2.16669 13.2041 2.24163 13.4011 2.37726 13.5536C2.5129 13.7062 2.69979 13.8036 2.9025 13.8275L3 13.8333ZM6.65583 10.325L6.5775 10.2558L4.91083 8.58917C4.76735 8.44567 4.68116 8.25476 4.66843 8.05223C4.65569 7.84971 4.71729 7.6495 4.84167 7.48917L4.91083 7.41083L6.5775 5.74417C6.72747 5.59471 6.9287 5.50794 7.14032 5.50148C7.35194 5.49502 7.55809 5.56935 7.7169 5.70937C7.8757 5.8494 7.97525 6.04463 7.99533 6.25539C8.01541 6.46616 7.95451 6.67667 7.825 6.84417L7.75583 6.9225L6.67917 8L7.75583 9.0775C7.89931 9.22099 7.98551 9.41191 7.99824 9.61443C8.01097 9.81695 7.94938 10.0172 7.825 10.1775L7.75583 10.2558C7.61234 10.3993 7.42142 10.4855 7.2189 10.4982C7.01638 10.511 6.81617 10.4494 6.65583 10.325Z"/>
+  </svg>
+  <span class="pst-collapse-sidebar-label">Collapse Sidebar</span>
+  <span class="pst-expand-sidebar-label">Expand Sidebar</span>
+</button></div>
+        <div class="sidebar-primary-item">
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"></div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">User Guide</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="user-guide">
+<h1>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading">#</a></h1>
+<p>This guide is for <strong>experimenters</strong> — people running acquisitions on a
+configured rig. If you’re writing a new device class or subclassing
+<code class="docutils literal notranslate"><span class="pre">Procedure</span></code>, see the <a class="reference internal" href="developer_guide.html"><span class="std std-doc">Developer Guide</span></a> instead.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
+<p>A mesofield experiment is described by up to two files:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>Owns</p></th>
+<th class="head"><p>Usually edited by</p></th>
+<th class="head"><p>Required?</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">hardware.yaml</span></code></p></td>
+<td><p>What devices exist on this rig and how to talk to them</p></td>
+<td><p>Rig maintainer (one-time per machine)</p></td>
+<td><p>Yes — the rig you launch</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">experiment.json</span></code></p></td>
+<td><p>Subjects, sessions, protocol, duration</p></td>
+<td><p>Experimenter (per study / per day)</p></td>
+<td><p>Optional — load it, author it in the GUI, or script it</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">hardware.yaml</span></code> is all you need to launch. The <code class="docutils literal notranslate"><span class="pre">mesofield</span></code> CLI brings up
+the GUI and orchestrates the acquisition; experiment parameters can be loaded,
+authored in the Configuration Wizard, or supplied by a scripted <code class="docutils literal notranslate"><span class="pre">Procedure</span></code>.</p>
+</section>
+<section id="launching-an-acquisition">
+<h2>Launching an acquisition<a class="headerlink" href="#launching-an-acquisition" title="Link to this heading">#</a></h2>
+<p>Point the CLI at your rig. The argument can be a <code class="docutils literal notranslate"><span class="pre">hardware.yaml</span></code> (rig only),
+an <code class="docutils literal notranslate"><span class="pre">experiment.json</span></code> (its adjacent <code class="docutils literal notranslate"><span class="pre">hardware.yaml</span></code> is auto-detected), a
+scripted <code class="docutils literal notranslate"><span class="pre">procedure.py</span></code>, or a directory containing them:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mesofield<span class="w"> </span>launch<span class="w"> </span>path/to/hardware.yaml<span class="w">       </span><span class="c1"># rig only — author params in the GUI</span>
+mesofield<span class="w"> </span>launch<span class="w"> </span>path/to/experiment.json<span class="w">     </span><span class="c1"># rig + params</span>
+python<span class="w"> </span>-m<span class="w"> </span>mesofield<span class="w"> </span>launch<span class="w"> </span>path/to/hardware.yaml<span class="w">   </span><span class="c1"># module entry point, equivalent</span>
+</pre></div>
+</div>
+<p>This opens the main acquisition window with hardware initialised. When an
+<code class="docutils literal notranslate"><span class="pre">experiment.json</span></code> is supplied its parameters populate the form; otherwise use
+the Configuration Wizard to load or author one.</p>
+</section>
+<section id="experiment-configuration-experiment-json">
+<h2>Experiment configuration (<code class="docutils literal notranslate"><span class="pre">experiment.json</span></code>)<a class="headerlink" href="#experiment-configuration-experiment-json" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;Configuration&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;experimenter&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;you&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;protocol&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HFSA&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;experiment_directory&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/where/mesofield/writes_outputs&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;duration&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1000</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;Subjects&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;STREHAB07&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;sex&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;F&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;session&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;01&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;task&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mesoscope&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;DisplayKeys&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="s2">&quot;subject&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;session&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;task&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;experimenter&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;protocol&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;duration&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;start_on_trigger&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;led_pattern&quot;</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Field notes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">experiment_directory</span></code> and <code class="docutils literal notranslate"><span class="pre">hardware_config_file</span></code> are optional — both
+default to siblings of the JSON file’s parent directory.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">duration</span></code> is in seconds. The MDA sequence builds
+<code class="docutils literal notranslate"><span class="pre">duration</span> <span class="pre">×</span> <span class="pre">camera.fps</span></code> frames.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Subjects</span></code> keys become BIDS <code class="docutils literal notranslate"><span class="pre">sub-&lt;key&gt;</span></code> directories under
+<code class="docutils literal notranslate"><span class="pre">experiment_directory/data/</span></code>. <code class="docutils literal notranslate"><span class="pre">session</span></code> and <code class="docutils literal notranslate"><span class="pre">task</span></code> become <code class="docutils literal notranslate"><span class="pre">ses-&lt;id&gt;</span></code>
+and <code class="docutils literal notranslate"><span class="pre">task-&lt;id&gt;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DisplayKeys</span></code> decides which fields appear in the editable form in the
+GUI. Edits persist back to <code class="docutils literal notranslate"><span class="pre">experiment.json</span></code> when the run completes
+(or via the <strong>Save</strong> button).</p></li>
+<li><p>Anything you add to the JSON outside of these reserved keys is
+preserved on save.</p></li>
+</ul>
+</section>
+<section id="the-acquisition-window">
+<h2>The acquisition window<a class="headerlink" href="#the-acquisition-window" title="Link to this heading">#</a></h2>
+<p>The window has three regions:</p>
+<ol class="arabic simple">
+<li><p><strong>Live Viewer (top-left)</strong> — per-camera snap / live / progress
+panels. The mesoscope view sits next to the pupil view by default.</p></li>
+<li><p><strong>Configuration form (top-right)</strong> — the <code class="docutils literal notranslate"><span class="pre">DisplayKeys</span></code> you declared,
+plus a subject selector, <strong>Record</strong>, <strong>Add Note</strong>, and dynamic
+hardware controls (LED test, NIDAQ pulse, etc.) for whatever your
+<code class="docutils literal notranslate"><span class="pre">hardware.yaml</span></code> requested.</p></li>
+<li><p><strong>Encoder / processor plots (bottom)</strong> — live traces of any frame
+processor with <code class="docutils literal notranslate"><span class="pre">plot=True</span></code> and any encoder / serial device with
+<code class="docutils literal notranslate"><span class="pre">start_live_view</span></code> enabled.</p></li>
+</ol>
+<p>The <strong>Toggle Console</strong> action in the toolbar opens an embedded IPython
+shell with the live <code class="docutils literal notranslate"><span class="pre">procedure</span></code> bound — handy for inspecting state
+mid-run.</p>
+</section>
+<section id="notes-during-a-run">
+<h2>Notes during a run<a class="headerlink" href="#notes-during-a-run" title="Link to this heading">#</a></h2>
+<p>Click <strong>Add Note</strong> at any time. Notes are timestamped and saved to
+<code class="docutils literal notranslate"><span class="pre">data/sub-&lt;id&gt;/ses-&lt;id&gt;/notes.json</span></code> when the run completes.</p>
+</section>
+<section id="what-ends-up-on-disk">
+<h2>What ends up on disk<a class="headerlink" href="#what-ends-up-on-disk" title="Link to this heading">#</a></h2>
+<p>After a run, your experiment directory looks like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">experiment_dir</span><span class="o">&gt;/</span>
+    <span class="n">experiment</span><span class="o">.</span><span class="n">json</span>               <span class="c1"># updated with any DisplayKeys edits</span>
+    <span class="n">hardware</span><span class="o">.</span><span class="n">yaml</span>
+    <span class="n">data</span><span class="o">/</span>
+        <span class="n">sub</span><span class="o">-&lt;</span><span class="nb">id</span><span class="o">&gt;/</span>
+            <span class="n">ses</span><span class="o">-&lt;</span><span class="nb">id</span><span class="o">&gt;/</span>
+                <span class="n">manifest</span><span class="o">.</span><span class="n">json</span>     <span class="c1"># AcquisitionManifest — the contract</span>
+                <span class="n">notes</span><span class="o">.</span><span class="n">json</span>
+                <span class="o">&lt;</span><span class="n">task</span><span class="o">&gt;/</span>
+                    <span class="o">*</span><span class="n">_meso</span><span class="o">.</span><span class="n">ome</span><span class="o">.</span><span class="n">tiff</span>
+                    <span class="o">*</span><span class="n">_meso_frame_metadata</span><span class="o">.</span><span class="n">json</span>
+                    <span class="o">*</span><span class="n">_pupil</span><span class="o">.</span><span class="n">mp4</span>
+                    <span class="o">*</span><span class="n">_pupil_frame_metadata</span><span class="o">.</span><span class="n">json</span>
+                    <span class="o">*</span><span class="n">_wheel</span><span class="o">.</span><span class="n">csv</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">manifest.json</span></code> is a typed <code class="docutils literal notranslate"><span class="pre">AcquisitionManifest</span></code> (from
+<code class="docutils literal notranslate"><span class="pre">mesokit-schema</span></code>) describing every producer, its output path, its
+metadata sidecar, and any calibration constants. Downstream analysis
+tools read the manifest instead of globbing.</p>
+</section>
+<section id="embedded-ipython-console">
+<h2>Embedded IPython console<a class="headerlink" href="#embedded-ipython-console" title="Link to this heading">#</a></h2>
+<p>Toolbar → <strong>Toggle Console</strong>. The kernel pre-binds:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">self</span></code> — the main window (<code class="docutils literal notranslate"><span class="pre">MainWindow</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">procedure</span></code> — the active <a class="reference internal" href="#api/generated/mesofield.base"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">Procedure</span></code></span></a></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data</span></code> — the <a class="reference internal" href="#api/generated/mesofield.data"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">mesofield.data</span></code></span></a> package</p></li>
+</ul>
+<p>Common one-liners:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">procedure</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>                    <span class="c1"># all configuration values</span>
+<span class="n">procedure</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;duration&quot;</span><span class="p">,</span> <span class="mi">600</span><span class="p">)</span>       <span class="c1"># change the run length</span>
+<span class="n">procedure</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">cameras</span>                  <span class="c1"># list configured cameras</span>
+<span class="n">procedure</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">primary</span>                  <span class="c1"># the camera that drives MDA</span>
+<span class="n">procedure</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">procedure_started</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">my_callback</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="logging">
+<h2>Logging<a class="headerlink" href="#logging" title="Link to this heading">#</a></h2>
+<p>All application logs flow through one <code class="docutils literal notranslate"><span class="pre">loguru</span></code> logger and land in:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">logs</span><span class="o">/</span><span class="n">mesofield</span><span class="o">.</span><span class="n">log</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Rotates <strong>daily at midnight</strong>.</p></li>
+<li><p>The console shows colourised logs at <code class="docutils literal notranslate"><span class="pre">INFO</span></code>; the file captures
+everything down to <code class="docutils literal notranslate"><span class="pre">DEBUG</span></code>.</p></li>
+<li><p>Uncaught exceptions are routed through the same hook so crashes leave
+a trail.</p></li>
+<li><p>Chatty third-party libraries (<code class="docutils literal notranslate"><span class="pre">matplotlib</span></code>, <code class="docutils literal notranslate"><span class="pre">asyncio</span></code>, <code class="docutils literal notranslate"><span class="pre">traitlets</span></code>)
+are pinned at <code class="docutils literal notranslate"><span class="pre">WARNING</span></code> or above.</p></li>
+</ul>
+<p>To change the location or verbosity, see
+<a class="reference internal" href="#api/generated/mesofield.utils"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">mesofield/utils/_logger.py</span></code></span></a>.</p>
+</section>
+<section id="system-requirements">
+<h2>System requirements<a class="headerlink" href="#system-requirements" title="Link to this heading">#</a></h2>
+<p>Mesofield is tested on Windows 10/11. For multi-camera acquisition with
+large files we recommend:</p>
+<ul class="simple">
+<li><p>≥ 32 GB RAM</p></li>
+<li><p>12th-gen Intel i7 or equivalent</p></li>
+<li><p>Fast local storage (NVMe SSD) for the experiment directory</p></li>
+</ul>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#launching-an-acquisition">Launching an acquisition</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#experiment-configuration-experiment-json">Experiment configuration (<code class="docutils literal notranslate"><span class="pre">experiment.json</span></code>)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-acquisition-window">The acquisition window</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#notes-during-a-run">Notes during a run</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-ends-up-on-disk">What ends up on disk</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#embedded-ipython-console">Embedded IPython console</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#logging">Logging</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#system-requirements">System requirements</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  
+  <div class="tocsection editthispage">
+    <a href="https://github.com/Gronemeyer/mesofield/edit/main/docs/user_guide.md">
+      <i class="fa-solid fa-pencil"></i>
+      
+      
+        
+          Edit on GitHub
+        
+      
+    </a>
+  </div>
+</div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="_sources/user_guide.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2026, Sipe Laboratory, Penn State.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.19.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

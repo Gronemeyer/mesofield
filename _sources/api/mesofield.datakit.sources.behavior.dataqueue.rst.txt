@@ -1,0 +1,6 @@
+dataqueue
+=========
+
+.. automodule:: mesofield.datakit.sources.behavior.dataqueue
+   :members:
+   :show-inheritance:

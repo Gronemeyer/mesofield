@@ -1,0 +1,6 @@
+hardware
+========
+
+.. automodule:: mesofield.hardware
+   :members:
+   :show-inheritance:

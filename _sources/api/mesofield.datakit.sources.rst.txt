@@ -1,0 +1,22 @@
+sources
+=======
+
+.. automodule:: mesofield.datakit.sources
+   :members:
+   :show-inheritance:
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 1
+
+   mesofield.datakit.sources.behavior
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   mesofield.datakit.sources.register

@@ -1,0 +1,1437 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mesofield.base &#8212; Mesofield</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=f0c42745" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=a95f357e85573c9b56d5"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5" />
+
+    <script src="../../_static/documentation_options.js?v=d6279c7f"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/mesofield/base';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.4" />
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/logo.png" class="logo__image only-light" alt=""/>
+    <img src="../../_static/logo.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">MESOFIELD</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">mesofield.base</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for mesofield.base</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Base procedure classes for implementing experimental workflows in Mesofield.</span>
+
+<span class="sd">This module defines a *generic* :class:`Procedure` orchestrator that contains</span>
+<span class="sd">zero device-specific logic.  Custom experiment subclasses live outside the</span>
+<span class="sd">package (typically under ``experiments/&lt;name&gt;/procedure.py``) and are</span>
+<span class="sd">discovered via :func:`load_procedure_from_config`, which reads the optional</span>
+<span class="sd">``procedure_file`` and ``procedure_class`` fields from ``experiment.json``.</span>
+
+<span class="sd">Lifecycle (subclass hooks shown in **bold**):</span>
+
+<span class="sd">1. ``initialize_hardware``  -- bring devices up</span>
+<span class="sd">2. ``prerun``               -- **subclass hook** (default: no-op)</span>
+<span class="sd">3. ``hardware.arm_all``     -- per-run prep on every device</span>
+<span class="sd">4. connect ``hardware.primary.signals.finished`` -&gt; ``_cleanup_procedure``</span>
+<span class="sd">5. ``on_started``           -- **subclass hook** (default: no-op)</span>
+<span class="sd">6. ``hardware.start_all``</span>
+<span class="sd">7. ``on_finished``          -- **subclass hook** (default: no-op)</span>
+<span class="sd">8. ``save_data`` + cleanup</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">importlib.util</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">uuid</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">PyQt6.QtCore</span><span class="w"> </span><span class="kn">import</span> <span class="n">QObject</span><span class="p">,</span> <span class="n">pyqtSignal</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesokit_schema</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AcquisitionManifest</span><span class="p">,</span>
+    <span class="n">DataqueuePayloadSchema</span><span class="p">,</span>
+    <span class="n">ProducerEntry</span><span class="p">,</span>
+    <span class="n">SessionIdentity</span><span class="p">,</span>
+    <span class="n">SidecarEntry</span><span class="p">,</span>
+    <span class="n">TimeBasis</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExperimentConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.data.manager</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataManager</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mesofield._version</span><span class="w"> </span><span class="kn">import</span> <span class="n">__version__</span> <span class="k">as</span> <span class="n">_MESOFIELD_VERSION</span>
+<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="n">_MESOFIELD_VERSION</span> <span class="o">=</span> <span class="s2">&quot;0.0.0+unknown&quot;</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.hardware</span><span class="w"> </span><span class="kn">import</span> <span class="n">HardwareManager</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.utils._logger</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_logger</span><span class="p">,</span> <span class="n">hyperlink</span>
+
+
+<div class="viewcode-block" id="processor">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.processor">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">processor</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">camera</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">plot</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">plot_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mark a :class:`Procedure` method as a per-frame compute function.</span>
+
+<span class="sd">    The decorated function is called as ``func(self, img, idx, ts)`` and</span>
+<span class="sd">    should return a ``float | None``.  At procedure init the framework</span>
+<span class="sd">    builds a :class:`~mesofield.processors.FrameProcessor` that wraps it,</span>
+<span class="sd">    attaches it to the hardware device whose ``device_id`` matches</span>
+<span class="sd">    ``camera``, registers it on :class:`~mesofield.data.manager.DataManager`,</span>
+<span class="sd">    and (when ``plot=True``) tells the GUI to add a</span>
+<span class="sd">    :class:`~mesofield.gui.speedplotter.SerialWidget`.</span>
+
+<span class="sd">    ``plot_kwargs`` are forwarded straight to the widget — recognized</span>
+<span class="sd">    keys: ``label``, ``value_label``, ``value_units``, ``y_range``,</span>
+<span class="sd">    ``value_scale``, ``max_points``.</span>
+
+<span class="sd">    Example::</span>
+
+<span class="sd">        class MyProcedure(Procedure):</span>
+<span class="sd">            @processor(camera=&quot;meso&quot;, plot=True, label=&quot;Frame Mean&quot;)</span>
+<span class="sd">            def frame_mean(self, img, idx, ts):</span>
+<span class="sd">                return float(img.mean())</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrap</span><span class="p">(</span><span class="n">fn</span><span class="p">):</span>
+        <span class="n">fn</span><span class="o">.</span><span class="n">_mesofield_processor</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;camera&quot;</span><span class="p">:</span> <span class="n">camera</span><span class="p">,</span>
+            <span class="s2">&quot;plot&quot;</span><span class="p">:</span> <span class="n">plot</span><span class="p">,</span>
+            <span class="s2">&quot;plot_kwargs&quot;</span><span class="p">:</span> <span class="n">plot_kwargs</span><span class="p">,</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">fn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">fn</span>
+    <span class="k">return</span> <span class="n">wrap</span></div>
+
+
+
+<div class="viewcode-block" id="ProcedureSignals">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.ProcedureSignals">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ProcedureSignals</span><span class="p">(</span><span class="n">QObject</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;All procedure-level signals that a Qt GUI can connect to.&quot;&quot;&quot;</span>
+    <span class="n">procedure_started</span>      <span class="o">=</span> <span class="n">pyqtSignal</span><span class="p">()</span>
+    <span class="n">hardware_initialized</span>   <span class="o">=</span> <span class="n">pyqtSignal</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>     <span class="c1"># success</span>
+    <span class="n">data_saved</span>             <span class="o">=</span> <span class="n">pyqtSignal</span><span class="p">()</span>
+    <span class="n">procedure_error</span>        <span class="o">=</span> <span class="n">pyqtSignal</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>      <span class="c1"># emits error message</span>
+    <span class="n">procedure_finished</span>     <span class="o">=</span> <span class="n">pyqtSignal</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="Procedure">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.Procedure">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Procedure</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generic orchestrator for a Mesofield experiment.</span>
+
+<span class="sd">    Subclass this in ``experiments/&lt;name&gt;/procedure.py`` and override the</span>
+<span class="sd">    extension hooks (:meth:`prerun`, :meth:`on_started`, :meth:`on_finished`)</span>
+<span class="sd">    and/or the lifecycle methods (:meth:`run`, :meth:`save_data`,</span>
+<span class="sd">    :meth:`cleanup`) as needed.  The base class never references a specific</span>
+<span class="sd">    device type -- multi-camera sync is driven by the YAML ``primary: true``</span>
+<span class="sd">    flag and ``HardwareManager.start_all/stop_all``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># When True (set on subclasses like PlaybackProcedure), `run`/`cleanup`</span>
+    <span class="c1"># skip writer/queue-logger/manifest side effects so the on-disk session</span>
+    <span class="c1"># is left untouched.</span>
+    <span class="n">playback</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># When True (default), a positive ``duration`` (seconds) in the config caps</span>
+    <span class="c1"># the run: the base class arms a wall-clock timer after ``start_all`` and</span>
+    <span class="c1"># stops the run when it elapses. Devices that terminate on their own stop </span>
+    <span class="c1"># the run early via the primary&#39;s ``finished`` signal; whichever fires first wins. </span>
+    <span class="c1"># Set ``False`` on a subclass when the primary runs a bounded acquisition </span>
+    <span class="c1"># (e.g. an MDA camera capturing an exact frame count) that must complete regardless of wall time.</span>
+    <span class="n">stop_after_duration</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+
+<div class="viewcode-block" id="Procedure.__init__">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.Procedure.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">hardware</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">experiment</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">experiment_directory</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a procedure.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        hardware:</span>
+<span class="sd">            Either a path to a ``hardware.yaml`` rig file, **or** a list of</span>
+<span class="sd">            already-constructed device objects, e.g.::</span>
+
+<span class="sd">                proc = Procedure(hardware=[LickDetector(port=&quot;COM3&quot;)], ...)</span>
+
+<span class="sd">            A single device is automatically the primary, so one-device</span>
+<span class="sd">            scripts never set ``primary=True``. ``None`` falls back to the</span>
+<span class="sd">            :meth:`define_hardware` hook.</span>
+<span class="sd">        experiment:</span>
+<span class="sd">            Path to an ``experiment.json`` parameter file (or ``None``).</span>
+<span class="sd">        experiment_directory:</span>
+<span class="sd">            Where acquisition data is written (``&lt;dir&gt;/data/sub-.../ses-...``).</span>
+<span class="sd">            This is the simplest way for a standalone script to choose its</span>
+<span class="sd">            output location; relative paths resolve against the current working</span>
+<span class="sd">            directory. Overrides any value from ``define_config`` / JSON.</span>
+<span class="sd">        **params:</span>
+<span class="sd">            Any other experiment parameters (``subject``, ``session``,</span>
+<span class="sd">            ``task``, ``duration``, ...) set straight onto the config. These</span>
+<span class="sd">            also override ``define_config`` / JSON, so a script can stay a</span>
+<span class="sd">            single ``Procedure(...)`` call with no ``define_config`` override.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Initialize the processor registry before anything else so the</span>
+        <span class="c1"># ``__setattr__`` hook can run safely from the first assignment on.</span>
+        <span class="c1"># We bypass the hook itself with object.__setattr__ to avoid the</span>
+        <span class="c1"># isinstance import dance on a guaranteed-non-processor value.</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;processors&quot;</span><span class="p">,</span> <span class="p">[])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">events</span> <span class="o">=</span> <span class="n">ProcedureSignals</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_finished_event</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">procedure_finished</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_finished_event</span><span class="o">.</span><span class="n">set</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">procedure_error</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="k">lambda</span> <span class="n">_msg</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_finished_event</span><span class="o">.</span><span class="n">set</span><span class="p">())</span>
+
+        <span class="c1"># Wall-clock duration cap (see `stop_after_duration`) and a one-shot</span>
+        <span class="c1"># guard so the timer and the primary device&#39;s `finished` signal can</span>
+        <span class="c1"># both target cleanup without it running twice.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_duration_timer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">threading</span><span class="o">.</span><span class="n">Timer</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cleanup_started</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="c1"># `hardware` is either a path to a hardware.yaml rig or a list of</span>
+        <span class="c1"># pre-built device objects. Keep the path (if any) for ExperimentConfig;</span>
+        <span class="c1"># a device list is handed to a HardwareManager below.</span>
+        <span class="n">hardware_path</span> <span class="o">=</span> <span class="n">hardware</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">hardware</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">scripted_devices</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="kc">None</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">hardware</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">)))</span> <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">hardware</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># The rig (hardware.yaml) is the anchor; experiment params are optional</span>
+        <span class="c1"># and never touch hardware state.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">ExperimentConfig</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">ExperimentConfig</span><span class="p">(</span><span class="n">hardware_path</span><span class="p">)</span>
+
+        <span class="c1"># Scripted config: a subclass may declare parameters in Python</span>
+        <span class="c1"># (a dataclass or mapping) instead of an experiment.json file.</span>
+        <span class="n">config_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">define_config</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">config_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">load_dict</span><span class="p">(</span><span class="n">config_data</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">experiment</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">load_json</span><span class="p">(</span><span class="n">experiment</span><span class="p">)</span>
+
+        <span class="c1"># Explicit constructor arguments win over define_config / JSON, so a</span>
+        <span class="c1"># standalone script can set everything in one readable call.</span>
+        <span class="k">if</span> <span class="n">experiment_directory</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_dir</span> <span class="o">=</span> <span class="n">experiment_directory</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+        <span class="c1"># Scripted hardware: devices passed to the constructor (``hardware=[...]``)</span>
+        <span class="c1"># win; otherwise fall back to the :meth:`define_hardware` hook.</span>
+        <span class="k">if</span> <span class="n">scripted_devices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">scripted_devices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">define_hardware</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">scripted_devices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">scripted_devices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">scripted_devices</span><span class="p">)</span>
+            <span class="c1"># A lone device is the primary by default, so single-device scripts</span>
+            <span class="c1"># don&#39;t have to flag ``primary=True``.</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="nb">len</span><span class="p">(</span><span class="n">scripted_devices</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+                <span class="ow">and</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">scripted_devices</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;is_primary&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="n">scripted_devices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">is_primary</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">hardware</span> <span class="o">=</span> <span class="n">HardwareManager</span><span class="p">(</span><span class="n">devices</span><span class="o">=</span><span class="n">scripted_devices</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;protocol&quot;</span><span class="p">,</span> <span class="s2">&quot;default_experiment&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experimenter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;experimenter&quot;</span><span class="p">,</span> <span class="s2">&quot;researcher&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data_dir</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stopped_time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PROCEDURE.</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Initialized procedure: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">is_configured</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">initialize_hardware</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">_configure_engines</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_materialize_decorated_processors</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Hardware not configured yet -- launch in default state. &quot;</span>
+                <span class="s2">&quot;Use load_config() to apply a configuration.&quot;</span>
+            <span class="p">)</span></div>
+
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Convenience accessors</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">paths</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s1">&#39;datapaths&#39;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hardware</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HardwareManager</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">hardware</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Hardware bring-up</span>
+
+<div class="viewcode-block" id="Procedure.initialize_hardware">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.Procedure.initialize_hardware">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_hardware</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Boot up hardware and a :class:`DataManager`.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">DataManager</span><span class="p">()</span>
+            <span class="c1"># Register devices eagerly so iPython terminals and GUI inspectors</span>
+            <span class="c1"># see them on `procedure.data.devices` before run() is called.</span>
+            <span class="c1"># `Procedure.run()` short-circuits the re-registration via its</span>
+            <span class="c1"># `if not self.data.devices:` guard.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">register_devices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">devices</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Hardware initialized successfully&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to initialize hardware: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">deinitialize</span><span class="p">()</span>
+            <span class="k">raise</span></div>
+
+
+<div class="viewcode-block" id="Procedure.load_config">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.Procedure.load_config">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hardware</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">experiment</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Hot-load a hardware YAML and/or experiment JSON into the live config.</span>
+
+<span class="sd">        The two inputs are independent: loading experiment params never touches</span>
+<span class="sd">        hardware. Callers pass explicit paths (the GUI wizard resolves them from</span>
+<span class="sd">        its pickers).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">hardware</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">load_hardware</span><span class="p">(</span><span class="n">hardware</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">experiment</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">load_json</span><span class="p">(</span><span class="n">experiment</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">protocol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;protocol&quot;</span><span class="p">,</span> <span class="s2">&quot;default_experiment&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experimenter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;experimenter&quot;</span><span class="p">,</span> <span class="s2">&quot;researcher&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data_dir</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">is_configured</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">initialize_hardware</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">_configure_engines</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_materialize_decorated_processors</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">hardware_initialized</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">is_configured</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Configuration hot-loaded successfully&quot;</span><span class="p">)</span></div>
+
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Processor auto-discovery</span>
+    <span class="c1">#</span>
+    <span class="c1"># Any :class:`FrameProcessor` instance stored on the procedure (whether</span>
+    <span class="c1"># by direct attribute assignment or by the ``@processor`` decorator)</span>
+    <span class="c1"># lands on ``self.processors`` and is registered with the DataManager</span>
+    <span class="c1"># automatically.  Cleanup detaches them.</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="c1"># Avoid importing at module load (the processors package imports</span>
+        <span class="c1"># PyQt6, which we don&#39;t want forced on headless callers that never</span>
+        <span class="c1"># use processors).</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.processors</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrameProcessor</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">FrameProcessor</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_register_processor</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">attr_name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_register_processor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">proc</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">attr_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Register ``proc`` on :attr:`processors` and the DataManager.</span>
+
+<span class="sd">        Dedupe-safe and idempotent: re-registering the same instance is a</span>
+<span class="sd">        no-op.  When ``attr_name`` is supplied and a *different* processor</span>
+<span class="sd">        with the same name is already registered, the old one is detached</span>
+<span class="sd">        and replaced.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">procs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">processors</span>  <span class="c1"># plain attribute, no __setattr__ recursion</span>
+        <span class="k">if</span> <span class="n">proc</span> <span class="ow">in</span> <span class="n">procs</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="c1"># If the user used the default name (lowercased class name) and</span>
+        <span class="c1"># assigned the processor to a specific attribute, prefer the</span>
+        <span class="c1"># attribute name. Explicit `name=...` at construction wins.</span>
+        <span class="k">if</span> <span class="n">attr_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">default_name</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">proc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">proc</span><span class="o">.</span><span class="n">device_id</span> <span class="o">==</span> <span class="n">default_name</span> <span class="ow">and</span> <span class="n">attr_name</span> <span class="o">!=</span> <span class="n">default_name</span><span class="p">:</span>
+                <span class="n">proc</span><span class="o">.</span><span class="n">device_id</span> <span class="o">=</span> <span class="n">attr_name</span>
+                <span class="n">proc</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">attr_name</span>
+                <span class="n">proc</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">attr_name</span>
+        <span class="c1"># Replace any prior processor that shared this attribute name.</span>
+        <span class="k">if</span> <span class="n">attr_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">existing</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">procs</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">existing</span><span class="o">.</span><span class="n">device_id</span> <span class="o">==</span> <span class="n">proc</span><span class="o">.</span><span class="n">device_id</span> <span class="ow">and</span> <span class="n">existing</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">proc</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">existing</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                        <span class="k">pass</span>
+                    <span class="n">procs</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">existing</span><span class="p">)</span>
+                    <span class="k">break</span>
+        <span class="n">procs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">proc</span><span class="p">)</span>
+        <span class="c1"># DataManager may not exist yet during early construction; the</span>
+        <span class="c1"># later ``Procedure.run`` call also re-registers devices, so this</span>
+        <span class="c1"># is best-effort.</span>
+        <span class="n">dm</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">dm</span><span class="o">.</span><span class="n">register_hardware_device</span><span class="p">(</span><span class="n">proc</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;register_hardware_device(</span><span class="si">{</span><span class="n">proc</span><span class="o">.</span><span class="n">device_id</span><span class="si">}</span><span class="s2">) failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_materialize_decorated_processors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Instantiate every ``@processor``-decorated method on this class.</span>
+
+<span class="sd">        Walks the MRO so decorators on base procedures are honored.</span>
+<span class="sd">        Skips names that already resolve to a :class:`FrameProcessor` on</span>
+<span class="sd">        this instance (idempotent for ``load_config`` hot reloads).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.processors</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrameProcessor</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">klass</span> <span class="ow">in</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__mro__</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">attr_name</span><span class="p">,</span> <span class="n">member</span> <span class="ow">in</span> <span class="n">klass</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">attr_name</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">meta</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="s2">&quot;_mesofield_processor&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">meta</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">attr_name</span><span class="p">)</span>
+                <span class="n">existing</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr_name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">existing</span><span class="p">,</span> <span class="n">FrameProcessor</span><span class="p">):</span>
+                    <span class="k">continue</span>  <span class="c1"># already materialized; skip on hot reload</span>
+                <span class="n">camera</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_camera</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s2">&quot;camera&quot;</span><span class="p">],</span> <span class="n">attr_name</span><span class="p">)</span>
+                <span class="n">bound</span> <span class="o">=</span> <span class="n">member</span><span class="o">.</span><span class="fm">__get__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>  <span class="c1"># bound method</span>
+                <span class="bp">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;_Decorated_</span><span class="si">{</span><span class="n">attr_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="p">(</span><span class="n">FrameProcessor</span><span class="p">,),</span>
+                    <span class="p">{</span><span class="s2">&quot;compute&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="bp">self</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">ts</span><span class="p">,</span> <span class="n">_fn</span><span class="o">=</span><span class="n">bound</span><span class="p">:</span> <span class="n">_fn</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">ts</span><span class="p">)},</span>
+                <span class="p">)</span>
+                <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s2">&quot;plot_kwargs&quot;</span><span class="p">])</span>
+                <span class="n">instance</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">attr_name</span><span class="p">,</span>
+                    <span class="n">camera</span><span class="o">=</span><span class="n">camera</span><span class="p">,</span>
+                    <span class="n">plot</span><span class="o">=</span><span class="n">meta</span><span class="p">[</span><span class="s2">&quot;plot&quot;</span><span class="p">],</span>
+                    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="c1"># Goes through __setattr__ -&gt; _register_processor.</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr_name</span><span class="p">,</span> <span class="n">instance</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_camera</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">for_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Look up a hardware device by ``device_id``; clear error if missing.&quot;&quot;&quot;</span>
+        <span class="n">devices</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hardware</span><span class="p">,</span> <span class="s2">&quot;devices&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="c1"># ``devices`` is a {device_id: device} mapping in HardwareManager.</span>
+        <span class="k">if</span> <span class="n">device_id</span> <span class="ow">in</span> <span class="n">devices</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">devices</span><span class="p">[</span><span class="n">device_id</span><span class="p">]</span>
+        <span class="c1"># Fall back to scanning ``cameras`` tuple by their .device_id / .id.</span>
+        <span class="k">for</span> <span class="n">cam</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hardware</span><span class="p">,</span> <span class="s2">&quot;cameras&quot;</span><span class="p">,</span> <span class="p">())</span> <span class="ow">or</span> <span class="p">():</span>
+            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">cam</span><span class="p">,</span> <span class="s2">&quot;device_id&quot;</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">cam</span><span class="p">,</span> <span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">==</span> <span class="n">device_id</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">cam</span>
+        <span class="n">available</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">devices</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;@processor(camera=</span><span class="si">{</span><span class="n">device_id</span><span class="si">!r}</span><span class="s2">) on </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">for_name</span><span class="si">}</span><span class="s2">: &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;no hardware device with that id. Available: </span><span class="si">{</span><span class="n">available</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Subclass extension hooks (no-op defaults)</span>
+
+<div class="viewcode-block" id="Procedure.define_config">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.Procedure.define_config">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">define_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subclass hook to declare experiment parameters in Python.</span>
+
+<span class="sd">        Override to return a ``@dataclass`` instance or a plain mapping; it is</span>
+<span class="sd">        applied to :attr:`config` via :meth:`ExperimentConfig.load_dict`,</span>
+<span class="sd">        superseding any ``experiment.json``. Default ``None`` -&gt; load JSON.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="Procedure.define_hardware">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.Procedure.define_hardware">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">define_hardware</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subclass hook to construct hardware devices in Python.</span>
+
+<span class="sd">        Override to return a list of pre-built device objects (imported and</span>
+<span class="sd">        instantiated in the procedure file). They are handed to a fresh</span>
+<span class="sd">        :class:`HardwareManager`, superseding any ``hardware.yaml``. Default</span>
+<span class="sd">        ``None`` -&gt; load YAML. Device classes should be decorated with</span>
+<span class="sd">        ``@DeviceRegistry.register(...)`` so the setup can later be exported</span>
+<span class="sd">        to a ``hardware.yaml`` rig file via ``HardwareManager.to_yaml``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="Procedure.prerun">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.Procedure.prerun">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prerun</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subclass hook called before arming devices.  Override as needed.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="Procedure.await_trigger">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.Procedure.await_trigger">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">await_trigger</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subclass hook called after arming, before starting devices.</span>
+
+<span class="sd">        Default no-op. Override to gate the run on an external or manual</span>
+<span class="sd">        trigger (e.g. a spacebar &quot;start on trigger&quot; gate). Devices are armed</span>
+<span class="sd">        but nothing has started yet, so blocking here holds the whole run.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="Procedure.on_started">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.Procedure.on_started">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_started</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subclass hook called immediately after ``start_all``.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="Procedure.on_finished">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.Procedure.on_finished">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_finished</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subclass hook called immediately after the primary device finishes.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Core lifecycle</span>
+
+<div class="viewcode-block" id="Procedure.run">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.Procedure.run">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Drive a standard experiment run.</span>
+
+<span class="sd">        Subclasses may override, but the default body is generic and handles</span>
+<span class="sd">        any combination of devices declared in ``hardware.yaml``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;================= Starting experiment ===================&quot;</span><span class="p">)</span>
+
+        <span class="c1"># 1. DataManager / queue logger setup</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">devices</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">register_devices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">devices</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">playback</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">start_queue_logger</span><span class="p">()</span>
+
+        <span class="c1"># 2. Subclass pre-run hook</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prerun</span><span class="p">()</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># 3. Per-run device prep</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">arm_all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+
+            <span class="c1"># 3b. Optional trigger gate (subclass hook): hold here until an</span>
+            <span class="c1"># external/manual trigger before anything starts.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">await_trigger</span><span class="p">()</span>
+
+            <span class="c1"># 4. Wire termination: primary device&#39;s finished signal triggers cleanup</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">primary</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">finished</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cleanup_procedure</span><span class="p">)</span>
+
+            <span class="c1"># 5. Start everything</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">procedure_started</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">start_all</span><span class="p">()</span>
+
+            <span class="c1"># 6. Subclass post-start hook</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">on_started</span><span class="p">()</span>
+
+            <span class="c1"># 7. Arm the wall-clock duration cap (see `stop_after_duration`).</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_arm_duration_timer</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error during experiment: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">procedure_error</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+            <span class="k">raise</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_arm_duration_timer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stop the run after the configured ``duration`` (seconds).</span>
+
+<span class="sd">        No-op when ``stop_after_duration`` is False or ``duration`` is unset /</span>
+<span class="sd">        non-positive. The timer is a daemon so it never blocks interpreter</span>
+<span class="sd">        exit, and cleanup cancels it if the run ends first.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">stop_after_duration</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">duration</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;duration&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">duration</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">if</span> <span class="n">duration</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Duration cap armed: </span><span class="si">{</span><span class="n">duration</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_duration_timer</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Timer</span><span class="p">(</span><span class="n">duration</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cleanup</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_duration_timer</span><span class="o">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_duration_timer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mgr</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;data_manager&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">mgr</span><span class="o">.</span><span class="n">save</span><span class="o">.</span><span class="n">configuration</span><span class="p">()</span>
+        <span class="n">mgr</span><span class="o">.</span><span class="n">save</span><span class="o">.</span><span class="n">all_notes</span><span class="p">()</span>
+        <span class="n">mgr</span><span class="o">.</span><span class="n">save</span><span class="o">.</span><span class="n">all_hardware</span><span class="p">()</span>
+        <span class="n">mgr</span><span class="o">.</span><span class="n">save</span><span class="o">.</span><span class="n">save_timestamps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stopped_time</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">save_json</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">data_saved</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Data saved successfully&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Procedure.cleanup">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.Procedure.cleanup">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cleanup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Public cleanup entry-point (manual stop).&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cleanup_procedure</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Procedure.launch">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.Procedure.launch">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">launch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">splash</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Open the Mesofield GUI for this procedure and block until closed.</span>
+
+<span class="sd">        The ordinary-Python alternative to ``mesofield launch``: build the</span>
+<span class="sd">        procedure in a script, then call ``proc.launch()``. The acquisition is</span>
+<span class="sd">        started from the GUI&#39;s Record button (which calls :meth:`run`), so the</span>
+<span class="sd">        window comes up ready to configure and record.</span>
+
+<span class="sd">        Returns the Qt application exit code. ``splash=False`` skips the</span>
+<span class="sd">        ASCII splash screen. The heavy GUI dependencies are imported lazily so</span>
+<span class="sd">        headless scripts that never call this keep a light import footprint.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.gui.maingui</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_gui</span>
+
+        <span class="k">return</span> <span class="n">run_gui</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">splash</span><span class="o">=</span><span class="n">splash</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Procedure.run_until_finished">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.Procedure.run_until_finished">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_until_finished</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the procedure and block until cleanup completes.</span>
+
+<span class="sd">        Starts the procedure via :meth:`run`, then waits for the</span>
+<span class="sd">        ``procedure_finished`` (or ``procedure_error``) signal.  Handles</span>
+<span class="sd">        ``KeyboardInterrupt`` and ``timeout`` by invoking :meth:`cleanup`</span>
+<span class="sd">        automatically, so callers (e.g. ``__main__`` blocks in experiment</span>
+<span class="sd">        scripts) do not need to wire up their own threading events.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        timeout:</span>
+<span class="sd">            Optional hard ceiling in seconds.  When ``None`` (default), waits</span>
+<span class="sd">            indefinitely for the primary device&#39;s ``finished`` signal.  When</span>
+<span class="sd">            provided, forces cleanup if the deadline passes.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bool</span>
+<span class="sd">            ``True`` if the procedure finished on its own, ``False`` if</span>
+<span class="sd">            cleanup was forced by timeout or interrupt.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_finished_event</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="n">deadline</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span> <span class="o">+</span> <span class="n">timeout</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+            <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_finished_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+                <span class="n">remaining</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">if</span> <span class="n">deadline</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">remaining</span> <span class="o">=</span> <span class="n">deadline</span> <span class="o">-</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">remaining</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                            <span class="s2">&quot;run_until_finished: timeout reached, forcing cleanup&quot;</span>
+                        <span class="p">)</span>
+                        <span class="k">break</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_finished_event</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">remaining</span><span class="p">)</span> <span class="k">if</span> <span class="n">remaining</span> <span class="k">else</span> <span class="mf">0.5</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;run_until_finished: KeyboardInterrupt, cleaning up&quot;</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_finished_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_finished_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_cleanup_procedure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># The wall-clock duration timer and the primary&#39;s `finished` signal can</span>
+        <span class="c1"># both reach here; run the teardown exactly once.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cleanup_started</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cleanup_started</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Cleanup Procedure&quot;</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_duration_timer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_duration_timer</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_duration_timer</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">primary</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">finished</span><span class="o">.</span><span class="n">disconnect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cleanup_procedure</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">pass</span>
+            <span class="c1"># Detach any procedure-authored FrameProcessors so their worker</span>
+            <span class="c1"># threads exit and the camera frame signal is released before</span>
+            <span class="c1"># the hardware itself shuts down.</span>
+            <span class="k">for</span> <span class="n">proc</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;processors&quot;</span><span class="p">,</span> <span class="p">[])):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">proc</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;processor detach failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">processors</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">stop_all</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">playback</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">stop_queue_logger</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stopped_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">playback</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">save_data</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_write_acquisition_manifest</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">on_finished</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">procedure_finished</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error during cleanup: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">procedure_error</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="c1"># `events.procedure_finished` is a pyqtSignal; its Python-side</span>
+            <span class="c1"># `.connect`s only run with a live QApplication. Setting the</span>
+            <span class="c1"># event directly here keeps `run_until_finished` working in</span>
+            <span class="c1"># headless contexts (tests, CLI smoke runs, batch scripts).</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_finished_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Acquisition manifest (mesokit-schema contract)</span>
+
+<div class="viewcode-block" id="Procedure.manifest_extra">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.Procedure.manifest_extra">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">manifest_extra</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Override to inject extra session-level metadata into the</span>
+<span class="sd">        AcquisitionManifest&#39;s ``extra`` block. Default: empty.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{}</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_write_acquisition_manifest</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Emit a `mesokit_schema.AcquisitionManifest` next to the data.</span>
+
+<span class="sd">        Called automatically during cleanup. Override to disable or change</span>
+<span class="sd">        where the manifest lands; use :meth:`manifest_extra` if you only</span>
+<span class="sd">        want to attach extra session metadata.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">session_root</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span><span class="p">)</span>
+            <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;sub-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">subject</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;ses-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">session</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="n">session_root</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_relativise</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">p</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">p</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">session_root</span><span class="o">.</span><span class="n">resolve</span><span class="p">()))</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_coerce_sidecars</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">SidecarEntry</span><span class="p">]:</span>
+            <span class="n">out</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SidecarEntry</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">raw</span> <span class="ow">or</span> <span class="p">[]:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">SidecarEntry</span><span class="p">):</span>
+                    <span class="n">rel</span> <span class="o">=</span> <span class="n">_relativise</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">path</span><span class="p">)</span> <span class="ow">or</span> <span class="n">item</span><span class="o">.</span><span class="n">path</span>
+                    <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">model_copy</span><span class="p">(</span><span class="n">update</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">rel</span><span class="p">}))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">data</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+                    <span class="n">rel</span> <span class="o">=</span> <span class="n">_relativise</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;path&quot;</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="n">rel</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">data</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rel</span>
+                    <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">SidecarEntry</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">out</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_coerce_dataqueue_schema</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataqueuePayloadSchema</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">raw</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">DataqueuePayloadSchema</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">raw</span>
+            <span class="k">return</span> <span class="n">DataqueuePayloadSchema</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+
+        <span class="n">producers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ProducerEntry</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">device_id</span><span class="p">,</span> <span class="n">device</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">devices</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">output_path</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="s2">&quot;output_path&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">output_path</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">sidecars_method</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="s2">&quot;sidecars&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">sidecar_list</span> <span class="o">=</span> <span class="n">sidecars_method</span><span class="p">()</span> <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">sidecars_method</span><span class="p">)</span> <span class="k">else</span> <span class="p">[]</span>
+            <span class="n">dq_schema_raw</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="s2">&quot;dataqueue_payload_schema&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">producers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">ProducerEntry</span><span class="p">(</span>
+                    <span class="n">device_id</span><span class="o">=</span><span class="n">device_id</span><span class="p">,</span>
+                    <span class="n">device_type</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="s2">&quot;device_type&quot;</span><span class="p">,</span> <span class="s2">&quot;device&quot;</span><span class="p">),</span>
+                    <span class="n">data_type</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="s2">&quot;data_type&quot;</span><span class="p">,</span> <span class="n">device_id</span><span class="p">),</span>
+                    <span class="n">bids_type</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="s2">&quot;bids_type&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                    <span class="n">file_type</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="s2">&quot;file_type&quot;</span><span class="p">,</span> <span class="s2">&quot;csv&quot;</span><span class="p">),</span>
+                    <span class="n">output_path</span><span class="o">=</span><span class="n">_relativise</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span><span class="n">output_path</span><span class="p">),</span>
+                    <span class="n">metadata_path</span><span class="o">=</span><span class="n">_relativise</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="s2">&quot;metadata_path&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
+                    <span class="n">sampling_rate_hz</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="s2">&quot;sampling_rate&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">time_basis</span><span class="o">=</span><span class="n">TimeBasis</span><span class="p">(</span>
+                        <span class="n">clock_source</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="s2">&quot;clock_source&quot;</span><span class="p">,</span> <span class="s2">&quot;wall_unix_s&quot;</span><span class="p">),</span>
+                    <span class="p">),</span>
+                    <span class="n">calibration</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="s2">&quot;calibration&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}),</span>
+                    <span class="n">sidecars</span><span class="o">=</span><span class="n">_coerce_sidecars</span><span class="p">(</span><span class="n">sidecar_list</span><span class="p">),</span>
+                    <span class="n">dataqueue_schema</span><span class="o">=</span><span class="n">_coerce_dataqueue_schema</span><span class="p">(</span><span class="n">dq_schema_raw</span><span class="p">),</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="n">manifest</span> <span class="o">=</span> <span class="n">AcquisitionManifest</span><span class="p">(</span>
+            <span class="n">mesofield_version</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">_MESOFIELD_VERSION</span><span class="p">),</span>
+            <span class="n">acquisition_complete</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">started_at</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start_time</span><span class="p">,</span>
+            <span class="n">ended_at</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stopped_time</span><span class="p">,</span>
+            <span class="n">session</span><span class="o">=</span><span class="n">SessionIdentity</span><span class="p">(</span>
+                <span class="n">subject</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">subject</span><span class="p">),</span>
+                <span class="n">session</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">session</span><span class="p">),</span>
+                <span class="n">task</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">task</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">task</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">experimenter</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">experimenter</span><span class="p">,</span>
+                <span class="n">protocol</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">producers</span><span class="o">=</span><span class="n">producers</span><span class="p">,</span>
+            <span class="n">extra</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">manifest_extra</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">session_root</span> <span class="o">/</span> <span class="s2">&quot;manifest.json&quot;</span>
+        <span class="n">manifest</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Wrote AcquisitionManifest </span><span class="si">{</span><span class="n">hyperlink</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;AcquisitionManifest&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_note</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">note</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">notes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">timestamp</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">note</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Added note: </span><span class="si">{</span><span class="n">note</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+
+
+<span class="c1"># ----------------------------------------------------------------------</span>
+<span class="c1"># Procedure discovery</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_target</span><span class="p">(</span>
+    <span class="n">target</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Map a launch *target* to ``(hardware_yaml, experiment_json, procedure_py)``.</span>
+
+<span class="sd">    The single place that owns the file-discovery convention:</span>
+
+<span class="sd">    - ``None``               -&gt; nothing (default state)</span>
+<span class="sd">    - ``*.yaml`` / ``*.yml``  -&gt; hardware only</span>
+<span class="sd">    - ``*.py``               -&gt; scripted Procedure subclass (params/hardware via ``define_*``)</span>
+<span class="sd">    - ``*.json``             -&gt; experiment params + sibling ``hardware.yaml`` if present</span>
+<span class="sd">    - directory              -&gt; ``hardware.yaml`` and/or ``experiment.json`` found inside</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">target</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+    <span class="n">ext</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">ext</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;.yaml&quot;</span><span class="p">,</span> <span class="s2">&quot;.yml&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">target</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">ext</span> <span class="o">==</span> <span class="s2">&quot;.py&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">target</span>
+    <span class="k">if</span> <span class="n">ext</span> <span class="o">==</span> <span class="s2">&quot;.json&quot;</span><span class="p">:</span>
+        <span class="n">sibling</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">&quot;hardware.yaml&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">sibling</span><span class="p">)</span> <span class="k">if</span> <span class="n">sibling</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span><span class="p">),</span> <span class="n">target</span><span class="p">,</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+        <span class="n">hw</span> <span class="o">=</span> <span class="n">p</span> <span class="o">/</span> <span class="s2">&quot;hardware.yaml&quot;</span>
+        <span class="n">exp</span> <span class="o">=</span> <span class="n">p</span> <span class="o">/</span> <span class="s2">&quot;experiment.json&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">hw</span><span class="p">)</span> <span class="k">if</span> <span class="n">hw</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">exp</span><span class="p">)</span> <span class="k">if</span> <span class="n">exp</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+
+
+<div class="viewcode-block" id="load_procedure_from_config">
+<a class="viewcode-back" href="../../api/mesofield.base.html#mesofield.base.load_procedure_from_config">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_procedure_from_config</span><span class="p">(</span><span class="n">target</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;Procedure&quot;</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build the right :class:`Procedure` for a launch *target*.</span>
+
+<span class="sd">    ``target`` may be a ``hardware.yaml``, an ``experiment.json``, a scripted</span>
+<span class="sd">    ``procedure.py``, an experiment directory, or ``None``. Discovery of the</span>
+<span class="sd">    hardware/experiment pair is delegated to :func:`_resolve_target`.</span>
+
+<span class="sd">    When the experiment JSON declares ``procedure_file`` + ``procedure_class``,</span>
+<span class="sd">    that subclass is imported and used; otherwise a base :class:`Procedure`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">hardware</span><span class="p">,</span> <span class="n">experiment</span><span class="p">,</span> <span class="n">procedure_py</span> <span class="o">=</span> <span class="n">_resolve_target</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">procedure_py</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_load_procedure_from_py</span><span class="p">(</span><span class="n">procedure_py</span><span class="p">)</span>
+
+    <span class="bp">cls</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">Procedure</span><span class="p">]</span> <span class="o">=</span> <span class="n">Procedure</span>
+    <span class="k">if</span> <span class="n">experiment</span><span class="p">:</span>
+        <span class="n">declared</span> <span class="o">=</span> <span class="n">_load_declared_procedure_class</span><span class="p">(</span><span class="n">experiment</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">declared</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">cls</span> <span class="o">=</span> <span class="n">declared</span>
+
+    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">hardware</span><span class="o">=</span><span class="n">hardware</span><span class="p">,</span> <span class="n">experiment</span><span class="o">=</span><span class="n">experiment</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_declared_procedure_class</span><span class="p">(</span>
+    <span class="n">experiment_json</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="s2">&quot;Procedure&quot;</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Import the :class:`Procedure` subclass declared by ``procedure_file`` /</span>
+<span class="sd">    ``procedure_class`` in an experiment JSON, or ``None`` when not declared.</span>
+
+<span class="sd">    The user file is loaded via :func:`importlib.util.spec_from_file_location`</span>
+<span class="sd">    so ``experiments/`` does not need to be on ``sys.path``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">experiment_json</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+            <span class="n">cfg</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">fh</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">proc_file</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;procedure_file&quot;</span><span class="p">)</span>
+    <span class="n">proc_class</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;procedure_class&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">proc_file</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">proc_class</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="c1"># Resolve relative paths against the JSON&#39;s directory</span>
+    <span class="n">json_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">experiment_json</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">proc_file</span><span class="p">):</span>
+        <span class="n">proc_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">json_dir</span><span class="p">,</span> <span class="n">proc_file</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">proc_file</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;procedure_file declared in </span><span class="si">{</span><span class="n">experiment_json</span><span class="si">}</span><span class="s2"> not found: </span><span class="si">{</span><span class="n">proc_file</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">mod_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;mesofield_user_procedure_</span><span class="si">{</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="n">spec</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">spec_from_file_location</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="n">proc_file</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">spec</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">spec</span><span class="o">.</span><span class="n">loader</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not load procedure_file: </span><span class="si">{</span><span class="n">proc_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">module_from_spec</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="n">mod_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">module</span>
+    <span class="n">spec</span><span class="o">.</span><span class="n">loader</span><span class="o">.</span><span class="n">exec_module</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+
+    <span class="bp">cls</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">proc_class</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="bp">cls</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Class &#39;</span><span class="si">{</span><span class="n">proc_class</span><span class="si">}</span><span class="s2">&#39; not found in </span><span class="si">{</span><span class="n">proc_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="nb">type</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">issubclass</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">Procedure</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">proc_class</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="n">proc_file</span><span class="si">}</span><span class="s2"> must be a subclass of mesofield.base.Procedure&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="bp">cls</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_procedure_from_py</span><span class="p">(</span><span class="n">py_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Procedure&quot;</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Instantiate the Procedure subclass defined in a scripted ``procedure.py``.</span>
+
+<span class="sd">    The class is selected from a module-level ``PROCEDURE`` attribute when</span>
+<span class="sd">    present, otherwise the single :class:`Procedure` subclass *defined in*</span>
+<span class="sd">    that file. The instance&#39;s ``experiment_dir`` is set to the script&#39;s</span>
+<span class="sd">    directory so data lands beside it; the ``define_config`` /</span>
+<span class="sd">    ``define_hardware`` hooks supply the actual parameters and devices.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">abs_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">py_path</span><span class="p">)</span>
+    <span class="n">mod_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;mesofield_user_procedure_</span><span class="si">{</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="n">spec</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">spec_from_file_location</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="n">abs_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">spec</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">spec</span><span class="o">.</span><span class="n">loader</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not load procedure file: </span><span class="si">{</span><span class="n">abs_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">module_from_spec</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="n">mod_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">module</span>
+    <span class="n">spec</span><span class="o">.</span><span class="n">loader</span><span class="o">.</span><span class="n">exec_module</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+
+    <span class="bp">cls</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="s2">&quot;PROCEDURE&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="bp">cls</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">candidates</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">obj</span> <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="nb">vars</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">type</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Procedure</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">Procedure</span>
+            <span class="ow">and</span> <span class="n">obj</span><span class="o">.</span><span class="vm">__module__</span> <span class="o">==</span> <span class="n">mod_name</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">candidates</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;No Procedure subclass found in </span><span class="si">{</span><span class="n">abs_path</span><span class="si">}</span><span class="s2">. Define one, or &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;set a module-level &#39;PROCEDURE = &lt;class&gt;&#39;.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Multiple Procedure subclasses in </span><span class="si">{</span><span class="n">abs_path</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">names</span><span class="si">}</span><span class="s2">); &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;set a module-level &#39;PROCEDURE = &lt;class&gt;&#39; to disambiguate.&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">cls</span> <span class="o">=</span> <span class="n">candidates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="nb">type</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">issubclass</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">Procedure</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">cls</span><span class="si">!r}</span><span class="s2"> in </span><span class="si">{</span><span class="n">abs_path</span><span class="si">}</span><span class="s2"> must be a subclass of mesofield.base.Procedure&quot;</span>
+        <span class="p">)</span>
+    <span class="n">proc</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">()</span>
+    <span class="c1"># Scripted procedures supply params/hardware via define_*; when the</span>
+    <span class="c1"># config did not declare an `experiment_directory`, default the data</span>
+    <span class="c1"># output beside the script rather than the current directory.</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">proc</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_dir_is_set</span><span class="p">:</span>
+        <span class="n">proc</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">abs_path</span><span class="p">)</span>
+        <span class="n">proc</span><span class="o">.</span><span class="n">data_dir</span> <span class="o">=</span> <span class="n">proc</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">data_dir</span>
+    <span class="k">return</span> <span class="n">proc</span>
+
+
+<span class="c1"># Legacy constants for backward compatibility</span>
+<span class="n">NAME</span> <span class="o">=</span> <span class="s2">&quot;mesofield&quot;</span>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2026, Sipe Laboratory, Penn State.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.19.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

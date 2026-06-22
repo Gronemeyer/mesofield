@@ -1,0 +1,6 @@
+manager
+=======
+
+.. automodule:: mesofield.data.manager
+   :members:
+   :show-inheritance:
