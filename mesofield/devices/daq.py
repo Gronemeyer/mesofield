@@ -57,21 +57,68 @@ class Nidaq(BaseDataProducer):
         self.poll_interval: float = float(self.cfg.get("poll_interval", 0.01))
         self.development_mode: bool = bool(self.cfg.get("development_mode", False))
 
+        # Timestamping strategy:
+        #   "counter" (default) -- poll the edge counter, stamp each new edge
+        #       with the host clock (``time.time()``). Simple, never misses an
+        #       edge, but timing is bounded by host + USB jitter (~ms).
+        #   "hybrid" / "analog" -- additionally sample the pulse line on an
+        #       analog input at ``sample_rate`` Hz (hardware-timed by the DAQ
+        #       clock) and timestamp each rising edge by its sample index, i.e.
+        #       ``t0 + index/rate``. Frame-to-frame spacing is then jitter-free
+        #       to ±1 sample. On a USB-6001 the AI ceiling is 20 kS/s -> 50 µs.
+        #       The counter still runs in parallel as a never-miss integrity
+        #       check that ``stop()`` reconciles against the AI edge count.
+        # On low-cost USB DAQs (e.g. USB-6001) the counter has no buffered /
+        # hardware-timestamp mode, so AI sampling is the only route to
+        # sub-millisecond, host-jitter-free edge times. Wire the frame TTL to
+        # BOTH the counter terminal (PFI) and ``ai_channel`` for "hybrid".
+        self.timing_mode: str = str(self.cfg.get("timing_mode", "counter")).lower()
+        self.ai_channel: str = self.cfg.get("ai_channel", "ai0")
+        self.sample_rate: float = float(self.cfg.get("sample_rate", 20000.0))
+        self.ai_threshold: float = float(self.cfg.get("ai_threshold", 2.5))
+
         self._ci: Any = None
         self._do: Any = None
+        self._ai: Any = None
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        # Authoritative edge count read from the hardware counter (the AI path's
+        # integrity reference); kept up to date in hybrid/analog mode.
+        self.counter_total: int = 0
+        # Wall-clock anchor for the AI sample clock, and the coerced actual AI
+        # rate the device reports back after timing config.
+        self._t0: float = 0.0
+        self.actual_rate: float = self.sample_rate
 
     # -- hardware helpers ------------------------------------------------
+    def _close_tasks(self) -> None:
+        """Close and drop any CI/DO tasks, swallowing per-task errors. """
+        for name in ("_ci", "_do", "_ai"):
+            task = getattr(self, name, None)
+            if task is not None:
+                try:
+                    task.close()
+                except Exception as exc:
+                    self.logger.debug(f"{name} close failed: {exc}")
+            setattr(self, name, None)
+
+    def _reset_device(self, context: str) -> None:
+        """Best-effort hardware reset; logs (never raises) on failure."""
+        if self.development_mode:
+            return
+        try:
+            import nidaqmx.system
+
+            nidaqmx.system.Device(self.device_name).reset_device()
+        except Exception as exc:
+            self.logger.debug(f"device reset ({context}) failed: {exc}")
+
     def reset(self) -> None:
         """Stop the worker (if running) and reset the NI-DAQ device."""
         if self._thread and self._thread.is_alive():
             self.stop()
-        if self.development_mode:
-            return
-        import nidaqmx.system
-
-        nidaqmx.system.Device(self.device_name).reset_device()
+        self._close_tasks()
+        self._reset_device("reset")
 
     def test_connection(self) -> None:
         """Pulse the DO line high ~3 s as a wiring check (logs, never raises)."""
@@ -140,20 +187,8 @@ class Nidaq(BaseDataProducer):
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=2.0)
         self._thread = None
-        for task in (self._ci, self._do):
-            if task is not None:
-                try:
-                    task.close()
-                except Exception as exc:
-                    self.logger.debug(f"task close failed: {exc}")
-        self._ci = self._do = None
-        if not self.development_mode:
-            try:
-                import nidaqmx.system
-
-                nidaqmx.system.Device(self.device_name).reset_device()
-            except Exception as exc:
-                self.logger.debug(f"device reset on stop failed: {exc}")
+        self._close_tasks()
+        self._reset_device("stop")
         return super().stop()
 
     def shutdown(self) -> None:
