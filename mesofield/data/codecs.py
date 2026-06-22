@@ -45,13 +45,20 @@ def default_cv_backend() -> str:
 
 
 def default_cap_fourcc() -> str:
-    """Platform default capture pixel format.
+    """Platform default capture pixel format — unset (camera default).
 
-    Windows USB webcams under DSHOW/MSMF typically deliver no frames in their
-    default (raw/YUY2) mode and need MJPG forced; elsewhere the camera default
-    is fine.
+    Leaving ``CAP_PROP_FOURCC`` alone is the safe default: it lets each camera
+    deliver its native format. Forcing a format is opt-in via the per-camera
+    ``cap_fourcc`` config key.
+
+    History: this briefly defaulted to ``MJPG`` on Windows because *some* USB
+    webcams deliver no frames in their default mode until MJPG is forced. But
+    forcing MJPG on multiple *identical* cameras makes the DSHOW/MSMF backends
+    bleed their streams together (torn/composite frames under DSHOW, swapped
+    frames under MSMF). So MJPG is now opt-in: set ``cap_fourcc: MJPG`` on the
+    specific camera that needs it, rather than imposing it on every capture.
     """
-    return "MJPG" if sys.platform == "win32" else ""
+    return ""
 
 
 # ─── Writer codec (the saved file) ────────────────────────────────────────

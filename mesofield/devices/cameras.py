@@ -782,14 +782,9 @@ class OpenCVCamera(BaseCamera, QThread):
                     except Exception as exc:  # pragma: no cover - codec failure
                         self.logger.error(f"CV2Writer.add_frame failed: {exc}")
 
-                # GUI live-preview signals (Qt-native, decoupled from queue).
-                # These cross into the GUI thread, where ImagePreview holds the
-                # array until its next timer tick. `cap.read()` recycles its
-                # internal buffer in place on the following grab, so the held
-                # reference must be a private copy or the display tears.
-                display_frame = frame.copy()
-                self.frame_ready.emit(display_frame)
-                self.image_ready.emit(display_frame)
+                # GUI live-preview signals (Qt-native, decoupled from queue)
+                self.frame_ready.emit(frame)
+                self.image_ready.emit(frame)
                 # Recording progress (only meaningful while a writer is attached)
                 if self.writer is not None:
                     self.progress.emit(idx + 1, self._expected_frames)
