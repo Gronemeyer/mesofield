@@ -82,6 +82,13 @@ class Nidaq(BaseDataProducer):
         self._ai: Any = None
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
+<<<<<<< HEAD
+=======
+        # Running tally of TTL rising edges seen since the last start(). The
+        # GUI indicator reads this; downstream data rows still carry payload=1
+        # per edge (see dataqueue_payload_schema).
+        self.pulse_count: int = 0
+>>>>>>> 983c1ec5be367cabf886954980b33eb45c1adf1e
         # Authoritative edge count read from the hardware counter (the AI path's
         # integrity reference); kept up to date in hybrid/analog mode.
         self.counter_total: int = 0
@@ -145,24 +152,43 @@ class Nidaq(BaseDataProducer):
             return False
 
         self._stop_event.clear()
+        self.pulse_count = 0
 
         if not self.development_mode:
             import nidaqmx
             from nidaqmx.constants import Edge
 
-            # 1) Arm the counter FIRST so no returned TTL is missed.
-            self._ci = nidaqmx.Task()
-            self._ci.ci_channels.add_ci_count_edges_chan(
-                f"{self.device_name}/{self.ctr}", edge=Edge.RISING, initial_count=0
-            )
-            self._ci.start()
+            # A prior aborted run can leave stale tasks open or the device in a
+            # wedged state ("task aborted / device removed"). Tear down anything
+            # lingering and reset the board BEFORE creating new tasks so this
+            # start doesn't inherit a poisoned state.
+            self._close_tasks()
+            self._reset_device("pre-start")
 
-            # 2) Then pulse the DO line once to start the external system.
-            self._do = nidaqmx.Task()
-            self._do.do_channels.add_do_chan(f"{self.device_name}/{self.lines}")
-            self._do.write(True)
-            time.sleep(self.pulse_width)
-            self._do.write(False)
+            try:
+                # 1) Arm the counter FIRST so no returned TTL is missed.
+                self._ci = nidaqmx.Task()
+                self._ci.ci_channels.add_ci_count_edges_chan(
+                    f"{self.device_name}/{self.ctr}", edge=Edge.RISING, initial_count=0
+                )
+                self._ci.start()
+
+                # 2) Then pulse the DO line once to start the external system.
+                self._do = nidaqmx.Task()
+                self._do.do_channels.add_do_chan(f"{self.device_name}/{self.lines}")
+                self._do.write(True)
+                time.sleep(self.pulse_width)
+                self._do.write(False)
+            except nidaqmx.DaqError as exc:
+                # Hardware start failed -- drop the half-created tasks and
+                # surface a clean error so the run aborts instead of limping on
+                # with a counter that will never fire.
+                self.logger.error(f"NI-DAQ start failed: {exc}")
+                self._close_tasks()
+                self._reset_device("failed-start")
+                raise RuntimeError(
+                    f"NI-DAQ {self.device_name} start failed: {exc}"
+                ) from exc
 
         self._thread = threading.Thread(
             target=self._worker, name=f"Nidaq-{self.device_id}", daemon=True
@@ -175,9 +201,17 @@ class Nidaq(BaseDataProducer):
         prev = 0
         while not self._stop_event.is_set():
             if self._ci is not None:
-                count = int(self._ci.read())
+                try:
+                    count = int(self._ci.read())
+                except Exception as exc:
+                    # A device removed/aborted mid-run shouldn't spin the loop
+                    # raising; log once per failed poll and back off.
+                    self.logger.debug(f"counter read failed: {exc}")
+                    self._stop_event.wait(self.poll_interval)
+                    continue
                 ts = time.time()
                 for _ in range(count - prev):
+                    self.pulse_count += 1
                     self.record(1, ts)
                 prev = count
             self._stop_event.wait(self.poll_interval)
