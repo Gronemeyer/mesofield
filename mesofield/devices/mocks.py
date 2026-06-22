@@ -248,7 +248,7 @@ class MockFrameProducer(BaseCamera, BaseDataProducer):
         """Replay buffered frames through the standard mesofield writer."""
         target = path or self.output_path
         if not target:
-            self.logger.debug("save_data: no path for %s", self.device_id)
+            self.logger.debug(f"save_data: no path for {self.device_id}")
             return None
         Path(target).parent.mkdir(parents=True, exist_ok=True)
 
@@ -280,8 +280,7 @@ class MockFrameProducer(BaseCamera, BaseDataProducer):
             self.writer.sequenceFinished(seq)
 
         self.logger.info(
-            "Wrote %d frames to %s via %s",
-            len(frames), target, type(self.writer).__name__,
+            f"Wrote {len(frames)} frames via {type(self.writer).__name__}"
         )
         return target
 

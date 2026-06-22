@@ -159,6 +159,12 @@ class ImagePreview(QWidget):
         self._current_frame = None
         self._frame_lock = Lock()
 
+        # Cached contrast lookup table for the integer fast-path. Keyed by the
+        # (clims, dtype) it was built for so it is only recomputed when those
+        # change rather than once per frame.
+        self._lut: np.ndarray | None = None
+        self._lut_key: tuple | None = None
+
         # Set up image label
         self.image_label = QLabel()
         self.image_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -408,9 +414,14 @@ class ImagePreview(QWidget):
         with self._frame_lock:
             self._current_frame = img
 
+    def _build_lut(self, min_val: float, max_val: float, n: int) -> np.ndarray:
+        """Build an ``n``-entry uint8 contrast lookup table for ``clims``."""
+        x = np.arange(n, dtype=np.float32)
+        scale = 255.0 / (max_val - min_val) if max_val != min_val else 255.0
+        return np.clip((x - min_val) * scale, 0, 255).astype(np.uint8)
+
     def _adjust_image_data(self, img: np.ndarray) -> np.ndarray:
-        # NOTE: This is the default implementation for grayscale images
-        # NOTE: This is the most processor-intensive part of this widget
+        # NOTE: grayscale contrast scaling, the hottest path in this widget.
 
         # Color frames pass through unchanged (handled in _convert_to_qimage)
         if img.ndim == 3:
@@ -418,26 +429,62 @@ class ImagePreview(QWidget):
                 img = np.clip(img, 0, 255).astype(np.uint8, copy=False)
             return img
 
-        # Ensure the image is in float format for scaling
-        img = img.astype(np.float32, copy=False)
+        # Integer fast-path: map pixels through a cached lookup table. This
+        # collapses the old float32 -> subtract -> scale -> clip -> uint8
+        # pipeline (5 full-array passes) into a single gather, and avoids any
+        # per-frame float allocation. The LUT is rebuilt only when the dtype or
+        # contrast range changes.
+        if np.issubdtype(img.dtype, np.integer):
+            if self._clims == "auto":
+                # min/max on the integer array is far cheaper than going float.
+                min_val = int(img.min()) if img.size else 0
+                max_val = int(img.max()) if img.size else 255
+            else:
+                min_val, max_val = self._clims
 
-        # Apply contrast limits
+            # uint8 -> 256-entry LUT, anything wider (e.g. uint16) -> 65536.
+            n = 256 if img.dtype == np.uint8 else 65536
+            key = (n, min_val, max_val)
+            if self._lut is None or self._lut_key != key:
+                self._lut = self._build_lut(min_val, max_val, n)
+                self._lut_key = key
+
+            # Clamp out-of-range indices (e.g. >16-bit) before the gather.
+            if img.dtype != np.uint8 and img.dtype != np.uint16:
+                img = np.clip(img, 0, n - 1)
+            return self._lut[img]
+
+        # Float (or other) input falls back to the original scaling pipeline.
+        img = img.astype(np.float32, copy=False)
         if self._clims == "auto":
             min_val, max_val = np.min(img), np.max(img)
         else:
             min_val, max_val = self._clims
-
-        # Avoid division by zero
         scale = 255.0 / (max_val - min_val) if max_val != min_val else 255.0
-
-        # Scale to 0-255
         img = np.clip((img - min_val) * scale, 0, 255).astype(np.uint8, copy=False)
+        return img
+
+    def _decimate(self, img: np.ndarray) -> np.ndarray:
+        """Strided-subsample a frame down to roughly the label size.
+
+        The preview label is only a few hundred pixels, so processing the full
+        sensor resolution (e.g. 2048x2048) and then smooth-downscaling it is
+        wasted work. A uniform stride keeps the aspect ratio and returns a cheap
+        view, shrinking every downstream pass by ``step**2``.
+        """
+        h, w = img.shape[:2]
+        target_h = max(self.image_label.height(), 1)
+        target_w = max(self.image_label.width(), 1)
+        step = min(h // target_h, w // target_w)
+        if step > 1:
+            return img[::step, ::step]
         return img
 
     def _convert_to_qimage(self, img: np.ndarray) -> QImage:
         """Convert a NumPy array to QImage."""
         if img is None:
             return None
+        img = self._decimate(img)
         img = self._adjust_image_data(img)
         img = np.ascontiguousarray(img)
         height, width = img.shape[:2]
@@ -479,6 +526,9 @@ class ImagePreview(QWidget):
             The contrast limits to set.
         """
         self._clims = clims
+        # Force the LUT to rebuild against the new range on the next frame.
+        self._lut = None
+        self._lut_key = None
 
     @property
     def cmap(self) -> str:
@@ -519,6 +569,11 @@ class InteractivePreview(pg.ImageView):
         self._cmap: str = "grayscale"
         self._current_frame = None
         self._frame_lock = Lock()
+
+        # Cached contrast lookup table for the integer fast-path; rebuilt only
+        # when the dtype or contrast range changes (see ``_adjust_image_data``).
+        self._lut: np.ndarray | None = None
+        self._lut_key: tuple | None = None
 
         self._fps_window_start = perf_counter()
         self._fps_frame_count = 0
@@ -662,7 +717,34 @@ class InteractivePreview(pg.ImageView):
 
         return frame, new_frames
 
+    def _build_lut(self, min_val: float, max_val: float, n: int) -> np.ndarray:
+        """Build an ``n``-entry uint8 contrast lookup table for ``clims``."""
+        x = np.arange(n, dtype=np.float32)
+        scale = 255.0 / (max_val - min_val) if max_val != min_val else 255.0
+        return np.clip((x - min_val) * scale, 0, 255).astype(np.uint8)
+
     def _adjust_image_data(self, img: np.ndarray) -> np.ndarray:
+        # Integer fast-path: a single cached-LUT gather replaces the
+        # float32 -> subtract -> scale -> clip -> uint8 pipeline. See the
+        # matching implementation in ``ImagePreview._adjust_image_data``.
+        if np.issubdtype(img.dtype, np.integer):
+            if self._clims == "auto":
+                min_val = int(img.min()) if img.size else 0
+                max_val = int(img.max()) if img.size else 255
+            else:
+                min_val, max_val = self._clims
+
+            n = 256 if img.dtype == np.uint8 else 65536
+            key = (n, min_val, max_val)
+            if self._lut is None or self._lut_key != key:
+                self._lut = self._build_lut(min_val, max_val, n)
+                self._lut_key = key
+
+            if img.dtype != np.uint8 and img.dtype != np.uint16:
+                img = np.clip(img, 0, n - 1)
+            return self._lut[img]
+
+        # Float (or other) input falls back to the original scaling pipeline.
         img = img.astype(np.float32, copy=False)
         if self._clims == "auto":
             min_val, max_val = np.min(img), np.max(img)
@@ -679,6 +761,9 @@ class InteractivePreview(pg.ImageView):
     @clims.setter
     def clims(self, clims: Union[Tuple[float, float], Literal["auto"]] = "auto") -> None:
         self._clims = clims
+        # Force the LUT to rebuild against the new range on the next frame.
+        self._lut = None
+        self._lut_key = None
         if self._current_frame is not None:
             self._display_image(self._current_frame)
 

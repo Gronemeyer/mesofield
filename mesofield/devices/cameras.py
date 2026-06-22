@@ -586,7 +586,7 @@ class OpenCVCamera(BaseCamera, QThread):
             self._expected_frames = int(self.sampling_rate * float(duration))
         except (TypeError, ValueError):
             self._expected_frames = 0
-        self.logger.info(f"Writer set to {self.output_path}")
+        self.logger.debug(f"Writer set to {self.output_path}")
 
     def start(self) -> bool:
         """Spawn the capture thread and begin writing frames to MP4.
@@ -827,7 +827,7 @@ class OpenCVCamera(BaseCamera, QThread):
                 # `-1` is the "recording done -- hide the progress bar" sentinel.
                 self.progress.emit(-1, 0)
             self.logger.info(
-                f"OpenCV capture stopped: wrote {self._frame_index} frames"
+                f"Wrote {self._frame_index} frames via {type(self.writer).__name__}"
             )
             # If we self-terminated as the primary device, drive procedure
             # cleanup. (When stop()/abort ended the loop, stop() emits
