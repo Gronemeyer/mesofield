@@ -1,3 +1,6 @@
+from collections import deque
+
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 import pyqtgraph as pg
 
@@ -42,6 +45,7 @@ class SerialWidget(QWidget):
         y_range: tuple = (-1, 1),
         value_scale: float = 0.01,
         max_points: int = 100,
+        data_provider=None,
     ):
         super().__init__()
         self.device = getattr(cfg.hardware, device_attr, None)
@@ -54,11 +58,39 @@ class SerialWidget(QWidget):
         self.max_points = max_points
         self.connected = self.device is not None
 
-        self._signal = getattr(self.device, self.signal_name, None) if self.connected else None
+        # Two ways to feed the plot:
+        #   * pull mode  -- `data_provider()` returns ``(times, values)``; the
+        #     redraw timer pulls a snapshot. No per-sample Qt signal, so a fast
+        #     device cannot flood the GUI event queue. Preferred for high rates.
+        #   * push mode  -- connect to a ``pyqtSignal(float, float)`` named
+        #     ``signal_name`` and buffer each emission in `receive_data`.
+        self.data_provider = data_provider
+        self._signal = (
+            getattr(self.device, self.signal_name, None)
+            if (self.connected and data_provider is None)
+            else None
+        )
+        self._slot_connected = False
 
         self.init_ui()
         self.init_data()
         self.setFixedHeight(300)
+
+    # ---- Signal connection (idempotent) ------------------------------------
+
+    def _connect_signal(self):
+        if self._signal is not None and not self._slot_connected:
+            self._signal.connect(self.receive_data)
+            self._slot_connected = True
+
+    def _disconnect_signal(self):
+        if self._signal is not None and self._slot_connected:
+            try:
+                self._signal.disconnect(self.receive_data)
+            except (TypeError, RuntimeError):
+                # Already disconnected, or the slot was never connected.
+                pass
+            self._slot_connected = False
 
     # ---- UI ----------------------------------------------------------------
 
@@ -105,58 +137,92 @@ class SerialWidget(QWidget):
         self.plot_widget.enableAutoRange(axis='y', enable=True)
         self.plot_widget.showGrid(x=True, y=True)
 
-        if self._signal is not None:
-            self._signal.connect(self.receive_data)
+        self._connect_signal()
 
     # ---- Data --------------------------------------------------------------
 
+    # Plot redraws are decoupled from data arrival
+    redraw_interval_ms = 33  # ~30 FPS
+
     def init_data(self):
-        self.times = []
-        self.values = []
-        self.start_time = None
-        self.timer = None
-        self.previous_time = 0
+        self.times = deque(maxlen=self.max_points)
+        self.values = deque(maxlen=self.max_points)
+        self._latest_value = None
+        self._dirty = False
+        self._last_render_n = -1  # pull mode: skip redraw when nothing changed
+
+        # The render timer runs whenever the widget is alive; when no new data
+        # has arrived (`_dirty` is False) the tick is a no-op
+        self._render_timer = QTimer(self)
+        self._render_timer.setInterval(self.redraw_interval_ms)
+        self._render_timer.timeout.connect(self._render)
+        if self.connected:
+            self._render_timer.start()
 
     def toggle_serial_thread(self):
         if not self.connected:
             return
         if self.start_button.isChecked():
-            self._signal.connect(self.receive_data)
+            self._connect_signal()
             self.device.start()
+            self._render_timer.start()
             self.status_label.setText("Serial thread started.")
         else:
             self.stop_serial_thread()
             self.status_label.setText("Serial thread stopped.")
 
     def stop_serial_thread(self):
-        if self._signal is not None:
-            self._signal.disconnect()
+        self._disconnect_signal()
+        self._render_timer.stop()
 
     def cleanup(self):
         """Sever the inbound signal connection before this widget is destroyed."""
-        if self._signal is not None:
-            try:
-                self._signal.disconnect(self.receive_data)
-            except (TypeError, RuntimeError):
-                # Already disconnected, or the slot was never connected.
-                pass
+        if getattr(self, "_render_timer", None) is not None:
+            self._render_timer.stop()
+        self._disconnect_signal()
 
     def receive_data(self, time, value):
+        """Slot for every incoming sample -- buffer only, never redraw here."""
         self.times.append(time)
         self.values.append(value * self.value_scale)
-        self.times = self.times[-self.max_points:]
-        self.values = self.values[-self.max_points:]
-        self.update_plot()
-        unit_suffix = f" {self.value_units}" if self.value_units else ""
-        self.status_label.setText(
-            f"{self.value_label}: {value:.2f}{unit_suffix}"
-        )
+        self._latest_value = value
+        self._dirty = True
 
-    def update_plot(self):
+    def _render(self):
+        """Timer-driven repaint; runs at most ``redraw_interval_ms`` apart."""
+        if self.data_provider is not None:
+            # Pull mode: snapshot the device-side ring buffer (raw values).
+            # `count` is monotonic, so this still detects new data after the
+            # buffer saturates (when len(xs) is pinned at max_points).
+            xs, ys_raw, count = self.data_provider()
+            if count == self._last_render_n:
+                return  # no new samples since last tick
+            self._last_render_n = count
+            if not xs:
+                return
+            ys = [y * self.value_scale for y in ys_raw] if self.value_scale != 1.0 else ys_raw
+            self._latest_value = ys_raw[-1]
+            self.update_plot(xs, ys)
+        else:
+            # Push mode: redraw only if a sample arrived since the last tick.
+            if not self._dirty:
+                return
+            self._dirty = False
+            self.update_plot(list(self.times), list(self.values))
+        if self._latest_value is not None:
+            unit_suffix = f" {self.value_units}" if self.value_units else ""
+            self.status_label.setText(
+                f"{self.value_label}: {self._latest_value:.2f}{unit_suffix}"
+            )
+
+    def update_plot(self, xs=None, ys=None):
+        if xs is None or ys is None:
+            xs = list(self.times)
+            ys = list(self.values)
         try:
-            if self.times and self.values:
-                self.data_curve.setData(self.times, self.values)
-                self.plot_widget.setXRange(self.times[0], self.times[-1], padding=0)
+            if xs and ys:
+                self.data_curve.setData(xs, ys)
+                self.plot_widget.setXRange(xs[0], xs[-1], padding=0)
             else:
                 self.plot_widget.clear()
                 self.plot_widget.setTitle('No data received.')

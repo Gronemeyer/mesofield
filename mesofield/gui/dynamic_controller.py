@@ -7,6 +7,7 @@ class DynamicController(QWidget):
     STOP_BTN = 'stop_btn'
     SNAP_BTN = 'snap_btn'
     PSYCHOPY_BTN = 'psychopy_btn'
+    REWARD_BTN = 'reward_btn'
     """
     A dynamic controller that loads and arranges GUI components based on hardware features.
     """
@@ -21,6 +22,7 @@ class DynamicController(QWidget):
             'led_control': (self._create_led_controls, 'buttons'),
             'camera_snap': (self._create_snap_control, 'buttons'),
             'psychopy': (self._create_psychopy_controls, 'buttons'),
+            'reward': (self._create_reward_control, 'buttons'),
             # MousePortal has its own dedicated MainWindow tab
             # (mesofield.gui.mouseportal_controller), not a DynamicController panel.
             # more mappings as needed are added here
@@ -71,4 +73,10 @@ class DynamicController(QWidget):
         psychopy_btn = QPushButton("Launch PsychoPy")
         setattr(self, self.PSYCHOPY_BTN, psychopy_btn)
         layout.addWidget(psychopy_btn)
+
+    def _create_reward_control(self, layout):
+        """Create a manual reward-delivery button (sends 'D' to the device)."""
+        reward_btn = QPushButton("Deliver Reward")
+        setattr(self, self.REWARD_BTN, reward_btn)
+        layout.addWidget(reward_btn)
     # Additional factory methods can be added here

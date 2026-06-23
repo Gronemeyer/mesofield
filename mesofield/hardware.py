@@ -290,6 +290,15 @@ class HardwareManager():
             )
         self.cameras = tuple(cams)
 
+        # Surface any GUI feature keys declared by scripted devices 
+        # so DynamicController renders them. YAML rigs aggregate these 
+        # via `_aggregate_widgets`; the prebuilt path has no YAML, so merge them in here.
+        extra_widgets: List[str] = []
+        for device in self._prebuilt_devices or []:
+            extra_widgets.extend(getattr(device, "gui_widgets", []) or [])
+        if extra_widgets:
+            self.widgets = list(dict.fromkeys([*self.widgets, *extra_widgets]))
+
     def to_yaml(self, path: Optional[str] = None) -> dict:
         """Serialize the current devices into a ``hardware.yaml`` mapping.
 

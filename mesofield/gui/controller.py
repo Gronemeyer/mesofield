@@ -287,6 +287,7 @@ class ConfigController(QWidget):
         dynamic_buttons = [
             (DynamicController.LED_TEST_BTN, self._test_led),
             (DynamicController.STOP_BTN, self._stop_led),
+            (DynamicController.REWARD_BTN, self._deliver_reward),
         ]
         for btn_attr, handler in dynamic_buttons:
             if hasattr(self.dynamic_controller, btn_attr):
@@ -611,6 +612,23 @@ class ConfigController(QWidget):
         except Exception as e:
             print(f"Error stopping LED pattern: {e}")
     
+    def _deliver_reward(self):
+        """Manually trigger a reward on any device exposing ``deliver_reward``.
+
+        Finds the first hardware device with a ``deliver_reward`` method (e.g.
+        the ``licker``) and calls it, which sends the 'D' command to the board.
+        """
+        devices = getattr(self.config.hardware, "devices", {}) or {}
+        for device in devices.values():
+            if hasattr(device, "deliver_reward"):
+                try:
+                    device.deliver_reward()
+                    print(f"Reward delivered via '{getattr(device, 'device_id', device)}'.")
+                except Exception as e:
+                    print(f"Error delivering reward: {e}")
+                return
+        print("No device with a reward command is loaded.")
+
     def _add_note(self):
         """
         Open a dialog to get a note from the user, save it to the

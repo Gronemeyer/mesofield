@@ -362,7 +362,24 @@ class DataManager:
         if data_sig is None or not hasattr(data_sig, "connect"):
             return
 
+        # Per-device queue filter/transform hook (see
+        # ``BaseDataProducer.queue_payload``). Lets a device control what it
+        # contributes to the dataqueue *independently* of the full-fidelity
+        # ``signals.data`` stream (which still feeds the device's own CSV and
+        # the live plots). Returning ``None`` drops the sample from the queue;
+        # returning a (possibly reshaped) payload pushes that instead.
+        # ``getattr`` keeps this safe for Qt/camera devices that duck-type the
+        # signal contract without inheriting ``BaseDataProducer``.
+        queue_filter = getattr(device, "queue_payload", None)
+
         def _push(payload: Any, device_ts: Any = None, *, _id=dev_id) -> None:
+            if queue_filter is not None:
+                try:
+                    payload = queue_filter(payload)
+                except Exception:
+                    return
+                if payload is None:
+                    return
             self.queue.push(_id, payload, device_ts=device_ts)
 
         try:

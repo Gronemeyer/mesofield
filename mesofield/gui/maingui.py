@@ -435,6 +435,13 @@ class MainWindow(QMainWindow):
             if signals is None or not hasattr(signals, "data"):
                 continue
 
+            # Multi-channel devices declare a `plot_config` mapping
+            # channel -> styling and expose one `{channel}Updated` pyqtSignal per channel
+            plot_cfg = getattr(device, "plot_config", None)
+            if isinstance(plot_cfg, dict) and plot_cfg:
+                self._build_multichannel_device_plots(cfg, dev_id, device, plot_cfg)
+                continue
+
             # Lazily attach the psygnal->Qt bridge if the device didn't build
             # one itself, then expose the live signal under the conventional
             # attribute name SerialWidget looks for.
@@ -474,6 +481,71 @@ class MainWindow(QMainWindow):
                 continue
             self._plots_row.addWidget(widget)
             self._device_widgets[dev_id] = widget
+
+    def _build_multichannel_device_plots(self, cfg, dev_id, device, plot_cfg) -> None:
+        """Build one :class:`SerialWidget` per channel for a multi-channel device.
+
+        The device declares a ``plot_config`` mapping channel -> styling; each
+        entry may carry a ``"source"`` naming the payload-dict key (default: the
+        channel name) that yields that channel's scalar. A single
+        :class:`DeviceChannelSampler` subscribes to the device's ``signals.data``
+        and maintains a bounded ring buffer per channel; each :class:`SerialWidget`
+        *pulls* a snapshot on its own redraw timer. This is pull-based by design:
+        no per-sample Qt signal crosses threads, so a fast device (~1 kHz) cannot
+        flood the GUI event queue. A device gets multi-channel plots from
+        ``plot_config`` alone, with no GUI or Qt code of its own.
+
+        Widgets are tracked in ``self._device_widgets`` under
+        ``"{dev_id}:{channel}"`` keys so the normal teardown in
+        :meth:`_build_device_plots` cleans them up.
+        """
+        from mesofield.gui.qt_device_adapter import DeviceChannelSampler
+
+        channels = getattr(device, "channels", None) or tuple(plot_cfg.keys())
+        channels = [ch for ch in channels if ch in plot_cfg]
+        if not channels:
+            return
+
+        # One sampler bridges psygnal -> ring buffers for every channel. The
+        # channel's payload source is its `plot_config["source"]`, defaulting to
+        # the channel name. Size the buffers to the largest channel's window.
+        channel_sources = {ch: plot_cfg[ch].get("source", ch) for ch in channels}
+        max_points = max(
+            int(plot_cfg[ch].get("max_points", 100)) for ch in channels
+        )
+        try:
+            sampler = DeviceChannelSampler(device, channel_sources, max_points=max_points)
+        except Exception as exc:
+            self._log_exception(f"attach channel sampler to {dev_id}", exc)
+            return
+        # Keep a ref on the device so the sampler outlives this method and the
+        # psygnal connection stays alive.
+        device._gui_channel_sampler = sampler
+
+        for channel in channels:
+            # `source` is dispatch metadata, not SerialWidget styling.
+            styling = {k: v for k, v in plot_cfg[channel].items() if k != "source"}
+            styling.setdefault(
+                "label", f"{str(dev_id).replace('_', ' ').title()} — {channel}"
+            )
+            styling.setdefault("value_label", "Value")
+            styling.setdefault("value_units", "")
+            styling.setdefault("value_scale", 1.0)
+            try:
+                widget = SerialWidget(
+                    cfg=cfg,
+                    device_attr=dev_id,
+                    signal_name=f"{channel}Updated",
+                    data_provider=sampler.provider(channel),
+                    **styling,
+                )
+            except Exception as exc:
+                self._log_exception(
+                    f"build SerialWidget for {dev_id}:{channel}", exc
+                )
+                continue
+            self._plots_row.addWidget(widget)
+            self._device_widgets[f"{dev_id}:{channel}"] = widget
 
     def _build_processor_plots(self) -> None:
         """Add one SerialWidget per (processor, channel) where the channel

@@ -231,6 +231,28 @@ class BaseDataProducer(BaseDevice):
         with self._buffer_lock:
             self._buffer.clear()
 
+    # -- dataqueue routing ----------------------------------------------
+    def queue_payload(self, payload: Any) -> Optional[Any]:
+        """Filter/reshape what this producer contributes to the dataqueue.
+
+        ``signals.data`` is the full-fidelity stream that feeds this device's
+        own buffer (``save_data`` -> CSV) and any live plots. The session-wide
+        :class:`~mesofield.data.manager.DataQueue` is a cross-device
+        alignment/event timeline, and a producer may want to contribute only a
+        subset (or a reshaped form) of its samples to it.
+
+        :class:`~mesofield.data.manager.DataManager` calls this for every
+        sample before pushing it onto the queue. Return:
+
+        - the (possibly transformed) payload to push, or
+        - ``None`` to drop this sample from the queue entirely.
+
+        Default: push the payload unchanged. Override on a subclass to e.g.
+        push only discrete events, or strip a high-rate channel from the queue
+        while leaving the CSV and plots untouched.
+        """
+        return payload
+
     # -- lifecycle overrides --------------------------------------------
     def arm(self, config: "ExperimentConfig") -> None:
         """Default ``arm``: clear buffer and resolve ``output_path``.
