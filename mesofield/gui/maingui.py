@@ -282,6 +282,11 @@ class MainWindow(QMainWindow):
         self._config_controller = ConfigController(
             self.procedure, display_keys=self.display_keys
         )
+        self._config_controller.set_stop_live_hook(
+            lambda: self._acquisition_gui.stop_all_live_previews()
+            if self._acquisition_gui is not None
+            else None
+        )
         # Insert after the Setup tab (index 1) so ordering is:
         # [Setup] [ExperimentConfig] [Terminal]
         self.right_tabs.insertTab(1, self._config_controller, "ExperimentConfig")

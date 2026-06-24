@@ -147,6 +147,7 @@ class ConfigController(QWidget):
         super().__init__()
         self.config: ExperimentConfig = procedure.config
         self.procedure = procedure
+        self._stop_live_hook = None
         # Own the "start on trigger" gate here (GUI layer) 
         # base.Procedure.await_trigger() calls this after
         # arming and before starting devices.
@@ -440,11 +441,25 @@ class ConfigController(QWidget):
 
     def _stop_live_streams(self) -> None:
         """Ensure any live/sequence streams are halted before starting acquisition."""
+        hook = getattr(self, "_stop_live_hook", None)
+        if callable(hook):
+            with suppress(Exception):
+                hook()
+
+        cameras = tuple(getattr(self.config.hardware, "cameras", ()) or ())
+        for cam in cameras:
+            with suppress(Exception):
+                cam.stop_live()
+
         cores = getattr(self.config, "_cores", ())
         for core in cores:
             with suppress(Exception):
                 if hasattr(core, "isSequenceRunning") and core.isSequenceRunning():
                     core.stopSequenceAcquisition()
+
+    def set_stop_live_hook(self, hook) -> None:
+        """Register a GUI callback used to force all Live toggles off pre-record."""
+        self._stop_live_hook = hook
 
     #-----------------------------------------------------------------------------------------------#
 

@@ -5,6 +5,7 @@ from pymmcore_plus import CMMCorePlus
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QPushButton,
@@ -85,6 +86,24 @@ class CameraButtons(QWidget):
         """Enable/disable the snap + live controls (used during acquisition)."""
         self.snap_btn.setEnabled(enabled)
         self.live_btn.setEnabled(enabled)
+
+    def stop_live(self) -> None:
+        """Force live off and keep the button state in sync with the camera."""
+        try:
+            # When checked, toggling False triggers _on_live_toggled(False),
+            # which calls cam.stop_live() and restores button text.
+            if self.live_btn.isChecked():
+                self.live_btn.setChecked(False)
+            else:
+                self.cam.stop_live()
+                self.live_btn.setText("Live")
+        except Exception as exc:
+            _logger.warning("stop_live failed on %s: %s", self.cam.device_id, exc)
+            # Ensure the UI reflects an "off" state even if backend stop fails.
+            self.live_btn.blockSignals(True)
+            self.live_btn.setChecked(False)
+            self.live_btn.setText("Live")
+            self.live_btn.blockSignals(False)
 
     def _on_auto_contrast_toggled(self, checked: bool) -> None:
         if self.preview is None:
@@ -209,14 +228,18 @@ class MDA(QWidget):
         buttons.setLayout(QHBoxLayout())
 
         cores_groupbox = QGroupBox(f"{self.__module__}.{self.__class__.__name__}: Live Viewer")
-        cores_groupbox.setLayout(QHBoxLayout())
+        camera_columns = self._preview_columns(len(self.cameras))
+        cores_groupbox.setLayout(QGridLayout())
+        cores_groupbox.layout().setContentsMargins(6, 6, 6, 6)
+        cores_groupbox.layout().setHorizontalSpacing(8)
+        cores_groupbox.layout().setVerticalSpacing(8)
 
         # Per-preview minimum width budget. Each ImagePreview otherwise floors
         # at 512px; laid out left-to-right, three VGA cameras forced the window
         # past a 16:9 screen and pushed the ConfigController off the edge. Size
         # each preview so all cameras plus the right-hand config panel fit the
         # available screen instead.
-        preview_min = self._preview_min_size(len(self.cameras))
+        preview_min = self._preview_min_size(len(self.cameras), camera_columns)
 
         # Track the per-camera button widgets so acquisition can lock them out.
         self._camera_buttons: list[CameraButtons] = []
@@ -273,7 +296,10 @@ class MDA(QWidget):
             self._camera_buttons.append(cam_buttons)
             core_box.layout().addWidget(cam_buttons)
             core_box.layout().addWidget(preview)
-            cores_groupbox.layout().addWidget(core_box)
+
+            idx = len(self._previews) - 1
+            row, col = divmod(idx, camera_columns)
+            cores_groupbox.layout().addWidget(core_box, row, col)
 
         # Add the cores_groupbox once, not once per camera (the old code
         # added it inside the loop, producing duplicate top-level widgets).
@@ -289,31 +315,63 @@ class MDA(QWidget):
             events.procedure_error.connect(self._on_acquisition_finished)
 
     @staticmethod
-    def _preview_min_size(n_cameras: int) -> int:
+    def _preview_columns(n_cameras: int) -> int:
+        """Choose camera columns so the left pane does not force horizontal overflow."""
+        if n_cameras <= 1:
+            return 1
+
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            return 2
+
+        # Budget includes right pane + margins to keep acquisition controls visible.
+        width = int(screen.availableGeometry().width() * 0.95)
+        panel_reserve = 560
+        per_column_overhead = 36
+        max_cols = min(n_cameras, 3)
+        default_preview = 512
+
+        for cols in range(max_cols, 0, -1):
+            needed = cols * (default_preview + per_column_overhead) + panel_reserve
+            if needed <= width:
+                return cols
+
+        # Prefer two columns for multi-camera rigs even on narrow screens.
+        return 2
+
+    @staticmethod
+    def _preview_min_size(n_cameras: int, columns: int) -> int:
         """Per-preview minimum edge (px) that keeps the window on one screen.
 
-        Previews sit in a single horizontal row, so their minimum widths add up
-        and (with ``QLayout.SizeConstraint.SetMinimumSize`` on the main window)
-        force the window's minimum width. The default 512px floor overflows a
-        16:9 screen once a third VGA camera is added, pushing the right-hand
-        ConfigController off the edge. Divide the available screen width — minus
-        a reserve for the config panel — across the cameras, capped at 512 so the
-        common one/two-camera layouts are unchanged and floored so a preview
-        never becomes uselessly small.
+        Uses the number of preview columns (not total camera count) so wrapping
+        three+ cameras to multiple rows can still allocate useful per-preview
+        size without forcing the whole window off-screen.
         """
-        DEFAULT = 512        # unchanged single-/dual-camera behaviour
-        FLOOR = 256          # never shrink a preview below this
-        PANEL_RESERVE = 480  # right-hand tabs (ConfigController) + margins
+        DEFAULT = 512        # unchanged single-camera behaviour
+        FLOOR = 144          # never shrink a preview below this
+        PANEL_RESERVE = 560  # right-hand tabs (ConfigController) + margins
+        HEIGHT_RESERVE = 260 # window chrome + non-preview vertical UI
+        PER_COLUMN_OVERHEAD = 36
+        PER_ROW_OVERHEAD = 120
         if n_cameras <= 1:
             return DEFAULT
 
         screen = QApplication.primaryScreen()
         if screen is None:
             return DEFAULT
-        avail = int(screen.availableGeometry().width() * 0.95) - PANEL_RESERVE
-        if avail <= 0:
+        columns = max(1, columns)
+        rows = max(1, (n_cameras + columns - 1) // columns)
+
+        avail_w = int(screen.availableGeometry().width() * 0.95) - PANEL_RESERVE
+        avail_w -= columns * PER_COLUMN_OVERHEAD
+        avail_h = int(screen.availableGeometry().height() * 0.92) - HEIGHT_RESERVE
+        avail_h -= rows * PER_ROW_OVERHEAD
+        if avail_w <= 0 or avail_h <= 0:
             return FLOOR
-        return max(FLOOR, min(DEFAULT, avail // n_cameras))
+
+        per_preview_w = avail_w // columns
+        per_preview_h = avail_h // rows
+        return max(FLOOR, min(DEFAULT, per_preview_w, per_preview_h))
 
     def cleanup(self) -> None:
         """Tear down every preview and procedure-event subscription.
@@ -351,6 +409,11 @@ class MDA(QWidget):
         """Lock out the Snap/Live buttons while a Procedure run is in progress."""
         for cam_buttons in self._camera_buttons:
             cam_buttons.set_enabled(not active)
+
+    def stop_all_live_previews(self) -> None:
+        """Turn every camera Live toggle off before starting acquisition."""
+        for cam_buttons in self._camera_buttons:
+            cam_buttons.stop_live()
 
 
 
