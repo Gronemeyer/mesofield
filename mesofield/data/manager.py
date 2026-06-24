@@ -71,6 +71,14 @@ class DataQueue:
     def empty(self) -> bool:
         return self._queue.empty()
 
+    def clear(self) -> None:
+        """Discard any packets still queued."""
+        while True:
+            try:
+                self._queue.get_nowait()
+            except queue.Empty:
+                break
+
 
 @dataclass
 class DataPaths:
@@ -305,6 +313,8 @@ class DataManager:
         # in-memory storage for log rows
         self.queue_packets = []
         self._stop_queue = False
+        # Drop any packets left over from a prior run in this session.
+        self.queue.clear()
 
         # start background thread to record queue packets
         self._queue_thread = threading.Thread(
@@ -317,7 +327,7 @@ class DataManager:
         """Stop the queue logging thread and flush data to disk."""
         self._stop_queue = True
         if self._queue_thread:
-            self._queue_thread.join(timeout=1)
+            self._queue_thread.join()
 
         # save recorded packets via DataSaver
         if self.save and self.queue_log_path:
