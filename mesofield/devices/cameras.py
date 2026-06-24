@@ -733,13 +733,16 @@ class OpenCVCamera(BaseCamera, QThread):
             return
 
         self._capture = cap
-        # where `start_live()` clears `self.writer`). If `begin` fails (e.g. a
-        # missing codec on Linux), abort the recording instead of entering the
-        # loop — otherwise every `add_frame` would raise "called before
-        # begin()" once per frame.        # where `start_live()` clears `self.writer`).
-        if self.writer is not None:
+        # Snapshot the writer once at thread start. `self.writer` can change
+        # from other threads (e.g. live-preview -> record transitions), and
+        # reading a swapped-in writer inside the loop can call add_frame()
+        # before begin().
+        writer = self.writer
+        # If begin fails (e.g. missing codec), abort recording instead of
+        # entering the loop where every add_frame would fail.
+        if writer is not None:
             try:
-                self.writer.begin(self._frame_width, self._frame_height, self.is_color)
+                writer.begin(self._frame_width, self._frame_height, self.is_color)
             except Exception as exc:  # pragma: no cover - codec failure
                 self.logger.error(f"CV2Writer.begin failed, aborting recording: {exc}")
                 cap.release()
@@ -758,7 +761,7 @@ class OpenCVCamera(BaseCamera, QThread):
         # *primary* emits `signals.finished` on natural stop (see the finally
         # block) to drive Procedure cleanup; non-primary cameras just stop
         # writing and release their own writer.
-        stop_at_expected = self.writer is not None and self._expected_frames > 0
+        stop_at_expected = writer is not None and self._expected_frames > 0
         period = 1.0 / self.sampling_rate if self.sampling_rate > 0 else 0.0
         next_t = time.perf_counter()
         # Watchdog: a wrong backend / capture format makes read() fail forever
@@ -791,13 +794,13 @@ class OpenCVCamera(BaseCamera, QThread):
                 self._frame_timestamps.append((idx, ts))
 
                 # Write to disk via the shared CV2Writer
-                if self.writer is not None:
+                if writer is not None:
                     if not self.is_color and frame.ndim == 3:
                         frame_to_write = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                     else:
                         frame_to_write = frame
                     try:
-                        self.writer.add_frame(frame_to_write)
+                        writer.add_frame(frame_to_write)
                     except Exception as exc:  # pragma: no cover - codec failure
                         self.logger.error(f"CV2Writer.add_frame failed: {exc}")
 
@@ -805,7 +808,7 @@ class OpenCVCamera(BaseCamera, QThread):
                 self.frame_ready.emit(frame)
                 self.image_ready.emit(frame)
                 # Recording progress (only meaningful while a writer is attached)
-                if self.writer is not None:
+                if writer is not None:
                     self.progress.emit(idx + 1, self._expected_frames)
                 # Standardized data signal -> DataQueue
                 self.signals.data.emit(idx, ts)
@@ -833,9 +836,9 @@ class OpenCVCamera(BaseCamera, QThread):
             except Exception:
                 pass
             self._capture = None
-            if self.writer is not None:
+            if writer is not None:
                 try:
-                    self.writer.finish(extra_metadata=self._frame_metadata())
+                    writer.finish(extra_metadata=self._frame_metadata())
                 except Exception as exc:
                     self.logger.error(f"CV2Writer.finish failed: {exc}")
                 # `-1` is the "recording done -- hide the progress bar" sentinel.
