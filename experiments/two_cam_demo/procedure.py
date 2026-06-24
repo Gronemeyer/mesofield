@@ -29,6 +29,8 @@ DeviceRegistry._registry.setdefault("mock_camera", MockFrameProducer)
 class TwoCamDemoProcedure(Procedure):
     """Mock 2-camera + encoder procedure with duration-gated cleanup."""
 
+    experiment = "experiment.json"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Worked example of the procedure-authored processor API:
@@ -50,8 +52,7 @@ def main() -> int:
     import sys
     from pathlib import Path
 
-    cfg = Path(__file__).parent / "experiment.json"
-    proc = TwoCamDemoProcedure(str(cfg))
+    proc = TwoCamDemoProcedure()
     finished = proc.run_until_finished(timeout=30.0)
     if not finished:
         print("Procedure did not finish in time.", file=sys.stderr)

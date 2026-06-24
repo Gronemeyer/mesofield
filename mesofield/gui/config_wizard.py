@@ -11,8 +11,6 @@ Provides a unified widget for selecting and applying:
 from __future__ import annotations
 
 import os
-import json
-import inspect
 from typing import TYPE_CHECKING, Optional, List
 
 from PyQt6.QtCore import pyqtSignal, Qt, QSettings, QUrl
@@ -488,6 +486,15 @@ class ConfigWizard(QWidget):
         if yaml_path and os.path.isfile(yaml_path):
             self._set_hardware_path(yaml_path, status="rig loaded")
             self._select_rig_in_combo(yaml_path)
+        elif getattr(cfg.hardware, "is_configured", False):
+            # A rig embedded in experiment.json has no standalone file.
+            self._yaml_status.setText("✔ rig embedded in experiment.json")
+            self._yaml_status.setStyleSheet(f"color: {theme.ACCENT};")
+
+        # Reflect an already-applied launch config so the Setup tab doesn't
+        # look unconfigured.
+        if getattr(cfg.hardware, "is_configured", False):
+            self._mark_applied()
 
         # Persist whatever the procedure actually loaded so a relaunch restores
         # the right files even when the user never pressed Apply.
@@ -879,62 +886,12 @@ class ConfigWizard(QWidget):
 
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            # If the JSON declares a custom Procedure subclass that differs
-            # from the currently active class, instantiate the new one and
-            # propagate to the parent (MainWindow).  Otherwise just hot-load
-            # the new config in place.
-            from mesofield.base import load_procedure_from_config
-
-            if json_path and os.path.isfile(json_path):
-                with open(json_path, "r", encoding="utf-8") as fh:
-                    cfg = json.load(fh)
-
-                proc_file = cfg.get("procedure_file") if isinstance(cfg, dict) else None
-                proc_class = cfg.get("procedure_class") if isinstance(cfg, dict) else None
-
-                should_switch_procedure = False
-                if proc_file and proc_class:
-                    json_dir = os.path.dirname(os.path.abspath(json_path))
-                    declared_file = proc_file
-                    if not os.path.isabs(declared_file):
-                        declared_file = os.path.join(json_dir, declared_file)
-                    declared_file = os.path.abspath(declared_file)
-
-                    current_cls = type(self.procedure)
-                    current_file = inspect.getsourcefile(current_cls) or inspect.getfile(current_cls) or ""
-                    current_file = os.path.abspath(current_file) if current_file else ""
-
-                    same_class_name = current_cls.__name__ == proc_class
-                    same_file = (
-                        bool(current_file)
-                        and os.path.normcase(os.path.normpath(current_file))
-                        == os.path.normcase(os.path.normpath(declared_file))
-                    )
-                    should_switch_procedure = not (same_class_name and same_file)
-
-                if should_switch_procedure:
-                    candidate = load_procedure_from_config(json_path)
-                    # The candidate's __init__ already loaded the JSON and the
-                    # sibling hardware.yaml. Only reload if the user explicitly
-                    # picked a *different* YAML; otherwise we'd orphan the live
-                    # HardwareManager (devices still hold the cameras) and loop
-                    # on re-initialization.
-                    if yaml_path:
-                        existing_yaml = candidate.config.hardware.config_file
-                        picked_yaml = os.path.abspath(yaml_path)
-                        if not existing_yaml or picked_yaml != os.path.abspath(existing_yaml):
-                            candidate.load_config(hardware=yaml_path)
-                    self.procedure = candidate
-                    self.procedureChanged.emit(candidate)
-                else:
-                    self.procedure.load_config(
-                        hardware=yaml_path,
-                        experiment=json_path,
-                    )
-            else:
-                self.procedure.load_config(
-                    hardware=yaml_path,
-                    experiment=json_path,
+            self.procedure.load_config(hardware=yaml_path, experiment=json_path)
+            # Fold the live rig into experiment.json so the next launch is
+            # self-contained and skips the wizard.
+            if json_path and self.procedure.config.hardware.is_configured:
+                self.procedure.config.update_hardware(
+                    self.procedure.config.hardware.rig_spec()
                 )
         except Exception as exc:
             QMessageBox.critical(
@@ -964,6 +921,10 @@ class ConfigWizard(QWidget):
         if self.procedure.config.hardware.is_configured:
             self.hardwareReady.emit()
 
+        self._mark_applied()
+
+    def _mark_applied(self) -> None:
+        """Show the Apply button in its applied (green) state."""
         self._apply_btn.setText("✔  Configuration Applied")
         self._apply_btn.setStyleSheet(
             "QPushButton { padding: 8px 16px; font-weight: bold; color: green; }"

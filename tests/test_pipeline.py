@@ -77,7 +77,7 @@ from mesokit_schema import (
 from mesokit_schema.dataset import hash_file
 
 # --- mesofield (producer + processing) -------------------------------------
-from mesofield.base import load_procedure_from_config
+from mesofield.base import load_procedure
 from mesofield.processing import ProcessorRunner
 
 # --- mesofield.datakit (ingest + consumer) ---------------------------------
@@ -219,7 +219,7 @@ def run_mesofield(workdir: Path) -> tuple[Path, dict]:
     shutil.copytree(MESOFIELD_DEMO, workdir, dirs_exist_ok=True)
 
     config_path = workdir / "experiment.json"
-    proc = load_procedure_from_config(str(config_path))
+    proc = load_procedure(str(config_path))
 
     print("[mesofield] running headlessly (duration cap will stop it)")
     duration = float(proc.config.get("duration", 2))

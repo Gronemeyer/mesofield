@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from mesofield.base import load_procedure_from_config
+from mesofield.base import load_procedure
 
 DEMO_DIR = Path(__file__).resolve().parents[1] / "experiments" / "pipeline_demo"
 
@@ -30,7 +30,7 @@ DEMO_DIR = Path(__file__).resolve().parents[1] / "experiments" / "pipeline_demo"
 )
 def test_procedure_reruns_cleanly_on_same_instance(tmp_path: Path) -> None:
     shutil.copytree(DEMO_DIR, tmp_path, dirs_exist_ok=True)
-    proc = load_procedure_from_config(str(tmp_path / "experiment.json"))
+    proc = load_procedure(str(tmp_path / "experiment.json"))
     duration = float(proc.config.get("duration", 2))
 
     # Run 1 — establishes the latched _cleanup_started=True.

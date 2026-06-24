@@ -42,6 +42,8 @@ class MousePortalGainProcedure(Procedure):
     early cutoff would leave black frames in the OME-TIFF).
     """
 
+    experiment = "experiment.json"
+
     def prerun(self) -> None:
         # Runs before arm_all, so the cameras pick up the derived duration when
         # they build their MDA sequence.

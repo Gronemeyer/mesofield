@@ -292,6 +292,21 @@ class ExperimentConfig(ConfigRegister):
             f"{hyperlink(abs_path, os.path.basename(abs_path))}"
         )
 
+    def load_hardware_spec(self, spec: dict) -> None:
+        """Install a rig from an in-memory mapping (e.g. an embedded ``hardware`` block).
+
+        Replaces the current :class:`HardwareManager` with one built from *spec*.
+        Devices are not initialised until :meth:`HardwareManager.initialize`.
+        """
+        old = getattr(self, "hardware", None)
+        if old is not None and getattr(old, "is_configured", False):
+            try:
+                old.deinitialize()
+            except Exception:
+                self.logger.exception("Error deinitializing previous hardware")
+        self.hardware = HardwareManager(spec=dict(spec))
+        self.logger.info("Loaded hardware config from embedded rig spec")
+
     @property
     def _cores(self):# -> tuple[CMMCorePlus, ...]:
         """Return the tuple of CMMCorePlus instances from the hardware cameras."""
@@ -315,7 +330,7 @@ class ExperimentConfig(ConfigRegister):
     def experiment_dir_is_set(self) -> bool:
         """``True`` once a caller has explicitly chosen ``experiment_dir``.
 
-        Lets launchers (e.g. ``load_procedure_from_config``) apply a fallback
+        Lets launchers (e.g. ``load_procedure``) apply a fallback
         directory only when the user/config never picked one.
         """
         return self._experiment_dir_set
@@ -636,10 +651,15 @@ class ExperimentConfig(ConfigRegister):
         json_dir = os.path.dirname(os.path.abspath(file_path_str))
         if json_dir:
             # Experiment params live beside their JSON; point data output there.
-            # Hardware is owned by the constructor/load_hardware and is never
-            # rebuilt as a side effect of loading parameters.
             self.experiment_dir = json_dir
         self._apply_config(loaded_config)
+
+        # Legacy upgrade: a JSON with no embedded rig falls back to a sibling
+        # hardware.yaml. The next save folds it into the ``hardware`` block.
+        if not getattr(self.hardware, "is_configured", False):
+            sibling = os.path.join(json_dir, "hardware.yaml")
+            if os.path.isfile(sibling):
+                self.load_hardware(sibling)
 
     def load_dict(self, data: Any) -> None:
         """Load parameters from a dataclass instance or plain mapping.
@@ -661,6 +681,11 @@ class ExperimentConfig(ConfigRegister):
 
     def _apply_config(self, loaded_config: dict) -> None:
         """Apply a parsed configuration mapping to the registry."""
+        # A self-contained config carries its rig inline under ``hardware``.
+        hardware_block = loaded_config.get("hardware")
+        if isinstance(hardware_block, dict) and hardware_block:
+            self.load_hardware_spec(hardware_block)
+
         self.display_keys = loaded_config.get("DisplayKeys")
         # Detect new style JSON with 'Configuration' and 'Subjects'
         self.subjects = {}
@@ -806,6 +831,8 @@ class ExperimentConfig(ConfigRegister):
             "Subjects": self.subjects,
             "DisplayKeys": self.display_keys or [],
         }
+        if self.hardware.is_configured:
+            data["hardware"] = self.hardware.rig_spec()
         abs_path = os.path.abspath(path)
         try:
             with open(abs_path, "w") as f:
@@ -870,6 +897,17 @@ class ExperimentConfig(ConfigRegister):
             data["PsychoPy"] = dict(block)
             self._write_json_file(data)
             self.logger.info("Persisted PsychoPy task->script map to experiment.json")
+
+    def update_hardware(self, spec: dict) -> None:
+        """Persist the rig as the top-level ``hardware`` block of experiment.json.
+
+        Makes the JSON self-contained so a relaunch needs no separate rig file.
+        """
+        data = self._read_json_file()
+        if data is not None:
+            data["hardware"] = dict(spec)
+            self._write_json_file(data)
+            self.logger.info("Persisted hardware rig to experiment.json")
 
     def _register_stimulus_tasks(self) -> None:
         """Refresh the ``task`` choices from every stimulus device's bindings.

@@ -29,7 +29,7 @@ def controller(qtbot, hardware_yaml, experiment_json, tmp_path):
 
     proc = Procedure(
         hardware=str(hardware_yaml()),
-        experiment=str(experiment_json()),
+        config=str(experiment_json()),
         experiment_directory=str(tmp_path / "out"),
     )
     ctrl = ConfigController(proc)

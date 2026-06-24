@@ -645,44 +645,22 @@ def _find_experiment_root(session_dir: Path) -> Optional[Path]:
     return None
 
 
-def _resolve_user_procedure_class(experiment_json: Path) -> Optional[type]:
-    """Return the :class:`Procedure` subclass declared in *experiment_json*.
+def _resolve_user_procedure_class(experiment_root: Path) -> Optional[type]:
+    """Return the :class:`Procedure` subclass from a ``procedure.py`` in *experiment_root*.
 
-    Mirrors :func:`mesofield.base.load_procedure_from_config` but stops before
-    instantiation -- we only want the class so we can subclass it and inject
-    playback devices via :meth:`define_hardware`. Avoiding the instantiation
-    side-steps the live ``initialize_hardware`` step that would otherwise
-    try to open real cameras and serial ports during ``mesofield playback``.
+    Returns the class (not an instance) so playback can subclass it and inject
+    replay devices via :meth:`define_hardware`, side-stepping the live
+    ``initialize_hardware`` that would otherwise open real hardware.
     """
+    proc_py = experiment_root / "procedure.py"
+    if not proc_py.is_file():
+        return None
     try:
-        with experiment_json.open("r", encoding="utf-8") as fh:
-            cfg = json.load(fh)
+        from mesofield.base import _procedure_class_from_py
+
+        return _procedure_class_from_py(str(proc_py))
     except Exception:
         return None
-    proc_file = cfg.get("procedure_file")
-    proc_class = cfg.get("procedure_class")
-    if not proc_file or not proc_class:
-        return None
-
-    if not Path(proc_file).is_absolute():
-        proc_file = str(experiment_json.parent / proc_file)
-    if not Path(proc_file).is_file():
-        return None
-
-    mod_name = f"mesofield_playback_procedure_{uuid.uuid4().hex}"
-    spec = importlib.util.spec_from_file_location(mod_name, proc_file)
-    if spec is None or spec.loader is None:
-        return None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[mod_name] = module
-    try:
-        spec.loader.exec_module(module)
-    except Exception:
-        return None
-    cls = getattr(module, proc_class, None)
-    if isinstance(cls, type) and issubclass(cls, Procedure):
-        return cls
-    return None
 
 
 def _read_primary_device_id(hardware_yaml: Path) -> Optional[str]:
@@ -907,7 +885,7 @@ def _make_playback_procedure(
         candidate = experiment_root / "experiment.json"
         if candidate.is_file():
             config_path = str(candidate)
-    proc = _PlaybackWrapper(experiment=config_path)
+    proc = _PlaybackWrapper(config=config_path)
     return proc
 
 
@@ -933,20 +911,17 @@ def discover_playback_context(
         hw_yaml = experiment_root / "hardware.yaml"
         if hw_yaml.is_file():
             primary_id = _read_primary_device_id(hw_yaml)
-        exp_json = experiment_root / "experiment.json"
-        if exp_json.is_file():
-            resolved = _resolve_user_procedure_class(exp_json)
-            if resolved is not None:
-                base_cls = resolved
-                logger.info(
-                    f"Using user procedure class {base_cls.__name__} from "
-                    f"{exp_json}"
-                )
-            else:
-                logger.debug(
-                    f"No procedure_file/procedure_class in {exp_json}; "
-                    "using base Procedure."
-                )
+        resolved = _resolve_user_procedure_class(experiment_root)
+        if resolved is not None:
+            base_cls = resolved
+            logger.info(
+                f"Using user procedure class {base_cls.__name__} from "
+                f"{experiment_root / 'procedure.py'}"
+            )
+        else:
+            logger.debug(
+                f"No procedure.py in {experiment_root}; using base Procedure."
+            )
 
     clock = PlaybackClock(speed=float(speed))
     devices, producer_ids, first_timestamps = _build_devices(

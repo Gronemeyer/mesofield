@@ -17,68 +17,25 @@ import click
 # ---------------------------------------------------------------------------
 
 
-def _resolve_launch_target(arg):
-    """Resolve a ``launch`` argument to a filesystem path (or ``None``).
-
-    Resolution order, so the common cases just work and a typo can't silently
-    boot the wrong thing:
-
-    1. an existing path (``hardware.yaml`` / ``experiment.json`` / ``procedure.py``
-       / a directory) is used verbatim;
-    2. a canonical **rig name** from this machine's store
-       (``mesofield rig list``) resolves to its ``hardware.yaml``;
-    3. the literal ``dev`` boots a throwaway mock rig (runs without hardware);
-    4. anything else prints the known rigs and returns ``None`` so Mesofield
-       opens in its default state with the Configuration Wizard.
-    """
-    if not arg:
-        return None
-    if os.path.exists(arg):
-        return arg
-
-    from mesofield.scaffold import rigs
-
-    try:
-        return str(rigs._resolve_existing(arg))
-    except FileNotFoundError:
-        pass
-
-    if arg == "dev":
-        import tempfile
-        from mesofield.scaffold.experiment import _hardware_yaml_mock
-
-        fd, tmp = tempfile.mkstemp(prefix="mesofield_dev_", suffix=".yaml")
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(_hardware_yaml_mock())
-        return tmp
-
-    click.secho(
-        f"No path or rig named {arg!r}. Known rigs: "
-        f"{', '.join(rigs.list_rigs()) or '(none)'}.\n"
-        "Opening in default state -- pick a rig in the Configuration Wizard.",
-        fg="yellow",
-    )
-    return None
-
-
 @click.command()
 @click.argument('config', type=click.Path(), required=False, default=None)
-def launch(config):
+@click.option('--wizard', '-w', is_flag=True,
+              help="Open the Configuration Wizard even when the config is complete.")
+def launch(config, wizard):
     """Launch the Mesofield acquisition interface.
 
     CONFIG is optional and may be a canonical **rig name** (see
     ``mesofield rig list``), the literal ``dev`` (a mock rig that runs without
-    hardware), or a path to a ``hardware.yaml`` (the rig to bring up), an
-    ``experiment.json``, a scripted ``procedure.py``, or an experiment directory
-    containing them. The rig is the only thing needed to launch; experiment
-    parameters can be sideloaded or generated from the Configuration Wizard.
-    When omitted, Mesofield opens in a default state and the wizard is shown.
+    hardware), or a path to a self-contained ``experiment.json``, a scripted
+    ``procedure.py``, a ``hardware.yaml``, or an experiment directory containing
+    them. A complete config boots straight into acquisition; pass ``--wizard``
+    to reconfigure, or omit CONFIG to open in a default state with the wizard.
     """
     from mesofield.gui.maingui import run_gui
-    from mesofield.base import load_procedure_from_config
+    from mesofield.base import load_procedure
 
-    procedure = load_procedure_from_config(_resolve_launch_target(config))
-    run_gui(procedure)
+    procedure = load_procedure(config)
+    run_gui(procedure, force_wizard=wizard)
 
 
 # ---------------------------------------------------------------------------

@@ -26,7 +26,7 @@ from mesofield.config import ExperimentConfig
 from mesofield.protocols import Procedure
 
 class MainWindow(QMainWindow):
-    def __init__(self, procedure: Procedure):
+    def __init__(self, procedure: Procedure, *, force_wizard: bool = False):
         super().__init__()
         app = QApplication.instance()
         if app is not None:
@@ -115,11 +115,15 @@ class MainWindow(QMainWindow):
         self.config_wizard.hardwareReady.connect(self._build_acquisition_ui)
         self.config_wizard.procedureChanged.connect(self._on_procedure_changed)
 
-        # If hardware is already configured (e.g. config_path was passed),
-        # build the full UI immediately.
-        if self.procedure.config.hardware.is_configured:
+        # A configured rig boots straight into acquisition; otherwise the
+        # Setup tab is the entry point. ``--wizard`` forces it to the front
+        # even when already configured.
+        configured = self.procedure.config.hardware.is_configured
+        if configured:
             self._build_acquisition_ui()
             self._on_config_applied()
+        if force_wizard or not configured:
+            self.right_tabs.setCurrentWidget(self.config_wizard)
 
     #============================== Methods =================================#    
     def toggle_console(self):
@@ -716,7 +720,8 @@ def _make_splash():
     return QSplashScreen(pixmap)
 
 
-def run_gui(procedure: Procedure, *, splash: bool = True) -> int:
+def run_gui(procedure: Procedure, *, splash: bool = True,
+            force_wizard: bool = False) -> int:
     """Open the Mesofield GUI for an already-built ``procedure`` and block.
 
     Creates (or reuses) the :class:`QApplication`, applies the theme, optionally
@@ -750,7 +755,7 @@ def run_gui(procedure: Procedure, *, splash: bool = True) -> int:
         app.processEvents()
         time.sleep(0.5)  # give the splash a moment to show
 
-    window = MainWindow(procedure)
+    window = MainWindow(procedure, force_wizard=force_wizard)
     window.show()
     if splash_screen is not None:
         splash_screen.finish(window)

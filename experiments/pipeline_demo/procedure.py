@@ -33,6 +33,8 @@ class PipelineDemoProcedure(Procedure):
     experiment.json); no on_started/on_finished timer needed.
     """
 
+    experiment = "experiment.json"
+
 
 def main():
     """Run the procedure headlessly until the duration cap stops it."""

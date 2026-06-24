@@ -23,7 +23,7 @@ from mesofield.base import Procedure
 # Constructor precedence: kwargs > define_config > experiment.json > defaults
 # --------------------------------------------------------------------------- #
 def test_kwargs_override_json(experiment_json):
-    proc = Procedure(experiment=str(experiment_json(duration=5)), duration=2)
+    proc = Procedure(config=str(experiment_json(duration=5)), duration=2)
     assert proc.config.get("duration") == 2
 
 
@@ -34,7 +34,7 @@ def test_define_config_supersedes_json(experiment_json):
 
     # define_config wins over experiment.json; an explicit kwarg still wins over
     # define_config.
-    proc = _ConfigProc(experiment=str(experiment_json(duration=5)), task="kw")
+    proc = _ConfigProc(config=str(experiment_json(duration=5)), task="kw")
     assert proc.config.get("duration") == 7
     assert proc.config.get("task") == "kw"
 
@@ -60,7 +60,7 @@ class _HookProc(Procedure):
 def _build(cls, hardware_yaml, experiment_json, tmp_path, **cfg):
     return cls(
         hardware=str(hardware_yaml()),
-        experiment=str(experiment_json(**cfg)),
+        config=str(experiment_json(**cfg)),
         experiment_directory=str(tmp_path / "out"),
     )
 
@@ -133,7 +133,7 @@ def test_manifest_extra_is_written(hardware_yaml, experiment_json, tmp_path):
     out = tmp_path / "out"
     proc = _ExtraProc(
         hardware=str(hardware_yaml()),
-        experiment=str(experiment_json()),
+        config=str(experiment_json()),
         experiment_directory=str(out),
     )
     proc.run()

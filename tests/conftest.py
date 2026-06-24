@@ -254,13 +254,10 @@ def sample_experiment_dir(tmp_path) -> Callable[..., Path]:
         (d / "procedure.py").write_text(
             "from mesofield.base import Procedure\n\n\n"
             f"class {class_name}(Procedure):\n"
-            "    pass\n"
+            '    experiment = "experiment.json"\n'
         )
         (d / "hardware.yaml").write_text(mock_rig_yaml())
-        doc = _default_experiment_doc()
-        doc["procedure_file"] = "procedure.py"
-        doc["procedure_class"] = class_name
-        (d / "experiment.json").write_text(json.dumps(doc))
+        (d / "experiment.json").write_text(json.dumps(_default_experiment_doc()))
         return d
 
     return _make

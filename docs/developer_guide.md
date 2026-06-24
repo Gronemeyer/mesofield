@@ -68,9 +68,10 @@ class MyProcedure(Procedure):
         self.logger.info("Run complete; manifest will be written next")
 ```
 
-`load_procedure_from_config` is the discovery hook called by the CLI; it
-reads the optional `procedure_file` and `procedure_class` fields from
-`experiment.json` and instantiates your subclass.
+`load_procedure` is the discovery hook called by the CLI. Launching a
+`procedure.py` instantiates your subclass, which loads its self-contained
+`experiment.json` (parameters plus an embedded `hardware` rig block) via the
+class-level `experiment` path.
 
 ## Procedure signals (`procedure.events`)
 

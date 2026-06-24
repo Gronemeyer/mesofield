@@ -32,7 +32,7 @@ def test_procedure_workflow(tmp_path, hardware_yaml, experiment_json):
 
     proc = Procedure(
         hardware=str(hw),
-        experiment=str(cfg_json),
+        config=str(cfg_json),
         experiment_directory=str(out_dir),
     )
 

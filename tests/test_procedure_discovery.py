@@ -1,98 +1,75 @@
-"""Tests for custom Procedure discovery via experiment.json."""
+"""Tests for the procedure -> experiment.json link.
+
+A custom procedure declares its self-contained ``experiment.json`` via the
+class-level ``experiment`` path; launching the procedure (or its directory)
+loads those parameters and the embedded rig.
+"""
 
 from __future__ import annotations
 
 import json
-import os
 import textwrap
 from pathlib import Path
 
-import pytest
-
-from mesofield.base import Procedure, load_procedure_from_config
+from mesofield.base import Procedure, _load_procedure_from_py, load_procedure
 
 
-def test_sample_experiment_loads_subclass(sample_experiment_dir, no_hardware_init) -> None:
-    """A discoverable experiment.json resolves to its declared Procedure subclass.
-
-    Uses a fixture-synthesized experiment dir (procedure.py + experiment.json +
-    mock hardware.yaml) instead of a checked-in sample, so the test is portable.
-    """
+def test_directory_loads_subclass(sample_experiment_dir, no_hardware_init) -> None:
+    """A directory with a procedure.py resolves to its Procedure subclass."""
     exp_dir = sample_experiment_dir("SampleProcedure")
 
-    proc = load_procedure_from_config(str(exp_dir / "experiment.json"))
+    proc = load_procedure(str(exp_dir))
 
     assert proc.__class__.__name__ == "SampleProcedure"
     assert isinstance(proc, Procedure)
 
 
-def test_missing_fields_falls_back_to_base(tmp_path: Path) -> None:
-    cfg = tmp_path / "experiment.json"
-    cfg.write_text(json.dumps({"Configuration": {"protocol": "X"}}))
-
-    proc = load_procedure_from_config(str(cfg))
-    assert type(proc) is Procedure
-
-
-def test_non_procedure_class_rejected(tmp_path: Path) -> None:
-    proc_file = tmp_path / "bad.py"
-    proc_file.write_text("class NotAProcedure:\n    pass\n")
-
-    cfg = tmp_path / "experiment.json"
-    cfg.write_text(
-        json.dumps(
-            {
-                "Configuration": {},
-                "procedure_file": "bad.py",
-                "procedure_class": "NotAProcedure",
-            }
-        )
+def test_procedure_loads_declared_experiment(tmp_path: Path, no_hardware_init) -> None:
+    """``experiment = "..."`` loads the sibling JSON's parameters."""
+    (tmp_path / "experiment.json").write_text(
+        json.dumps({
+            "Configuration": {"protocol": "DECLARED", "duration": 1},
+            "Subjects": {"S": {"session": "01", "task": "demo"}},
+        })
     )
-
-    with pytest.raises((TypeError, ValueError, ImportError)):
-        load_procedure_from_config(str(cfg))
-
-
-def test_bad_path_raises(tmp_path: Path) -> None:
-    cfg = tmp_path / "experiment.json"
-    cfg.write_text(
-        json.dumps(
-            {
-                "Configuration": {},
-                "procedure_file": "does_not_exist.py",
-                "procedure_class": "Whatever",
-            }
-        )
-    )
-
-    with pytest.raises((FileNotFoundError, ImportError, OSError)):
-        load_procedure_from_config(str(cfg))
-
-
-def test_relative_path_resolved_against_json_dir(tmp_path: Path) -> None:
-    proc_file = tmp_path / "myproc.py"
+    proc_file = tmp_path / "procedure.py"
     proc_file.write_text(
         textwrap.dedent(
             """
             from mesofield.base import Procedure
 
             class MyProc(Procedure):
+                experiment = "experiment.json"
+            """
+        )
+    )
+
+    proc = _load_procedure_from_py(str(proc_file))
+    assert proc.__class__.__name__ == "MyProc"
+    assert proc.config.get("protocol") == "DECLARED"
+
+
+def test_no_declared_experiment_is_base_defaults(tmp_path: Path, no_hardware_init) -> None:
+    proc_file = tmp_path / "procedure.py"
+    proc_file.write_text(
+        textwrap.dedent(
+            """
+            from mesofield.base import Procedure
+
+            class Bare(Procedure):
                 pass
             """
         )
     )
 
-    cfg = tmp_path / "experiment.json"
-    cfg.write_text(
-        json.dumps(
-            {
-                "Configuration": {},
-                "procedure_file": "myproc.py",
-                "procedure_class": "MyProc",
-            }
-        )
-    )
+    proc = _load_procedure_from_py(str(proc_file))
+    assert proc.__class__.__name__ == "Bare"
+    assert not proc.config.hardware.is_configured
 
-    proc = load_procedure_from_config(str(cfg))
-    assert proc.__class__.__name__ == "MyProc"
-    assert isinstance(proc, Procedure)
+
+def test_plain_json_is_base_procedure(tmp_path: Path, no_hardware_init) -> None:
+    cfg = tmp_path / "experiment.json"
+    cfg.write_text(json.dumps({"Configuration": {"protocol": "X"}}))
+
+    proc = load_procedure(str(cfg))
+    assert type(proc) is Procedure

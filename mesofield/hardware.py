@@ -20,17 +20,20 @@ class HardwareManager():
     :meth:`initialize` to bring hardware up.
     """
 
-    def __init__(self, config_file: Optional[str] = None, devices=None):
+    def __init__(self, config_file: Optional[str] = None, devices=None,
+                 spec: Optional[dict] = None):
         self.logger = get_logger(f'{__name__}.{self.__class__.__name__}')
         if config_file:
             self.logger.info(
                 "Initializing HardwareManager with config: "
                 f"{hyperlink(config_file, os.path.basename(os.path.normpath(config_file)))}"
             )
+        elif spec is not None:
+            self.logger.info("Initializing HardwareManager from an in-memory rig spec")
         else:
             self.logger.info("Initializing HardwareManager with config: None")
 
-        self.config_file = config_file
+        self.config_file = None if spec is not None else config_file
         self.devices: Dict[str, DataProducer] = {}
         self._configured: bool = False
         # Devices constructed programmatically (scripted procedures). When set,
@@ -45,6 +48,11 @@ class HardwareManager():
             self.logger.info(
                 f"Initialized with {len(self._prebuilt_devices)} pre-built device(s)."
             )
+        elif spec is not None:
+            # An inline rig mapping (e.g. the ``hardware`` block of an
+            # experiment.json) is the YAML by another name.
+            self.yaml = dict(spec)
+            self._configured = True
         elif config_file and os.path.isfile(config_file):
             try:
                 self.yaml = self._load_yaml(config_file)
@@ -298,6 +306,17 @@ class HardwareManager():
             extra_widgets.extend(getattr(device, "gui_widgets", []) or [])
         if extra_widgets:
             self.widgets = list(dict.fromkeys([*self.widgets, *extra_widgets]))
+
+    def rig_spec(self) -> dict:
+        """Return an embeddable rig mapping for this manager.
+
+        Prefers the loaded YAML/spec (authoritative and available before
+        ``initialize``); falls back to serializing live devices for a
+        programmatically-built rig.
+        """
+        if self.yaml:
+            return dict(self.yaml)
+        return self.to_yaml()
 
     def to_yaml(self, path: Optional[str] = None) -> dict:
         """Serialize the current devices into a ``hardware.yaml`` mapping.
