@@ -3,6 +3,7 @@ from contextlib import suppress
 from pymmcore_plus import CMMCorePlus
 
 from PyQt6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QGroupBox,
     QHBoxLayout,
@@ -210,6 +211,13 @@ class MDA(QWidget):
         cores_groupbox = QGroupBox(f"{self.__module__}.{self.__class__.__name__}: Live Viewer")
         cores_groupbox.setLayout(QHBoxLayout())
 
+        # Per-preview minimum width budget. Each ImagePreview otherwise floors
+        # at 512px; laid out left-to-right, three VGA cameras forced the window
+        # past a 16:9 screen and pushed the ConfigController off the edge. Size
+        # each preview so all cameras plus the right-hand config panel fit the
+        # available screen instead.
+        preview_min = self._preview_min_size(len(self.cameras))
+
         # Track the per-camera button widgets so acquisition can lock them out.
         self._camera_buttons: list[CameraButtons] = []
         # Track previews so `cleanup` can disconnect them from the (longer-lived)
@@ -233,6 +241,7 @@ class MDA(QWidget):
                     preview = ImagePreview(
                         mmcore=cam.core,
                         _clims='auto' if auto_contrast else (0, 255),
+                        min_size=preview_min,
                     )
                 else:
                     image_signal = getattr(cam, "image_ready", None)
@@ -243,13 +252,16 @@ class MDA(QWidget):
                         image_payload=image_signal,
                         progress_payload=getattr(cam, "progress", None),
                         _clims='auto' if auto_contrast else (0, 255),
+                        min_size=preview_min,
                     )
             else:
                 # Interactive / pyqtgraph viewer.
                 image_signal = getattr(cam, "image_ready", None)
                 if image_signal is None and cam.core is not None:
                     image_signal = getattr(cam.core, "image_ready", None)
-                preview = InteractivePreview(image_payload=image_signal)
+                preview = InteractivePreview(
+                    image_payload=image_signal, min_size=preview_min
+                )
 
             # Unified snap + live buttons -- driven by BaseCamera methods.
             # Works for MMCamera (via mmcore), OpenCVCamera (capture thread),
@@ -275,6 +287,33 @@ class MDA(QWidget):
             events.procedure_started.connect(self._on_acquisition_started)
             events.procedure_finished.connect(self._on_acquisition_finished)
             events.procedure_error.connect(self._on_acquisition_finished)
+
+    @staticmethod
+    def _preview_min_size(n_cameras: int) -> int:
+        """Per-preview minimum edge (px) that keeps the window on one screen.
+
+        Previews sit in a single horizontal row, so their minimum widths add up
+        and (with ``QLayout.SizeConstraint.SetMinimumSize`` on the main window)
+        force the window's minimum width. The default 512px floor overflows a
+        16:9 screen once a third VGA camera is added, pushing the right-hand
+        ConfigController off the edge. Divide the available screen width — minus
+        a reserve for the config panel — across the cameras, capped at 512 so the
+        common one/two-camera layouts are unchanged and floored so a preview
+        never becomes uselessly small.
+        """
+        DEFAULT = 512        # unchanged single-/dual-camera behaviour
+        FLOOR = 256          # never shrink a preview below this
+        PANEL_RESERVE = 480  # right-hand tabs (ConfigController) + margins
+        if n_cameras <= 1:
+            return DEFAULT
+
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            return DEFAULT
+        avail = int(screen.availableGeometry().width() * 0.95) - PANEL_RESERVE
+        if avail <= 0:
+            return FLOOR
+        return max(FLOOR, min(DEFAULT, avail // n_cameras))
 
     def cleanup(self) -> None:
         """Tear down every preview and procedure-event subscription.

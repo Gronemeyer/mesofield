@@ -162,7 +162,8 @@ class ImagePreview(QWidget):
                  use_with_mda: bool = True,
                  mmcore: CMMCorePlus | None = None,
                  image_payload=None,
-                 progress_payload=None):
+                 progress_payload=None,
+                 min_size: int = 512):
         super().__init__(parent=parent)
         if mmcore is None and image_payload is None:
             raise ValueError(
@@ -180,7 +181,7 @@ class ImagePreview(QWidget):
         self.image_label = QLabel()
         self.image_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setMinimumSize(512, 512)
+        self.image_label.setMinimumSize(min_size, min_size)
         self.image_label.setScaledContents(False)  # Keep aspect ratio
 
         # Set up layout with an image view and an optional progress bar
@@ -561,8 +562,10 @@ from pymmcore_plus import CMMCorePlus
 pg.setConfigOptions(imageAxisOrder='row-major', useOpenGL=True)
 
 class InteractivePreview(pg.ImageView):
-    def __init__(self, parent=None, mmcore=None, use_with_mda=True, image_payload=None):
+    def __init__(self, parent=None, mmcore=None, use_with_mda=True, image_payload=None,
+                 min_size: int = 512):
         super().__init__(parent=parent)
+        self.setMinimumSize(min_size, min_size)
         self._mmcore: CMMCorePlus = mmcore
         self._use_with_mda = use_with_mda
         self._clims: Union[Tuple[float, float], Literal["auto"]] = (0, 65535)
