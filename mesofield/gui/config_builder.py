@@ -423,6 +423,8 @@ class _DeviceCard(QFrame):
     def __init__(self, spec: DeviceSpec, parent: QWidget | None = None):
         super().__init__(parent)
         self.spec = spec
+        # Only camera-like devices may drive acquisition timing.
+        self._supports_primary = spec.type.endswith("camera")
         self.setFrameShape(QFrame.Shape.StyledPanel)
 
         layout = QVBoxLayout(self)
@@ -441,9 +443,8 @@ class _DeviceCard(QFrame):
         self._name_edit.setToolTip("The hardware.yaml stanza key for this device")
         name_row.addWidget(self._name_edit)
         self._primary_check = QCheckBox("primary")
-        self._primary_check.setToolTip("The device that drives acquisition timing (exactly one rig-wide)")
-        # Stimulus apps are not data producers; they never drive timing.
-        self._primary_check.setVisible(not spec.stimulus)
+        self._primary_check.setToolTip("The camera that drives acquisition timing (exactly one rig-wide)")
+        self._primary_check.setVisible(self._supports_primary)
         name_row.addWidget(self._primary_check)
         layout.addLayout(name_row)
 
@@ -465,17 +466,17 @@ class _DeviceCard(QFrame):
     def set_values(self, name: str, stanza: dict) -> None:
         """Populate this card from an existing ``hardware.yaml`` stanza."""
         self._name_edit.setText(str(name))
-        self._primary_check.setChecked(bool(stanza.get("primary", False)))
+        self._primary_check.setChecked(self._supports_primary and bool(stanza.get("primary", False)))
         if self._field_form is not None:
             self._field_form.set_values(stanza)
         if self._output_form is not None and isinstance(stanza.get("output"), dict):
             self._output_form.set_values(stanza["output"])
 
     def is_primary(self) -> bool:
-        return self._primary_check.isChecked()
+        return self._supports_primary and self._primary_check.isChecked()
 
     def set_primary(self, value: bool) -> None:
-        self._primary_check.setChecked(value)
+        self._primary_check.setChecked(self._supports_primary and value)
 
     def stanza(self) -> dict:
         """Assemble this card's ``hardware.yaml`` stanza."""
@@ -608,11 +609,22 @@ class HardwareBuilderDialog(QDialog):
             else:
                 self._passthrough[key] = val  # preserve what we don't model
 
+        cameras = [c for c in self._cards if c.spec.type.endswith("camera")]
+        if cameras and not any(c.is_primary() for c in cameras):
+            cameras[0].set_primary(True)
+
     def _make_card(self, type_key: str) -> _DeviceCard:
         card = _DeviceCard(DEVICE_SPECS[type_key])
         card.remove_btn.clicked.connect(lambda _=False, c=card: self._remove_card(c))
         self._cards_layout.insertWidget(self._cards_layout.count() - 1, card)
         self._cards.append(card)
+        # Hard-to-fail default: the first camera added becomes primary.
+        if card.spec.type.endswith("camera"):
+            has_primary_camera = any(
+                c.spec.type.endswith("camera") and c.is_primary() for c in self._cards
+            )
+            if not has_primary_camera:
+                card.set_primary(True)
         return card
 
     # -- slots ---------------------------------------------------------------
@@ -644,7 +656,9 @@ class HardwareBuilderDialog(QDialog):
             QMessageBox.warning(self, "Duplicate names", "Device names must be unique.")
             return
 
-        # Primary is a recording device's job; stimulus apps never drive timing.
+        # Runtime requires one primary device overall. In the builder, users can
+        # choose primary only on cameras; if there are no cameras, we auto-pick
+        # the first recording device to keep camera-less rigs valid.
         recording = [c for c in self._cards if not c.spec.stimulus]
         if not recording:
             QMessageBox.warning(
@@ -653,11 +667,17 @@ class HardwareBuilderDialog(QDialog):
                 "drive acquisition.",
             )
             return
-        primaries = [c for c in recording if c.is_primary()]
+
+        cameras = [c for c in recording if c.spec.type.endswith("camera")]
+        primaries = [c for c in cameras if c.is_primary()]
         if len(primaries) > 1:
-            QMessageBox.warning(self, "Too many primaries", "Only one device can be primary.")
+            QMessageBox.warning(self, "Too many primaries", "Only one camera can be primary.")
             return
-        if not primaries:  # hard-to-fail: pick one for the user
+        if cameras:
+            if not primaries:  # hard-to-fail: pick first camera for the user
+                cameras[0].set_primary(True)
+        else:
+            # Camera-less rig: keep runtime contract (exactly one primary).
             recording[0].set_primary(True)
 
         doc: dict[str, Any] = {"memory_buffer_size": int(self._buffer_spin.value())}
