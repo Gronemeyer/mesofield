@@ -305,6 +305,11 @@ DEVICE_SPECS: dict[str, DeviceSpec] = {
         category="Camera",
         fields=[
             FieldSpec(
+                "micromanager_path", "micromanager_path", str, "",
+                help="Path to the Micro-Manager installation folder (optional)",
+                directory=True,
+            ),
+            FieldSpec(
                 "configuration_path", "configuration_path", str, "",
                 help="Path to a MicroManager system .cfg (optional)",
                 file_filter="MicroManager Config (*.cfg);;All Files (*)",
