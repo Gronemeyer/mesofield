@@ -11,7 +11,18 @@ subpackages are not auto-imported; pull them in explicitly:
     from mesofield.hardware import HardwareManager
 """
 
+import os
+
 from typing import Type, Callable, Dict, Optional, Any, TypeVar
+
+# Force psygnal signalers on every CMMCorePlus, regardless of when the core is
+# created. By default pymmcore-plus switches to Qt signals if a QApplication
+# exists at core creation (i.e. any hardware rebuilt via the config wizard),
+# which changes frameReady delivery semantics: recordings on Qt-signaled cores
+# overflow the circular buffer, and cancelling one leaves runner threads
+# emitting on a deleted QMDASignaler. Cores built at launch (before the GUI)
+# were always psygnal-backed and are the known-good configuration.
+os.environ.setdefault("PYMM_SIGNALS_BACKEND", "psygnal")
 
 T = TypeVar("T")
 
