@@ -659,8 +659,8 @@ class ConfigWizard(QWidget):
         last_json = self._settings.value(self._SETTINGS_KEY_JSON, "", type=str)
         if last_json and os.path.isfile(last_json):
             self._set_experiment_json(last_json, "experiment restored")
-            if not self._outdir_edit.text().strip():
-                self._outdir_edit.setText(os.path.dirname(last_json))
+            configured_dir = self._experiment_dir_from_json(last_json)
+            self._outdir_edit.setText(configured_dir or os.path.dirname(last_json))
 
     def _save_recent_paths(self) -> None:
         """Persist current picker values to QSettings."""
@@ -690,6 +690,23 @@ class ConfigWizard(QWidget):
         self._json_status.setText(f"✔ {status}")
         self._json_status.setStyleSheet(f"color: {theme.ACCENT};")
         self._json_status.setToolTip(path)
+
+    @staticmethod
+    def _experiment_dir_from_json(json_path: str) -> str:
+        """Return experiment_dir declared in an experiment.json file, if any."""
+        try:
+            with open(json_path, "r", encoding="utf-8") as fh:
+                doc = json.load(fh)
+        except Exception:
+            return ""
+
+        if isinstance(doc.get("Configuration"), dict):
+            cfg = doc["Configuration"]
+            val = cfg.get("experiment_dir") or cfg.get("experiment_directory")
+            return str(val).strip() if val else ""
+
+        val = doc.get("experiment_dir") or doc.get("experiment_directory")
+        return str(val).strip() if val else ""
 
     def _select_rig_in_combo(self, yaml_path: str) -> None:
         """Highlight the rig-store entry matching *yaml_path*, if any."""
@@ -852,8 +869,8 @@ class ConfigWizard(QWidget):
         )
         if not path:
             return
-        if not self._outdir_edit.text().strip():
-            self._outdir_edit.setText(os.path.dirname(path))
+        configured_dir = self._experiment_dir_from_json(path)
+        self._outdir_edit.setText(configured_dir or os.path.dirname(path))
         self._set_experiment_json(path, "experiment.json selected — will load")
 
     def _apply(self) -> None:
@@ -908,6 +925,8 @@ class ConfigWizard(QWidget):
         if out_dir:
             self.procedure.config.experiment_dir = out_dir
             self.procedure.data_dir = self.procedure.config.data_dir
+            if json_path:
+                self.procedure.config.save_json()
 
         # Persist the selected paths for next launch
         self._save_recent_paths()

@@ -103,6 +103,50 @@ def test_load_json_applies_values_and_directory(tmp_path, cfg):
     assert cfg.experiment_dir_is_set is True
 
 
+def test_load_json_prefers_configuration_experiment_dir_key(tmp_path, cfg):
+    j = tmp_path / "experiment.json"
+    explicit_dir = tmp_path / "outputs"
+    j.write_text(
+        json.dumps(
+            {
+                "Configuration": {
+                    "experimenter": "tester",
+                    "duration": 3,
+                    "experiment_dir": str(explicit_dir),
+                },
+                "Subjects": {"S1": {"session": "01", "task": "go"}},
+                "DisplayKeys": ["duration"],
+            }
+        )
+    )
+
+    cfg.load_json(str(j))
+    assert cfg.experiment_dir == str(explicit_dir)
+
+
+def test_save_json_persists_experiment_dir(tmp_path, cfg):
+    j = tmp_path / "experiment.json"
+    j.write_text(
+        json.dumps(
+            {
+                "Configuration": {
+                    "experimenter": "tester",
+                    "duration": 3,
+                },
+                "Subjects": {"S1": {"session": "01", "task": "go"}},
+                "DisplayKeys": ["duration", "experimenter"],
+            }
+        )
+    )
+    cfg.load_json(str(j))
+    cfg.select_subject("S1")
+    cfg.experiment_dir = str(tmp_path / "chosen_out")
+    cfg.save_json()
+
+    written = json.loads(j.read_text())
+    assert written["Configuration"]["experiment_dir"] == str(tmp_path / "chosen_out")
+
+
 def test_load_dict_flat_mapping(cfg):
     cfg.load_dict({"duration": 9, "task": "abc"})
     assert cfg.get("duration") == 9

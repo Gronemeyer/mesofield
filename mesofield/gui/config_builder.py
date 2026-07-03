@@ -748,6 +748,7 @@ def build_experiment_doc(
     tasks: List[str],
     variables: List[tuple],  # (name, type, show_in_app)
     subjects: List[dict],
+    experiment_dir: str = "",
 ) -> dict:
     """Assemble the ``Configuration`` / ``Subjects`` / ``DisplayKeys`` shape.
 
@@ -762,6 +763,7 @@ def build_experiment_doc(
         "protocol": configuration.get("protocol", ""),
         "duration": int(configuration.get("duration") or 0),
         "start_on_trigger": bool(configuration.get("start_on_trigger")),
+        "experiment_dir": str(experiment_dir or "").strip(),
     }
     tasks = [t for t in tasks if t]
     if len(tasks) == 1:
@@ -1155,7 +1157,11 @@ class ExperimentBuilderDialog(QDialog):
         if not path:
             return
         doc = build_experiment_doc(
-            self._session_form.values(), self._tasks, self._variables, self._subjects
+            self._session_form.values(),
+            self._tasks,
+            self._variables,
+            self._subjects,
+            experiment_dir=os.path.dirname(os.path.abspath(path)),
         )
         try:
             with open(path, "w", encoding="utf-8") as fh:

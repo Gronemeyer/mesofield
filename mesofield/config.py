@@ -701,7 +701,9 @@ class ExperimentConfig(ConfigRegister):
                         self.set(key, value[0])
                 else:
                     self.set(key, value)
-            if config_params.get("experiment_directory"):
+            if config_params.get("experiment_dir"):
+                self.experiment_dir = config_params.get("experiment_dir")
+            elif config_params.get("experiment_directory"):
                 self.experiment_dir = config_params.get("experiment_directory")
             self.subjects = loaded_config.get("Subjects", {})
             if self.subjects:
@@ -711,7 +713,9 @@ class ExperimentConfig(ConfigRegister):
             # flat structure (legacy JSON or scripted define_config mappings)
             for key, value in loaded_config.items():
                 self.set(key, value)
-            if loaded_config.get("experiment_directory"):
+            if loaded_config.get("experiment_dir"):
+                self.experiment_dir = loaded_config["experiment_dir"]
+            elif loaded_config.get("experiment_directory"):
                 self.experiment_dir = loaded_config["experiment_directory"]
 
         # MousePortal stimulus config is its own top-level block (not nested
@@ -795,6 +799,7 @@ class ExperimentConfig(ConfigRegister):
                         continue  # subject-specific key
                     if k in cfg_block:
                         cfg_block[k] = self.get(k)
+                cfg_block["experiment_dir"] = self.experiment_dir
                 data["Configuration"] = cfg_block
             else:
                 for k in display:
@@ -802,6 +807,7 @@ class ExperimentConfig(ConfigRegister):
                         continue
                     if k in data:
                         data[k] = self.get(k)
+                data["experiment_dir"] = self.experiment_dir
 
             if subject_vals:
                 for k in display:
@@ -831,6 +837,7 @@ class ExperimentConfig(ConfigRegister):
             "Subjects": self.subjects,
             "DisplayKeys": self.display_keys or [],
         }
+        data["Configuration"]["experiment_dir"] = self.experiment_dir
         if self.hardware.is_configured:
             data["hardware"] = self.hardware.rig_spec()
         abs_path = os.path.abspath(path)
