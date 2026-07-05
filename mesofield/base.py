@@ -628,6 +628,7 @@ class Procedure:
         mgr.save.all_hardware()
         mgr.save.save_timestamps(self.protocol, self.start_time, self.stopped_time)
         self.config.save_json()
+        self.config.notes.clear()
         self.events.data_saved.emit()
         self.logger.info("Data saved successfully")
 
