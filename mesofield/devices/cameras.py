@@ -15,7 +15,7 @@ from mesofield.protocols import HardwareDevice, DataProducer
 from mesofield.engines import DevEngine, MesoEngine, PupilEngine
 #from tests.arducam import VideoThread
 from mesofield.devices.base_camera import BaseCamera
-from mesofield.data import CustomWriter, CV2Writer
+from mesofield.data import CV2Writer, OMEWriter
 from mesofield.data.codecs import (
     configure_opencv_codec,
     default_fourcc,
@@ -35,14 +35,14 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
     ``HardwareDevice`` Protocols so existing isinstance() checks keep
     working. The actual frame flow is driven by pymmcore-plus's MDA event
     system; this class wires those events into the standard
-    :class:`DeviceSignals` bundle and constructs a :class:`CustomWriter`
+    :class:`DeviceSignals` bundle and constructs an :class:`OMEWriter`
     (OME-TIFF) or :class:`CV2Writer` (MP4) for the output.
     """
 
     sampling_rate: float = 30.0  # Default sampling rate in Hz
     file_type: ClassVar[str] = "ome.tiff"
     bids_type: ClassVar[Optional[str]] = "func"
-    writer: CustomWriter | CV2Writer
+    writer: OMEWriter | CV2Writer
 
     def __init__(self, cfg: dict):
         # BaseCamera surface (signals, identity, viewer cosmetics, output
@@ -124,7 +124,7 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         self.core = core
 
     # `set_writer` is inherited from BaseCamera: it resolves the output path
-    # and picks the writer (CustomWriter for OME-TIFF, CV2Writer for MP4)
+    # and picks the writer (OMEWriter for OME-TIFF, CV2Writer for MP4)
     # from the shared `_WRITER_FOR_FILE_TYPE` mapping. Override only if you
     # need to swap the mapping for a specific MMCamera subclass.
 

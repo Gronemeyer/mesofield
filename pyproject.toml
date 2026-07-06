@@ -55,6 +55,7 @@ dependencies = [
     "pyqtgraph",
     "pyserial",
     "python-dateutil",
+    "ome-writers",
     "pytz",
     "pywin32; sys_platform == 'win32'",
     "pyzmq",

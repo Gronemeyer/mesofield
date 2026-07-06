@@ -114,7 +114,7 @@ def _load_frame_timestamps(meta_path: Path) -> List[float]:
 
     Handles three on-disk shapes mesofield writers produce:
 
-    - ``CustomWriter`` (OME-TIFF) and ``CV2Writer`` MDA-mode emit
+    - ``OMEWriter`` (OME-TIFF) and ``CV2Writer`` MDA-mode emit
       ``{"p0": [...]}`` keyed by position.
     - ``CV2Writer.finish`` (direct capture-loop mode used by ``OpenCVCamera``)
       wraps the same payload under ``{"frame_metadatas": {"p0": [...]}}``.

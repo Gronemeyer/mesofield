@@ -35,6 +35,7 @@ Design notes:
 
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, Optional, Type
 
@@ -135,8 +136,8 @@ class BaseCamera:
     # GUI code wanting to switch writers at runtime only has to update
     # `self.file_type` and call `set_writer` again.
     _WRITER_FOR_FILE_TYPE: ClassVar[Dict[str, str]] = {
-        "ome.tiff": "CustomWriter",
-        "tiff": "CustomWriter",
+        "ome.tiff": "OMEWriter",
+        "tiff": "OMEWriter",
         "mp4": "CV2Writer",
         "avi": "CV2Writer",
     }
@@ -144,13 +145,13 @@ class BaseCamera:
     def _make_writer(self, filename: str) -> Any:
         """Construct the writer matching ``self.file_type``.
 
-        Default selection: OME-TIFF (``CustomWriter``) for ``ome.tiff`` /
-        ``tiff``, MP4 (``CV2Writer``) for ``mp4`` / ``avi``. Override
+        Default selection: OME-TIFF (``OMEWriter``) for ``ome.tiff`` / ``tiff``,
+        MP4 (``CV2Writer``) for ``mp4`` / ``avi``. Override
         :attr:`_WRITER_FOR_FILE_TYPE` on a subclass to register additional
         writers, or override this method entirely to control construction
         per-format (e.g. passing ``fps`` to a video writer).
         """
-        from mesofield.data import CustomWriter, CV2Writer
+        from mesofield.data import CV2Writer
 
         name = self._WRITER_FOR_FILE_TYPE.get(self.file_type)
         if name is None:
@@ -158,8 +159,22 @@ class BaseCamera:
                 f"No writer registered for file_type {self.file_type!r}. "
                 f"Known: {sorted(self._WRITER_FOR_FILE_TYPE)}"
             )
-        if name == "CustomWriter":
-            return CustomWriter(filename=filename)
+        if name == "OMEWriter":
+            # OME-TIFF via the ome-writers-backed OMEWriter (incremental,
+            # flushed, no giant memmap pre-allocation). MESOFIELD_NULL_WRITER=1
+            # swaps in the disk-free NullWriter for benchmark A/B isolation
+            # (off in normal operation).
+            if os.getenv("MESOFIELD_NULL_WRITER"):
+                from mesofield.data.writer import NullWriter
+
+                get_logger(__name__).warning(
+                    "MESOFIELD_NULL_WRITER set: using disk-free NullWriter for %s",
+                    filename,
+                )
+                return NullWriter(filename=filename)
+            from mesofield.data.writer import OMEWriter
+
+            return OMEWriter(filename=filename)
         if name == "CV2Writer":
             fps = int(self.sampling_rate) if self.sampling_rate else 30
             fourcc = None

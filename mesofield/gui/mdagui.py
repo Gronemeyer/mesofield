@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
 
 from pymmcore_widgets import MDAWidget
 
-from mesofield.data.writer import CustomWriter
+from mesofield.data.writer import OMEWriter
 from mesofield.gui.viewer import ImagePreview, InteractivePreview
 from mesofield.utils._logger import get_logger
 
@@ -156,7 +156,7 @@ class CustomMDAWidget(MDAWidget):
             save_path = None
 
         # run the MDA experiment asynchronously
-        self._mmc.run_mda(sequence, output=CustomWriter(save_path))
+        self._mmc.run_mda(sequence, output=OMEWriter(save_path))
 
 class MDA(QWidget):
     """

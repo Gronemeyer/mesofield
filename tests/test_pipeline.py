@@ -694,12 +694,12 @@ def run_checks(
     # -- BaseCamera writer selection ----------------------------------------
     tracker.section("BaseCamera._make_writer dispatch")
 
-    with tracker.step("file_type='ome.tiff' -> CustomWriter"):
-        from mesofield.data.writer import CustomWriter
+    with tracker.step("file_type='ome.tiff' -> OMEWriter"):
+        from mesofield.data.writer import OMEWriter
         cam.file_type = "ome.tiff"
         writer_path = str(session_root / "snap_test.ome.tiff")
         w = cam._make_writer(writer_path)
-        assert isinstance(w, CustomWriter)
+        assert isinstance(w, OMEWriter)
 
     with tracker.step("file_type='mp4' -> CV2Writer"):
         from mesofield.data.writer import CV2Writer

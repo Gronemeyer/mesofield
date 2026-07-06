@@ -25,7 +25,7 @@ from datetime import datetime
 import pandas as pd
 
 from mesofield.config import ExperimentConfig
-from mesofield.data.writer import CustomWriter, CV2Writer
+from mesofield.data.writer import OMEWriter, CV2Writer
 from mesofield.utils._logger import get_logger, log_this_fr, hyperlink
 
 
