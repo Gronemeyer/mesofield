@@ -9,5 +9,18 @@ Qt-compatible ``valueUpdated(time, value)`` signal (for the existing
 
 from .base import FrameProcessor
 from .frame_mean import FrameMean
+from .registry import (
+    available_processors,
+    build_processor,
+    get_processor_class,
+    register_processor,
+)
 
-__all__ = ["FrameProcessor", "FrameMean"]
+__all__ = [
+    "FrameProcessor",
+    "FrameMean",
+    "register_processor",
+    "get_processor_class",
+    "available_processors",
+    "build_processor",
+]
