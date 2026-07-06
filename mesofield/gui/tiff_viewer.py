@@ -561,7 +561,11 @@ class TiffViewer(QWidget):
 
         self.filepath = path
         # Read-only memmap so we never collide with an experiment writer.
-        self.mmap = tifffile.memmap(path, mode='r')
+        # memmap_ome_stack tolerates truncated/interrupted acquisitions (OME-XML
+        # over-declares planes) by falling back to the frames actually on disk.
+        from mesofield.data.tiffio import memmap_ome_stack
+
+        self.mmap = memmap_ome_stack(path, mode='r')
         self._initial_dir = os.path.dirname(path)
         total_frames = self.mmap.shape[0]
         # Reset so the first frame of the new stack auto-ranges/levels once.
