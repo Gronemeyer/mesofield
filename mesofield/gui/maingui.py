@@ -415,7 +415,7 @@ class MainWindow(QMainWindow):
         up in the GUI with zero GUI code: the bridge to Qt is attached here,
         lazily, rather than hand-wired in each device's ``__init__``.
         """
-        from mesofield.gui.qt_device_adapter import QtDeviceAdapter
+        from mesofield.gui.qt_device_adapter import QtDeviceAdapter, DeviceChannelSampler
 
         # Tear down the previous pass.
         for widget in self._device_widgets.values():
@@ -451,21 +451,6 @@ class MainWindow(QMainWindow):
                 self._build_multichannel_device_plots(cfg, dev_id, device, plot_cfg)
                 continue
 
-            # Lazily attach the psygnal->Qt bridge if the device didn't build
-            # one itself, then expose the live signal under the conventional
-            # attribute name SerialWidget looks for.
-            if getattr(device, "serialSpeedUpdated", None) is None:
-                try:
-                    adapter = QtDeviceAdapter(device)
-                except Exception as exc:
-                    self._log_exception(f"attach Qt adapter to {dev_id}", exc)
-                    continue
-                # Keep a ref on the device so the adapter (a QObject) outlives
-                # this method and the psygnal connection stays alive.
-                device._gui_qt_adapter = adapter
-                device.serialDataReceived = adapter.serialDataReceived
-                device.serialSpeedUpdated = adapter.serialSpeedUpdated
-
             # Styling defaults give a usable plot with zero device config; a
             # device may refine them by declaring a `gui_plot_config` dict
             # (e.g. the wheel encoder labels its axis "Speed / mm/s").
@@ -478,11 +463,46 @@ class MainWindow(QMainWindow):
             override = getattr(device, "gui_plot_config", None)
             if isinstance(override, dict):
                 styling.update(override)
+
+            # Use pull-based sampling for single-channel devices too, so
+            # high-rate serial producers don't emit one Qt signal per sample.
+            source = lambda payload: (
+                payload.get("speed")
+                if isinstance(payload, dict)
+                else payload
+            )
+            max_points = int(styling.get("max_points", 100))
+            try:
+                sampler = DeviceChannelSampler(
+                    device,
+                    {"value": source},
+                    max_points=max_points,
+                )
+                device._gui_channel_sampler = sampler
+                data_provider = sampler.provider("value")
+            except Exception as exc:
+                self._log_exception(f"attach channel sampler to {dev_id}", exc)
+                data_provider = None
+
+            # Fallback: keep the old Qt bridge path when pull sampling fails.
+            if data_provider is None:
+                if getattr(device, "serialSpeedUpdated", None) is None:
+                    try:
+                        adapter = QtDeviceAdapter(device)
+                    except Exception as exc:
+                        self._log_exception(f"attach Qt adapter to {dev_id}", exc)
+                        continue
+                    # Keep a ref on the device so the adapter (a QObject) outlives
+                    # this method and the psygnal connection stays alive.
+                    device._gui_qt_adapter = adapter
+                    device.serialDataReceived = adapter.serialDataReceived
+                    device.serialSpeedUpdated = adapter.serialSpeedUpdated
             try:
                 widget = SerialWidget(
                     cfg=cfg,
                     device_attr=dev_id,
                     signal_name="serialSpeedUpdated",
+                    data_provider=data_provider,
                     **styling,
                 )
             except Exception as exc:
