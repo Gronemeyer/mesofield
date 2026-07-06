@@ -832,6 +832,9 @@ class Procedure:
             extra=self.manifest_extra(),
         )
         out = session_root / "manifest.json"
+        if out.exists():
+            stamp = (self.stopped_time or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%SZ")
+            out = session_root / f"{stamp}_manifest.json"
         manifest.write(out)
         self.logger.info(f"Wrote AcquisitionManifest {hyperlink(out, 'AcquisitionManifest')}")
 

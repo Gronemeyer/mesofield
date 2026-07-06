@@ -147,6 +147,7 @@ class ConfigController(QWidget):
         super().__init__()
         self.config: ExperimentConfig = procedure.config
         self.procedure = procedure
+        self._record_thread: threading.Thread | None = None
         self._stop_live_hook = None
         # Own the "start on trigger" gate here (GUI layer) 
         # base.Procedure.await_trigger() calls this after
@@ -350,19 +351,39 @@ class ConfigController(QWidget):
 
     def record(self):
         """Run the experimental procedure or fallback to legacy MDA sequence."""
+        if self._record_thread is not None and self._record_thread.is_alive():
+            QMessageBox.information(self, "Recording in progress", "A recording is already running.")
+            return
+
         self._stop_live_streams()
         # If a procedure is available, use it for the experimental workflow
         if self.procedure is not None:
+            def _run_procedure():
+                try:
+                    self.procedure.run()
+                except Exception as e:
+                    events = getattr(self.procedure, "events", None)
+                    if events is not None:
+                        try:
+                            events.procedure_error.emit(str(e))
+                        except Exception:
+                            pass
+                finally:
+                    self._record_thread = None
+
             try:
-                # Run the procedure in a separate thread to avoid blocking the GUI
-                # self.procedure_thread = threading.Thread(target=self.procedure.run())
-                # self.procedure_thread.start()
-                self.procedure.run()
+                self._record_thread = threading.Thread(
+                    target=_run_procedure,
+                    name="mesofield-record",
+                    daemon=True,
+                )
+                self._record_thread.start()
                 # Signal that recording has started
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 self.recordStarted.emit(timestamp)
                 return
             except Exception as e:
+                self._record_thread = None
                 QMessageBox.critical(self, "Procedure Error", f"Failed to run procedure: {str(e)}")
                 return
 
