@@ -761,12 +761,23 @@ class Procedure:
         session_root.mkdir(parents=True, exist_ok=True)
 
         def _relativise(p: Any) -> Optional[str]:
+            """Session-root-relative POSIX path, as the schema requires.
+
+            Always POSIX-separated: the manifest is a cross-platform contract,
+            and consumers split on `/`. A path outside the session root cannot
+            be expressed as a relative one, and emitting the absolute path
+            instead would be silently misread as relative downstream -- so it
+            raises rather than writing a value no consumer can resolve.
+            """
             if not p:
                 return None
             try:
-                return str(Path(p).resolve().relative_to(session_root.resolve()))
-            except ValueError:
-                return str(p)
+                return Path(p).resolve().relative_to(session_root.resolve()).as_posix()
+            except ValueError as exc:
+                raise ValueError(
+                    f"Device output {p!r} is outside the session root {session_root}; "
+                    "cannot record it in the acquisition manifest."
+                ) from exc
 
         def _coerce_sidecars(raw) -> list[SidecarEntry]:
             out: list[SidecarEntry] = []
@@ -804,7 +815,7 @@ class Procedure:
                     data_type=getattr(device, "data_type", device_id),
                     bids_type=getattr(device, "bids_type", None),
                     file_type=getattr(device, "file_type", "csv"),
-                    output_path=_relativise(output_path) or str(output_path),
+                    output_path=_relativise(output_path),
                     metadata_path=_relativise(getattr(device, "metadata_path", None)),
                     sampling_rate_hz=getattr(device, "sampling_rate", None) or None,
                     time_basis=TimeBasis(
