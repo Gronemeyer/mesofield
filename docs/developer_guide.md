@@ -37,18 +37,28 @@ The four backbone classes are:
 
 ```
 1. initialize_hardware       — bring devices up (one-time)
-2. prerun                    — subclass hook (default: no-op)
-3. hardware.arm_all          — per-run prep on every device
-4. connect primary.signals.finished -> _cleanup_procedure
-5. on_started                — subclass hook
-6. hardware.start_all
-7. on_finished               — subclass hook (after primary fires finished)
-8. save_data + cleanup
+2. data.setup + register_devices + start_queue_logger
+3. gate stimulus devices by task
+4. prerun                    — subclass hook (default: no-op)
+5. hardware.arm_all          — per-run prep on every device
+6. await_trigger             — subclass hook; hold for an external trigger
+7. connect primary.signals.finished -> _cleanup_procedure
+8. hardware.start_all        — procedure_started emits just before
+9. on_started                — subclass hook
+10. arm the wall-clock duration cap
+11. on_finished              — subclass hook (primary finished, or cap fires)
+12. save_data + manifest write + cleanup
 ```
 
-Hooks `prerun`, `on_started`, `on_finished` are no-ops on `Procedure`
-itself. Override them in your subclass under
-`experiments/<name>/procedure.py`.
+Hooks `prerun`, `await_trigger`, `on_started`, `on_finished` are no-ops on
+`Procedure` itself. Override them in your subclass's `procedure.py`
+(`mesofield init` scaffolds one). `manifest_extra` is the hook for adding
+your own keys to the written `AcquisitionManifest`.
+
+Cleanup is latched: whichever fires first — the primary device's
+`finished` signal or the duration timer — tears down exactly once.
+`run_until_finished(timeout=None)` blocks until that happens, which is
+what the scaffolded `python procedure.py` entry point calls.
 
 ```python
 from mesofield.base import Procedure
@@ -76,7 +86,7 @@ class-level `experiment` path.
 ## Procedure signals (`procedure.events`)
 
 `Procedure.events` is a [`ProcedureSignals`](api/generated/mesofield.base)
-`QObject` exposing four `pyqtSignal`s:
+`QObject` exposing five `pyqtSignal`s:
 
 | Signal | Payload | Fires when |
 |--------|---------|-----------|
@@ -227,7 +237,7 @@ Recognised `plot_kwargs`: `label`, `value_label`, `value_units`,
 The CLI scaffold drops a fill-out template:
 
 ```bash
-mesofield new my-experiment --rig my-rig
+mesofield init my-experiment --rig my-rig
 cd my-experiment
 ```
 
@@ -255,12 +265,31 @@ the OS config directory:
 
 ```bash
 mesofield rig new my-rig             # writes a fill-out template
-mesofield rig list                   # show registered rigs
+mesofield rig list                   # show registered rigs (and their devices)
 mesofield rig add my-rig file.yaml   # adopt an existing yaml
+mesofield rig show my-rig            # print a registered rig
+mesofield rig remove my-rig
 ```
 
 The store lives at the platform-default config location (resolved by
-`platformdirs`); `mesofield rig where` prints the path.
+`platformdirs`); `mesofield rig list` prints the path it is reading.
+
+## Downstream extension points
+
+Acquisition is only the first layer in the package. Two more are worth
+knowing when you add a device:
+
+- **Parsers** — `mesofield.datakit.sources.register.TimeseriesSource`.
+  Subclass it, set `tag` and `patterns`, implement `build_timeseries`,
+  and bind it to your producer as `MyDevice.Parser = _MyParser` so
+  manifest-driven dispatch finds it. Without a parser your device writes
+  files that ingest can't read back.
+- **Processors** — `mesofield.processing.ProcessorRunner`, for any
+  file-to-file stage between acquisition and ingest (DLC, mesomap, lab
+  pipelines). Set `tool_name` / `tool_version` and implement
+  `run(inputs, **params) -> list[Path]`; calling the instance returns
+  `(outputs, manifest)` and writes a `<tool_name>.process.json` sidecar
+  recording input hashes, parameters, and upstream provenance.
 
 ## Logging
 
@@ -285,7 +314,7 @@ file traces are easy to grep.
   — `MMCamera` (Micro-Manager backend) and `OpenCVCamera` (capture
   thread + MP4 writer). The two shapes most custom cameras start from.
 - [`mesofield/scaffold/experiment.py`](api/generated/mesofield.scaffold)
-  — what the `mesofield new` CLI emits. Reading the templates is a
+  — what the `mesofield init` CLI emits. Reading the templates is a
   shortcut to understanding the expected file shape.
 - [`mesofield/processors/frame_mean.py`](api/generated/mesofield.processors)
   — three-line frame processor. The minimum viable processor.

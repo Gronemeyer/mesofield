@@ -16,17 +16,14 @@ Mesofield ships the full pipeline in one package:
 ```sh
 conda create -n my-rig python=3.12 -y
 conda activate my-rig
-pip install -e /path/to/mesofield      # editable install during development
-# pip install mesofield                # once it's on PyPI
+pip install mesofield
+# pip install -e /path/to/mesofield    # editable install during development
 ```
 
-For analysis-only machines (no Qt, no micromanager), the same install
-works. The hardware-side deps (`PyQt6`, `pymmcore-plus`, `nidaqmx`,
-`tifffile`, `pyserial`) live in the `[rig]` extra:
-
-```sh
-pip install -e /path/to/mesofield[rig]
-```
+Python 3.10 or newer is required. There is currently one dependency set:
+the hardware-side packages (`PyQt6`, `pymmcore-plus`, `nidaqmx`,
+`tifffile`, `pyserial`) install on analysis-only machines too. Extras
+exist for development work only — `[test]` and `[docs]`.
 
 ## 2. Register this machine's rig (one-time setup)
 
@@ -123,9 +120,9 @@ camera:
     bids_type: func
 ```
 
-Built-in device types: `camera`, `opencv_camera`, `wheel`, `encoder`
-(treadmill), `psychopy`, `nidaq`, plus the `mock_wheel` and
-`mock_camera` examples.
+Built-in device types: `camera` (micromanager), `opencv_camera`,
+`wheel`, `encoder` (treadmill), `psychopy`, `mouseportal`, `nidaq`,
+plus the `mock_wheel` and `mock_camera` examples.
 
 ## 6. Add a lab-specific device
 
@@ -191,12 +188,22 @@ via `ThermalSensor.Parser` when ingest runs.
 ```python
 from mesofield.datakit import Dataset
 ds = Dataset.from_directory("./")
-ds.save("processed/dataset.h5", format="hdf5")
+ds.save("processed/dataset.h5")
 ```
 
-This walks `data/`, reads the manifests, and writes
-`processed/<date>_dataset_mvp.h5` — a pandas DataFrame with a
-`(Subject, Session, Task)` MultiIndex and `(Source, Signal)` columns.
+`from_directory` walks `data/` and reads the manifests; `save` writes
+the materialized DataFrame to the path you give it — HDF5 for an
+`.h5`/`.hdf5` suffix (or `format="hdf5"`), pickle otherwise. The frame
+has a `(Subject, Session, Task)` MultiIndex and `(Source, Signal)`
+columns.
+
+The same thing from the command line, which defaults the output to
+`<experiment>/processed/YYMMDD_dataset_mvp.h5`:
+
+```sh
+mesofield datakit build ./ --progress
+mesofield datakit explore ./processed/251203_dataset_mvp.h5
+```
 
 ## 8. Analyze with databench (optional)
 
@@ -206,7 +213,7 @@ pip install databench
 
 ```python
 from databench import Project
-proj = Project(dataset="processed/dataset_mvp.h5")
+proj = Project(dataset="processed/dataset.h5")
 session = proj.session(subject="SUBJ01", session="01", task="demo")
 ```
 

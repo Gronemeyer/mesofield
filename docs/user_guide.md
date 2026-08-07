@@ -6,12 +6,13 @@ configured rig. If you're writing a new device class or subclassing
 
 ## Overview
 
-A mesofield experiment is described by up to two files:
+A mesofield experiment is described by up to three files:
 
 | File | Owns | Usually edited by | Required? |
 |------|------|-------------------|-----------|
 | `hardware.yaml` | What devices exist on this rig and how to talk to them | Rig maintainer (one-time per machine) | Yes — the rig you launch |
 | `experiment.json` | Subjects, sessions, protocol, duration | Experimenter (per study / per day) | Optional — load it, author it in the GUI, or script it |
+| `procedure.py` | Run lifecycle hooks and custom device imports | Whoever scripts the study | Optional — see the [Developer Guide](developer_guide.md) |
 
 The `hardware.yaml` is all you need to launch. The `mesofield` CLI brings up
 the GUI and orchestrates the acquisition; experiment parameters can be loaded,
@@ -19,19 +20,55 @@ authored in the Configuration Wizard, or supplied by a scripted `Procedure`.
 
 ## Launching an acquisition
 
-Point the CLI at your rig. The argument can be a `hardware.yaml` (rig only),
-an `experiment.json` (its adjacent `hardware.yaml` is auto-detected), a
-scripted `procedure.py`, or a directory containing them:
+Point the CLI at your rig. The argument can be a **registered rig name**
+(see `mesofield rig list`), the literal `dev` (mock devices, no hardware),
+a `hardware.yaml` (rig only), an `experiment.json` (its adjacent
+`hardware.yaml` is auto-detected), a scripted `procedure.py`, or a
+directory containing them:
 
 ```bash
+mesofield launch dev                         # mock rig — runs on any machine
+mesofield launch my-rig                      # a rig registered on this machine
 mesofield launch path/to/hardware.yaml       # rig only — author params in the GUI
 mesofield launch path/to/experiment.json     # rig + params
 python -m mesofield launch path/to/hardware.yaml   # module entry point, equivalent
 ```
 
+For a directory the precedence is `procedure.py` → `experiment.json` →
+`hardware.yaml`.
+
 This opens the main acquisition window with hardware initialised. When an
 `experiment.json` is supplied its parameters populate the form; otherwise use
-the Configuration Wizard to load or author one.
+the Configuration Wizard to load or author one. Omit the argument entirely,
+or pass `--wizard`, to open the wizard on a config that is already complete.
+
+### Registering a rig and scaffolding an experiment
+
+A `hardware.yaml` is machine-specific (COM ports, camera ids,
+Micro-Manager `.cfg` paths). Each computer keeps a store of named rigs in
+its OS config directory:
+
+```bash
+mesofield rig new my-rig                 # write a template to fill out
+mesofield rig add my-rig path/to/hardware.yaml   # register an existing file
+mesofield rig list                       # what's registered here
+mesofield rig show my-rig                # print one
+mesofield rig remove my-rig
+```
+
+`mesofield init my-experiment` then scaffolds a self-contained experiment
+directory (`experiment.json`, `hardware.yaml`, `procedure.py`, `devices/`),
+copying in the rig you pick — a registered rig, `dev`, or a blank template.
+Use `--rig my-rig` to skip the prompt.
+
+### Reviewing recorded data
+
+```bash
+mesofield playback path/to/experiment    # replay a recorded session in the GUI
+mesofield viewer                         # standalone TIFF ROI viewer
+```
+
+`playback` accepts `--speed` and `--loop/--no-loop`.
 
 ## Experiment configuration (`experiment.json`)
 
@@ -65,10 +102,12 @@ the Configuration Wizard to load or author one.
 
 **Field notes:**
 
-- `experiment_directory` and `hardware_config_file` are optional — both
-  default to siblings of the JSON file's parent directory.
+- `experiment_directory` is optional — output defaults to the directory
+  holding the JSON. A JSON with no embedded rig block falls back to a
+  sibling `hardware.yaml`.
 - `duration` is in seconds. The MDA sequence builds
-  `duration × camera.fps` frames.
+  `primary_camera.sampling_rate × duration` frames, unless
+  `num_meso_frames` is set, which overrides it.
 - `Subjects` keys become BIDS `sub-<key>` directories under
   `experiment_directory/data/`. `session` and `task` become `ses-<id>`
   and `task-<id>`.
@@ -98,8 +137,9 @@ mid-run.
 
 ## Notes during a run
 
-Click **Add Note** at any time. Notes are timestamped and saved to
-`data/sub-<id>/ses-<id>/notes.json` when the run completes.
+Click **Add Note** at any time. Notes are timestamped and written as a
+single `..._notes.txt` file in the session directory when the run
+completes (only if at least one note was added).
 
 ## What ends up on disk
 
@@ -113,14 +153,21 @@ After a run, your experiment directory looks like:
         sub-<id>/
             ses-<id>/
                 manifest.json     # AcquisitionManifest — the contract
-                notes.json
-                <task>/
+                *_notes.txt
+                *_timestamps.csv
+                func/             # the `bids_type` declared per device
                     *_meso.ome.tiff
                     *_meso_frame_metadata.json
-                    *_pupil.mp4
-                    *_pupil_frame_metadata.json
+                beh/
                     *_wheel.csv
 ```
+
+Each producer's `output.bids_type` in `hardware.yaml` decides its
+subdirectory; devices with no `bids_type` write directly into the session
+directory. Filenames are
+`<timestamp>_sub-<id>_ses-<id>_task-<id>_<suffix>.<ext>`. If a
+`manifest.json` already exists, the new one is written with a timestamp
+prefix rather than overwriting.
 
 The `manifest.json` is a typed `AcquisitionManifest` (from
 `mesokit-schema`) describing every producer, its output path, its
@@ -134,6 +181,10 @@ Toolbar → **Toggle Console**. The kernel pre-binds:
 - `self` — the main window (`MainWindow`)
 - `procedure` — the active [`Procedure`](api/generated/mesofield.base)
 - `data` — the [`mesofield.data`](api/generated/mesofield.data) package
+- `what_do()` — prints a short guide to the console
+
+`procedure` is re-pushed whenever the active procedure is swapped, so the
+name always refers to the current run.
 
 Common one-liners:
 
@@ -147,13 +198,11 @@ procedure.events.procedure_started.connect(my_callback)
 
 ## Logging
 
-All application logs flow through one `loguru` logger and land in:
+All application logs flow through one `loguru` logger and land in
+`logs/mesofield.log` inside the installed `mesofield` package directory
+(pass `log_dir` to `setup_logging` to relocate it).
 
-```
-logs/mesofield.log
-```
-
-- Rotates **daily at midnight**.
+- Rotates **daily at midnight**, keeping **7 days**.
 - The console shows colourised logs at `INFO`; the file captures
   everything down to `DEBUG`.
 - Uncaught exceptions are routed through the same hook so crashes leave

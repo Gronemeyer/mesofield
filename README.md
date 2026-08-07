@@ -11,11 +11,16 @@ neuroscience experiments. It coordinates hardware via serial connections
 and MicroManager (through [pymmcore-plus](https://pymmcore-plus.github.io/pymmcore-plus/)
 custom `MDAEngine`s and multi-`CMMCorePlus` instancing) and manages
 experiment configuration, acquisition orchestration, and data logging.
+Cameras run on either the MicroManager or an OpenCV backend.
+
+Acquisitions writes an `AcquisitionManifest` declaring what files saved
+according to the `mesokit-schema` type contract.
+
 The project is aimed at laboratory use and is not a full production
 package; some specialised knowledge of device hardware and
 MicroManager device configuration is necessary to get started.
 
-<img width="2454" height="1592" alt="Mesofield acquisition window" src="https://github.com/user-attachments/assets/151196ab-2d74-4644-85b7-c4facf3b779a" />
+<img width="1920" height="1080" alt="Mesofield acquisition window" src="https://github.com/user-attachments/assets/151196ab-2d74-4644-85b7-c4facf3b779a" />
 
 ---
 
@@ -46,19 +51,40 @@ conda activate mesofield
 pip install -e .
 ```
 
-Launch an acquisition by pointing at your rig — `experiment.json` is optional:
+or
 
 ```bash
-mesofield launch path/to/hardware.yaml      # rig only (author params in the GUI)
+pip install mesofield
+```
+
+Register this machine's hardware once, then scaffold an experiment against it:
+
+```bash
+mesofield rig new my-rig          # write a hardware.yaml template to edit
+mesofield rig list                # show rigs registered on this machine
+mesofield init my-experiment      # scaffold an experiment (--rig my-rig to skip the prompt)
+```
+
+Launch the acquisition GUI by pointing at a rig name or a path:
+
+```bash
+mesofield launch dev                        # mock rig, no hardware required
+mesofield launch my-rig                     # a registered rig by name
+mesofield launch path/to/experiment/        # dir: procedure.py + experiment.json + hardware.yaml
 mesofield launch path/to/experiment.json    # rig + params (sibling hardware.yaml auto-detected)
-mesofield launch path/to/experiment/        # a directory containing either
 ```
 
-Scaffold a new experiment:
+A scaffolded experiment can also be run headless with `python procedure.py`.
 
-```bash
-mesofield new my-experiment
-```
+Beyond acquisition, the CLI is grouped by task — run `mesofield <group> --help`:
+
+| Command | Purpose |
+| --- | --- |
+| `mesofield launch \| init \| playback \| viewer` | acquisition workflow |
+| `mesofield rig ...` | manage this machine's canonical `hardware.yaml` rigs |
+| `mesofield datakit ...` | build, explore, profile, and inspect datasets |
+| `mesofield process ...` | batch-process and convert recorded data |
+| `mesofield tools ...` | setup, export, and diagnostic utilities |
 
 For end-to-end setup, follow the
 [Tutorial](https://gronemeyer.github.io/mesofield/tutorial.html).
