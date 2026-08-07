@@ -604,7 +604,7 @@ class OpenCVCamera(BaseCamera, QThread):
             self._expected_frames = int(self.sampling_rate * float(duration))
         except (TypeError, ValueError):
             self._expected_frames = 0
-        self.logger.info(f"Writer set to {self.output_path}")
+        self.logger.debug(f"Writer set to {self.output_path}")
 
     def start(self) -> bool:
         """Spawn the capture thread and begin writing frames to MP4.
@@ -804,9 +804,14 @@ class OpenCVCamera(BaseCamera, QThread):
                     except Exception as exc:  # pragma: no cover - codec failure
                         self.logger.error(f"CV2Writer.add_frame failed: {exc}")
 
-                # GUI live-preview signals (Qt-native, decoupled from queue)
-                self.frame_ready.emit(frame)
-                self.image_ready.emit(frame)
+                # GUI live-preview signals (Qt-native, decoupled from queue).
+                # These cross into the GUI thread, where ImagePreview holds the
+                # array until its next timer tick. `cap.read()` recycles its
+                # internal buffer in place on the following grab, so the held
+                # reference must be a private copy or the display tears.
+                display_frame = frame.copy()
+                self.frame_ready.emit(display_frame)
+                self.image_ready.emit(display_frame)
                 # Recording progress (only meaningful while a writer is attached)
                 if writer is not None:
                     self.progress.emit(idx + 1, self._expected_frames)
@@ -844,7 +849,7 @@ class OpenCVCamera(BaseCamera, QThread):
                 # `-1` is the "recording done -- hide the progress bar" sentinel.
                 self.progress.emit(-1, 0)
             self.logger.info(
-                f"OpenCV capture stopped: wrote {self._frame_index} frames"
+                f"Wrote {self._frame_index} frames via {type(self.writer).__name__}"
             )
             # If we self-terminated as the primary device, drive procedure
             # cleanup. (When stop()/abort ended the loop, stop() emits
