@@ -25,6 +25,7 @@ Typical lifecycle:
 """
 
 import os
+import re
 import json
 import dataclasses
 import datetime
@@ -39,6 +40,21 @@ from mesofield.protocols import DataProducer
 from mesofield.utils._logger import get_logger, hyperlink
 
 T = TypeVar('T')
+
+# A PsychoPy script declares the task it implements by embedding ``task-{name}``
+# in its filename -- the same token used for BIDS paths (see make_path /
+# psychopy_save_path). This is the single place the convention is parsed, shared
+# by ExperimentConfig (load-time task discovery) and the PsychoPy GUI tab.
+_TASK_RE = re.compile(r"task-([A-Za-z0-9]+)")
+
+
+def parse_task_from_filename(name: str) -> Optional[str]:
+    """Return the task token from a ``task-{name}`` filename, or ``None``.
+
+    Example: ``parse_task_from_filename("Gratings_task-grat_v0.9.py") == "grat"``.
+    """
+    match = _TASK_RE.search(os.path.basename(name))
+    return match.group(1) if match else None
 
 
 class ConfigRegister:
@@ -110,7 +126,17 @@ class ConfigRegister:
         if key not in self._callbacks:
             self._callbacks[key] = []
         self._callbacks[key].append(callback)
-    
+
+    def unregister_callback(self, key: str, callback: Callable[[str, Any], None]) -> None:
+        """Remove a previously registered callback for *key*."""
+        callbacks = self._callbacks.get(key)
+        if not callbacks:
+            return
+        try:
+            callbacks.remove(callback)
+        except ValueError:
+            pass
+
     
     def register_choices(self, key: str, choices: List[Any]) -> None:
         """Register a list of selectable choices for a configuration key."""
@@ -207,6 +233,16 @@ class ExperimentConfig(ConfigRegister):
         self.register("trial_duration", None, int, "Trial duration in seconds", "experiment")
         self.register("led_pattern", ["4", "4"], list, "Arduino LED sequence pattern", "hardware")
         self.register("psychopy_filename", "experiment.py", str, "PsychoPy experiment filename", "experiment")
+        # Task -> PsychoPy-script map (e.g. {"grat": "Gratings_task-grat.py"}).
+        # Lives in its own top-level "PsychoPy" block in experiment.json, edited
+        # via the PsychoPy tab and persisted with update_psychopy(). The selected
+        # `task` keys this map at runtime to choose which script to launch; the
+        # legacy single `psychopy_filename` remains a fallback.
+        self.register("psychopy", {}, dict, "Task->PsychoPy-script map", "stimulus")
+        # MousePortal stimulus config (corridor + gain-trial design). Lives in
+        # its own top-level "MousePortal" block in experiment.json, edited via
+        # the MousePortal tab and persisted with update_mouseportal().
+        self.register("mouseportal", {}, dict, "MousePortal stimulus configuration", "stimulus")
 
     def set(self, key: str, value: Any) -> None:
         """Set config values with field-specific normalization where needed."""
@@ -238,11 +274,38 @@ class ExperimentConfig(ConfigRegister):
         by :class:`~mesofield.base.Procedure.initialize_hardware`).
         """
         abs_path = os.path.abspath(yaml_path)
+        # Tear down the outgoing rig before replacing it. Without this, a reload
+        # orphans the old HardwareManager with its camera threads still running
+        # and signals still connected (leaked threads + open writers, and frames
+        # firing into about-to-be-deleted GUI widgets). `deinitialize` already
+        # stops devices, unloads mmcore, and clears refs — it was just never
+        # called on the reload path.
+        old = getattr(self, "hardware", None)
+        if old is not None and getattr(old, "is_configured", False):
+            try:
+                old.deinitialize()
+            except Exception:
+                self.logger.exception("Error deinitializing previous hardware")
         self.hardware = HardwareManager(abs_path)
         self.logger.info(
             "Loaded hardware config from: "
             f"{hyperlink(abs_path, os.path.basename(abs_path))}"
         )
+
+    def load_hardware_spec(self, spec: dict) -> None:
+        """Install a rig from an in-memory mapping (e.g. an embedded ``hardware`` block).
+
+        Replaces the current :class:`HardwareManager` with one built from *spec*.
+        Devices are not initialised until :meth:`HardwareManager.initialize`.
+        """
+        old = getattr(self, "hardware", None)
+        if old is not None and getattr(old, "is_configured", False):
+            try:
+                old.deinitialize()
+            except Exception:
+                self.logger.exception("Error deinitializing previous hardware")
+        self.hardware = HardwareManager(spec=dict(spec))
+        self.logger.info("Loaded hardware config from embedded rig spec")
 
     @property
     def _cores(self):# -> tuple[CMMCorePlus, ...]:
@@ -267,7 +330,7 @@ class ExperimentConfig(ConfigRegister):
     def experiment_dir_is_set(self) -> bool:
         """``True`` once a caller has explicitly chosen ``experiment_dir``.
 
-        Lets launchers (e.g. ``load_procedure_from_config``) apply a fallback
+        Lets launchers (e.g. ``load_procedure``) apply a fallback
         directory only when the user/config never picked one.
         """
         return self._experiment_dir_set
@@ -322,13 +385,30 @@ class ExperimentConfig(ConfigRegister):
     
     @property
     def trial_duration(self) -> int:
-        """Get the trial duration in seconds."""
+        """Trial duration in seconds.
+
+        The selected task's PsychoPy ``trial_duration`` (when set) wins over the
+        plain ``trial_duration`` config value, so per-task stimulus timing is
+        data-driven instead of hardcoded in a Procedure subclass.
+        """
+        per_task = self._current_psychopy_trial_duration()
+        if per_task is not None:
+            return per_task
         trial_dur = self.get("trial_duration")
         return int(trial_dur) if trial_dur is not None else None
-        
+
     @property
     def num_trials(self) -> int:
-        """Calculate the number of trials."""
+        """Number of trials.
+
+        When the selected task declares a PsychoPy ``trial_duration``, derive it
+        as ``sequence_duration // trial_duration`` (at least 1) -- the rule the
+        legacy vis-stim Procedure hardcoded, now driven by the task map.
+        Otherwise fall back to the stored ``num_trials`` (default 20).
+        """
+        per_task = self._current_psychopy_trial_duration()
+        if per_task and per_task > 0:
+            return max(1, self.sequence_duration // per_task)
         return int(self.get("num_trials", 20))
     
     
@@ -391,9 +471,61 @@ class ExperimentConfig(ConfigRegister):
         return self.get("psychopy_filename")
 
     @property
+    def psychopy(self) -> dict:
+        """The task -> PsychoPy-script map.
+
+        Each value is either a bare filename (legacy) or a dict
+        ``{"file": ..., "trial_duration": ...}`` -- the optional per-task
+        ``trial_duration`` (seconds) drives ``num_trials`` and is passed to the
+        script. Use :meth:`_psychopy_entry` to read either shape.
+        """
+        value = self.get("psychopy")
+        return value if isinstance(value, dict) else {}
+
+    @staticmethod
+    def _psychopy_entry(value: Any) -> tuple:
+        """Normalize a PsychoPy map value to ``(filename, trial_duration|None)``."""
+        if isinstance(value, dict):
+            raw = value.get("trial_duration")
+            try:
+                trial = int(raw) if raw not in (None, "") else None
+            except (TypeError, ValueError):
+                trial = None
+            return str(value.get("file", "")), trial
+        return ("" if value is None else str(value)), None
+
+    @staticmethod
+    def _normalize_psychopy_map(block: dict) -> dict:
+        """Coerce a task->script map to canonical storage (str or {file,trial_duration})."""
+        out: dict = {}
+        for key, value in dict(block).items():
+            filename, trial = ExperimentConfig._psychopy_entry(value)
+            if trial is not None:
+                out[str(key)] = {"file": filename, "trial_duration": trial}
+            else:
+                out[str(key)] = filename
+        return out
+
+    def _current_psychopy_trial_duration(self) -> Optional[int]:
+        """Per-task ``trial_duration`` for the selected task's PsychoPy entry, or None."""
+        _, trial = self._psychopy_entry(self.psychopy.get(self.task))
+        return trial
+
+    @property
     def psychopy_path(self) -> str:
-        """Get the PsychoPy script path."""
-        return os.path.join(self._save_dir, self.psychopy_filename)
+        """Resolve the PsychoPy script path for the currently selected task.
+
+        When a ``task -> script`` map is present (the ``PsychoPy`` block) and has
+        an entry for the current ``task``, that script wins: an absolute path is
+        used as-is, a relative one is resolved against ``experiment_dir``. With no
+        map (or no entry for this task) it falls back to the legacy single
+        ``psychopy_filename`` so existing one-script experiments keep working.
+        """
+        mapped_file, _ = self._psychopy_entry(self.psychopy.get(self.task))
+        filename = mapped_file or self.psychopy_filename
+        if os.path.isabs(filename):
+            return filename
+        return os.path.join(self._save_dir, filename)
     
     @property
     def psychopy_save_path(self) -> str:
@@ -408,6 +540,7 @@ class ExperimentConfig(ConfigRegister):
             'session': self.session,
             'save_dir': self.save_dir,
             'num_trials': self.num_trials,
+            'trial_duration': self.trial_duration,
             'save_path': self.psychopy_save_path
         }
     
@@ -518,10 +651,15 @@ class ExperimentConfig(ConfigRegister):
         json_dir = os.path.dirname(os.path.abspath(file_path_str))
         if json_dir:
             # Experiment params live beside their JSON; point data output there.
-            # Hardware is owned by the constructor/load_hardware and is never
-            # rebuilt as a side effect of loading parameters.
             self.experiment_dir = json_dir
         self._apply_config(loaded_config)
+
+        # Legacy upgrade: a JSON with no embedded rig falls back to a sibling
+        # hardware.yaml. The next save folds it into the ``hardware`` block.
+        if not getattr(self.hardware, "is_configured", False):
+            sibling = os.path.join(json_dir, "hardware.yaml")
+            if os.path.isfile(sibling):
+                self.load_hardware(sibling)
 
     def load_dict(self, data: Any) -> None:
         """Load parameters from a dataclass instance or plain mapping.
@@ -543,6 +681,11 @@ class ExperimentConfig(ConfigRegister):
 
     def _apply_config(self, loaded_config: dict) -> None:
         """Apply a parsed configuration mapping to the registry."""
+        # A self-contained config carries its rig inline under ``hardware``.
+        hardware_block = loaded_config.get("hardware")
+        if isinstance(hardware_block, dict) and hardware_block:
+            self.load_hardware_spec(hardware_block)
+
         self.display_keys = loaded_config.get("DisplayKeys")
         # Detect new style JSON with 'Configuration' and 'Subjects'
         self.subjects = {}
@@ -558,7 +701,9 @@ class ExperimentConfig(ConfigRegister):
                         self.set(key, value[0])
                 else:
                     self.set(key, value)
-            if config_params.get("experiment_directory"):
+            if config_params.get("experiment_dir"):
+                self.experiment_dir = config_params.get("experiment_dir")
+            elif config_params.get("experiment_directory"):
                 self.experiment_dir = config_params.get("experiment_directory")
             self.subjects = loaded_config.get("Subjects", {})
             if self.subjects:
@@ -568,8 +713,27 @@ class ExperimentConfig(ConfigRegister):
             # flat structure (legacy JSON or scripted define_config mappings)
             for key, value in loaded_config.items():
                 self.set(key, value)
-            if loaded_config.get("experiment_directory"):
+            if loaded_config.get("experiment_dir"):
+                self.experiment_dir = loaded_config["experiment_dir"]
+            elif loaded_config.get("experiment_directory"):
                 self.experiment_dir = loaded_config["experiment_directory"]
+
+        # MousePortal stimulus config is its own top-level block (not nested
+        # under Configuration) and is round-tripped via update_mouseportal().
+        if isinstance(loaded_config.get("MousePortal"), dict):
+            self.set("mouseportal", loaded_config["MousePortal"])
+
+        # PsychoPy task->script map is also its own top-level block. When present
+        # it owns the `task` choices (derived from its keys), overriding any plain
+        # Configuration.task list -- the scripts are the source of truth for which
+        # tasks exist. Round-tripped via update_psychopy().
+        psychopy_block = loaded_config.get("PsychoPy")
+        if isinstance(psychopy_block, dict):
+            self.set("psychopy", self._normalize_psychopy_map(psychopy_block))
+
+        # Derive the `task` dropdown from every stimulus binding (PsychoPy map
+        # keys + MousePortal's task) unioned with any plain Configuration tasks.
+        self._register_stimulus_tasks()
 
         if "Plugins" in loaded_config:
             self.plugins: dict = loaded_config.get("Plugins", {})
@@ -635,6 +799,7 @@ class ExperimentConfig(ConfigRegister):
                         continue  # subject-specific key
                     if k in cfg_block:
                         cfg_block[k] = self.get(k)
+                cfg_block["experiment_dir"] = self.experiment_dir
                 data["Configuration"] = cfg_block
             else:
                 for k in display:
@@ -642,6 +807,7 @@ class ExperimentConfig(ConfigRegister):
                         continue
                     if k in data:
                         data[k] = self.get(k)
+                data["experiment_dir"] = self.experiment_dir
 
             if subject_vals:
                 for k in display:
@@ -671,6 +837,9 @@ class ExperimentConfig(ConfigRegister):
             "Subjects": self.subjects,
             "DisplayKeys": self.display_keys or [],
         }
+        data["Configuration"]["experiment_dir"] = self.experiment_dir
+        if self.hardware.is_configured:
+            data["hardware"] = self.hardware.rig_spec()
         abs_path = os.path.abspath(path)
         try:
             with open(abs_path, "w") as f:
@@ -696,6 +865,81 @@ class ExperimentConfig(ConfigRegister):
                 self.set(key, val)
             except Exception as e:
                 self.logger.error(f"Failed to update session in JSON file: {e}")
+
+    @property
+    def mouseportal(self) -> dict:
+        """The MousePortal stimulus config block (corridor + gain trials)."""
+        value = self.get("mouseportal")
+        return value if isinstance(value, dict) else {}
+
+    def update_mouseportal(self, block: dict) -> None:
+        """Apply and persist the MousePortal config block.
+
+        Updates the in-memory registry (so the next run's ``arm`` reads the new
+        params) and writes the top-level ``MousePortal`` block back to
+        experiment.json. Mirrors how ConfigController persists ExperimentConfig
+        edits, but for MousePortal's structured block.
+        """
+        self.set("mouseportal", dict(block))
+        self._register_stimulus_tasks()
+        data = self._read_json_file()
+        if data is not None:
+            data["MousePortal"] = dict(block)
+            self._write_json_file(data)
+            self.logger.info("Persisted MousePortal config block to experiment.json")
+
+    def update_psychopy(self, block: dict) -> None:
+        """Apply and persist the task -> PsychoPy-script map.
+
+        Updates the in-memory registry (so the next run's ``arm`` resolves the
+        right script), re-derives the ``task`` dropdown choices from the map
+        keys, and writes the top-level ``PsychoPy`` block back to experiment.json.
+        Mirrors :meth:`update_mouseportal` for PsychoPy's task->script map.
+        """
+        block = self._normalize_psychopy_map(block)
+        self.set("psychopy", block)
+        self._register_stimulus_tasks()
+        data = self._read_json_file()
+        if data is not None:
+            data["PsychoPy"] = dict(block)
+            self._write_json_file(data)
+            self.logger.info("Persisted PsychoPy task->script map to experiment.json")
+
+    def update_hardware(self, spec: dict) -> None:
+        """Persist the rig as the top-level ``hardware`` block of experiment.json.
+
+        Makes the JSON self-contained so a relaunch needs no separate rig file.
+        """
+        data = self._read_json_file()
+        if data is not None:
+            data["hardware"] = dict(spec)
+            self._write_json_file(data)
+            self.logger.info("Persisted hardware rig to experiment.json")
+
+    def _register_stimulus_tasks(self) -> None:
+        """Refresh the ``task`` choices from every stimulus device's bindings.
+
+        Each stimulus binding declares the task(s) it serves -- PsychoPy via its
+        task->script map keys, MousePortal via its config block's ``task`` -- and
+        selecting that task is what launches the matching stimulus at run time
+        (see ``Procedure._gate_stimuli_by_task``). The dropdown is the union of
+        those stimulus tasks with any plain tasks already declared in
+        ``Configuration`` (a stimulus-free baseline keeps its entry). Keeps the
+        current task selected when still valid; otherwise defaults to the first.
+        """
+        stimulus_tasks = set(self.psychopy.keys())
+        mp_task = self.mouseportal.get("task")
+        if isinstance(mp_task, (list, tuple, set)):
+            stimulus_tasks.update(str(t) for t in mp_task if t)
+        elif isinstance(mp_task, str) and mp_task:
+            stimulus_tasks.add(mp_task)
+        if not stimulus_tasks:
+            return
+        existing = self.get_choices("task") or []
+        tasks = sorted(set(existing) | stimulus_tasks)
+        self.register_choices("task", tasks)
+        if self.get("task") not in tasks:
+            self.set("task", tasks[0])
 
     def _read_json_file(self) -> Optional[dict]:
         path = getattr(self, "_json_file_path", "")

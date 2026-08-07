@@ -1,5 +1,7 @@
 # This requirements are for development and testing only, not for production.
 pytest
+pytest-qt
+pytest-timeout
 coverage
 flake8
 black

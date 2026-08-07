@@ -35,6 +35,7 @@ Design notes:
 
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, Optional, Type
 
@@ -99,6 +100,9 @@ class BaseCamera:
         # Lifecycle timestamps.
         self._started: Optional[datetime] = None
         self._stopped: Optional[datetime] = None
+        # One-shot guard so `shutdown` is safe to call twice (HardwareManager
+        # deinitialize + any GUI/teardown path can both reach a device).
+        self._shutdown_done: bool = False
         # `image_ready` is a pyqtSignal (or psygnal wrapper) the MDA gui's
         # non-mmcore viewer subscribes to. Subclasses set this when they
         # have a Qt-friendly emitter (OpenCVCamera does directly via
@@ -132,8 +136,8 @@ class BaseCamera:
     # GUI code wanting to switch writers at runtime only has to update
     # `self.file_type` and call `set_writer` again.
     _WRITER_FOR_FILE_TYPE: ClassVar[Dict[str, str]] = {
-        "ome.tiff": "CustomWriter",
-        "tiff": "CustomWriter",
+        "ome.tiff": "OMEWriter",
+        "tiff": "OMEWriter",
         "mp4": "CV2Writer",
         "avi": "CV2Writer",
     }
@@ -141,13 +145,13 @@ class BaseCamera:
     def _make_writer(self, filename: str) -> Any:
         """Construct the writer matching ``self.file_type``.
 
-        Default selection: OME-TIFF (``CustomWriter``) for ``ome.tiff`` /
-        ``tiff``, MP4 (``CV2Writer``) for ``mp4`` / ``avi``. Override
+        Default selection: OME-TIFF (``OMEWriter``) for ``ome.tiff`` / ``tiff``,
+        MP4 (``CV2Writer``) for ``mp4`` / ``avi``. Override
         :attr:`_WRITER_FOR_FILE_TYPE` on a subclass to register additional
         writers, or override this method entirely to control construction
         per-format (e.g. passing ``fps`` to a video writer).
         """
-        from mesofield.data import CustomWriter, CV2Writer
+        from mesofield.data import CV2Writer
 
         name = self._WRITER_FOR_FILE_TYPE.get(self.file_type)
         if name is None:
@@ -155,8 +159,22 @@ class BaseCamera:
                 f"No writer registered for file_type {self.file_type!r}. "
                 f"Known: {sorted(self._WRITER_FOR_FILE_TYPE)}"
             )
-        if name == "CustomWriter":
-            return CustomWriter(filename=filename)
+        if name == "OMEWriter":
+            # OME-TIFF via the ome-writers-backed OMEWriter (incremental,
+            # flushed, no giant memmap pre-allocation). MESOFIELD_NULL_WRITER=1
+            # swaps in the disk-free NullWriter for benchmark A/B isolation
+            # (off in normal operation).
+            if os.getenv("MESOFIELD_NULL_WRITER"):
+                from mesofield.data.writer import NullWriter
+
+                get_logger(__name__).warning(
+                    "MESOFIELD_NULL_WRITER set: using disk-free NullWriter for %s",
+                    filename,
+                )
+                return NullWriter(filename=filename)
+            from mesofield.data.writer import OMEWriter
+
+            return OMEWriter(filename=filename)
         if name == "CV2Writer":
             fps = int(self.sampling_rate) if self.sampling_rate else 30
             fourcc = None
@@ -287,9 +305,54 @@ class BaseCamera:
         """Extra sidecars beyond ``metadata_path``. Cameras typically have none."""
         return []
 
+    def _release(self) -> None:
+        """Backend-specific teardown hook (default no-op).
+
+        Called by :meth:`shutdown` after :meth:`stop` and before this camera's
+        signals are severed. Override to disconnect backend event handlers
+        (e.g. mmcore MDA events) and drop driver/adapter handles. Do NOT
+        disconnect this camera's own ``signals`` / ``image_ready`` here — the
+        template does that uniformly for every subclass.
+        """
+        return None
+
     def shutdown(self) -> None:
-        """Default cleanup: stop the camera. Subclasses extend if needed."""
+        """Stop the camera and release everything it owns. **Final** — override
+        :meth:`_release` (and :meth:`stop`), not this.
+
+        After it returns: threads are joined, backend handles released, and
+        every signal this camera owns (``signals`` psygnal bundle plus the Qt
+        ``image_ready`` / ``frame_ready`` / ``progress`` emitters) is
+        disconnected — so nothing it emits can reach a now-deleted subscriber
+        during a hot-reload. Idempotent.
+        """
+        if self._shutdown_done:
+            return
+        self._shutdown_done = True
+
+        # 1. Stop acquisition / join threads (subclass-specific, idempotent).
         try:
             self.stop()
         except Exception:
+            self.logger.exception("shutdown: stop() failed")
+
+        # 2. Backend handle + backend-signal release.
+        try:
+            self._release()
+        except Exception:
+            self.logger.exception("shutdown: _release() failed")
+
+        # 3. Sever the psygnal bundle at the source.
+        try:
+            self.signals.disconnect_all()
+        except Exception:
             pass
+
+        # 4. Sever the Qt signals this camera owns (no-op when unset / no slots).
+        for _sig_name in ("image_ready", "frame_ready", "progress"):
+            sig = getattr(self, _sig_name, None)
+            if sig is not None and hasattr(sig, "disconnect"):
+                try:
+                    sig.disconnect()
+                except (TypeError, RuntimeError):
+                    pass

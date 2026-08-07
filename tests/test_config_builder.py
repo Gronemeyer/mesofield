@@ -79,6 +79,7 @@ def test_build_experiment_doc_single_subject():
     )
     assert doc["Configuration"]["duration"] == 7
     assert doc["Configuration"]["start_on_trigger"] is True
+    assert doc["Configuration"]["experiment_dir"] == ""
     assert doc["Configuration"]["task"] == "run"  # single task -> scalar
     assert doc["Subjects"]["M1"] == {"session": "03", "task": "run"}
     assert "subject" in doc["DisplayKeys"]
@@ -109,6 +110,20 @@ def test_build_experiment_doc_multi_subject_variables_and_blanks():
         "subject", "session", "task", "genotype",
         "experimenter", "protocol", "duration",
     ]
+
+
+def test_build_experiment_doc_sets_experiment_dir_when_provided():
+    from mesofield.gui.config_builder import build_experiment_doc
+
+    doc = build_experiment_doc(
+        configuration={"experimenter": "j", "protocol": "P", "duration": 5,
+                       "start_on_trigger": False},
+        tasks=["baseline"],
+        variables=[],
+        subjects=[{"subject": "M1", "session": "01", "task": "baseline"}],
+        experiment_dir="C:/tmp/my_exp",
+    )
+    assert doc["Configuration"]["experiment_dir"] == "C:/tmp/my_exp"
 
 
 def test_device_specs_catalog_keys():

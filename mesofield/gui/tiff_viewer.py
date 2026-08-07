@@ -6,7 +6,7 @@ import numpy as np
 import tifffile
 import pyqtgraph as pg
 
-from PyQt6.QtCore import QObject, pyqtSignal, QRunnable, QThreadPool, Qt, QTimer
+from PyQt6.QtCore import QObject, pyqtSignal, QRunnable, QThreadPool, Qt, QTimer, QEvent
 from PyQt6.QtWidgets import (
     QApplication,
     QWidget,
@@ -335,6 +335,7 @@ class TiffViewer(QWidget):
         # Pixel-trace state
         self._pixel_windows: List[PixelTraceWindow] = []
         self._pixel_marker = None  # transient pg.RectROI showing last pick
+        self._key_step_direction = 0
 
         self._setup_ui()
         self._connect_signals()
@@ -430,21 +431,33 @@ class TiffViewer(QWidget):
         self.btn_play = QPushButton("Play")
         self.btn_play.setCheckable(True)
         self.btn_play.setEnabled(False)
+        self.btn_prev_frame = QPushButton("<")
+        self.btn_prev_frame.setEnabled(False)
+        self.btn_next_frame = QPushButton(">")
+        self.btn_next_frame.setEnabled(False)
         self.spin_fps = QDoubleSpinBox()
         self.spin_fps.setRange(0.1, 240.0)
         self.spin_fps.setDecimals(1)
         self.spin_fps.setValue(30.0)
         self.spin_fps.setSuffix(" fps")
         playback_layout.addWidget(self.btn_play)
+        playback_layout.addWidget(self.btn_prev_frame)
         playback_layout.addWidget(self.spin_fps)
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setEnabled(False)
         playback_layout.addWidget(self.slider, 1)
+        playback_layout.addWidget(self.btn_next_frame)
+        self.lbl_frame_pos = QLabel("(0/0)")
+        playback_layout.addWidget(self.lbl_frame_pos)
         main_layout.addLayout(playback_layout)
 
         # Playback timer
         self._play_timer = QTimer(self)
         self._play_timer.timeout.connect(self._advance_frame)
+        # Keyboard hold stepping timer (left/right arrows) at ~10 fps.
+        self._key_step_timer = QTimer(self)
+        self._key_step_timer.setInterval(100)
+        self._key_step_timer.timeout.connect(self._on_key_step_timeout)
 
         self.progress = QProgressBar()
         self.progress.setVisible(False)
@@ -472,8 +485,12 @@ class TiffViewer(QWidget):
         self.btn_compute.clicked.connect(self.compute_rois)
         self.btn_export_svg.clicked.connect(self.export_svg)
         self.btn_play.toggled.connect(self._on_play_toggled)
+        self.btn_prev_frame.clicked.connect(self._step_frame_back)
+        self.btn_next_frame.clicked.connect(self._step_frame_forward)
         self.spin_fps.valueChanged.connect(self._on_fps_changed)
         self.btn_pick_pixel.toggled.connect(self._on_pick_pixel_toggled)
+        self.slider.installEventFilter(self)
+        self.img_view.installEventFilter(self)
         # Frame-range interlock so first <= last.
         self.spin_first_frame.valueChanged.connect(self._on_first_frame_changed)
         self.spin_last_frame.valueChanged.connect(self._on_last_frame_changed)
@@ -561,9 +578,14 @@ class TiffViewer(QWidget):
 
         self.filepath = path
         # Read-only memmap so we never collide with an experiment writer.
-        self.mmap = tifffile.memmap(path, mode='r')
+        # memmap_ome_stack tolerates truncated/interrupted acquisitions (OME-XML
+        # over-declares planes) by falling back to the frames actually on disk.
+        from mesofield.data.tiffio import memmap_ome_stack
+
+        mmap = memmap_ome_stack(path, mode='r')
+        self.mmap = mmap
         self._initial_dir = os.path.dirname(path)
-        total_frames = self.mmap.shape[0]
+        total_frames = mmap.shape[0]
         # Reset so the first frame of the new stack auto-ranges/levels once.
         self._first_shown = False
         # Block slider signals while reconfiguring its range to avoid
@@ -574,6 +596,8 @@ class TiffViewer(QWidget):
         self.slider.setEnabled(True)
         self.slider.blockSignals(False)
         self.btn_play.setEnabled(True)
+        self.btn_prev_frame.setEnabled(True)
+        self.btn_next_frame.setEnabled(True)
         # Configure frame-range spinboxes for the new stack.
         # Default: skip the first frame (matches previous behavior) and
         # include everything through the last.
@@ -591,6 +615,7 @@ class TiffViewer(QWidget):
         """Display a single frame from the TIFF stack."""
         if self.mmap is None:
             return
+        self.lbl_frame_pos.setText(f"({index}/{self.mmap.shape[0]})")
         image = np.asarray(self.mmap[index])
         first = (index == 1) and not getattr(self, "_first_shown", False)
         # Preserve the user's current zoom/pan and contrast on subsequent
@@ -623,6 +648,47 @@ class TiffViewer(QWidget):
         if nxt > self.slider.maximum():
             nxt = self.slider.minimum()
         self.slider.setValue(nxt)
+
+    def eventFilter(self, obj, event) -> bool:
+        if self.mmap is None:
+            return super().eventFilter(obj, event)
+        if event.type() == QEvent.Type.KeyPress and event.key() in (Qt.Key.Key_Left, Qt.Key.Key_Right):
+            if event.isAutoRepeat():
+                return True
+            direction = -1 if event.key() == Qt.Key.Key_Left else 1
+            self._start_key_step(direction)
+            return True
+        if event.type() == QEvent.Type.KeyRelease and event.key() in (Qt.Key.Key_Left, Qt.Key.Key_Right):
+            if event.isAutoRepeat():
+                return True
+            self._stop_key_step()
+            return True
+        return super().eventFilter(obj, event)
+
+    def _start_key_step(self, direction: int) -> None:
+        self._key_step_direction = direction
+        self._on_key_step_timeout()
+        self._key_step_timer.start()
+
+    def _stop_key_step(self) -> None:
+        self._key_step_timer.stop()
+        self._key_step_direction = 0
+
+    def _on_key_step_timeout(self) -> None:
+        if self._key_step_direction < 0:
+            self._step_frame_back()
+        elif self._key_step_direction > 0:
+            self._step_frame_forward()
+
+    def _step_frame_back(self) -> None:
+        if self.mmap is None:
+            return
+        self.slider.setValue(max(self.slider.minimum(), self.slider.value() - 1))
+
+    def _step_frame_forward(self) -> None:
+        if self.mmap is None:
+            return
+        self.slider.setValue(min(self.slider.maximum(), self.slider.value() + 1))
 
     # ---- Pixel-trace picking ----------------------------------------------
     def _on_pick_pixel_toggled(self, on: bool) -> None:

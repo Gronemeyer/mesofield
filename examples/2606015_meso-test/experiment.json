@@ -1,0 +1,49 @@
+{
+    "Configuration": {
+        "experimenter": "test",
+        "protocol": "TEST",
+        "duration": 100,
+        "start_on_trigger": true,
+        "task": [
+            "mov",
+            "spont",
+            "grat"
+        ]
+    },
+    "Subjects": {
+        "SUBJ01": {
+            "session": "01"
+        },
+        "SUBJ02": {
+            "session": "01"
+        },
+        "SUBJ03": {
+            "session": "01"
+        },
+        "SUBJ04": {
+            "session": "01"
+        },
+        "SUBJ05": {
+            "session": "01"
+        },
+        "SUBJ06": {
+            "session": "01"
+        },
+        "SUBJ07": {
+            "session": "01"
+        },
+        "SUBJ08": {
+            "session": "01"
+        }
+    },
+    "DisplayKeys": [
+        "subject",
+        "session",
+        "task",
+        "sex",
+        "age",
+        "experimenter",
+        "protocol",
+        "duration"
+    ]
+}

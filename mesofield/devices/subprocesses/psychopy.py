@@ -1,24 +1,20 @@
+"""Windows helpers for launching PsychoPy as a subprocess.
+
+The PsychoPy stimulus *lifecycle* now lives on the shared
+:class:`~mesofield.devices.stimulus_base.SubprocessStimulusDevice` engine (see
+:mod:`mesofield.devices.psychopy_device`); this module retains only the two
+Windows-specific helpers that the device and the GUI start gate still need:
+
+- :func:`get_psychopy_python_exe` -- locate the standalone PsychoPy interpreter
+  via the registry, so the stimulus script runs in PsychoPy's own environment.
+- :func:`force_foreground` -- raise a Qt widget over PsychoPy's full-screen
+  window so an operator keypress lands on our dialog, not the stimulus.
+"""
+
 import os
 import winreg
-import base64
-from dataclasses import dataclass
 
-import dill
-from PyQt6.QtCore import QObject, pyqtSignal, QProcess, QTimer, QEventLoop, Qt
-from PyQt6.QtWidgets import QMessageBox
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from mesofield.config import ExperimentConfig
-
-class PsychopyParameters:
-    def __init__(self, params: dict):
-        for key, value in params.items():
-            setattr(self, key, value)
-
-    def __repr__(self):
-        return f"<PsychopyParameters {self.__dict__}>"
-    
 def get_psychopy_python_exe():
     try:
         key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\PsychoPy", 0, winreg.KEY_READ)
@@ -31,103 +27,35 @@ def get_psychopy_python_exe():
         pass
     return r"C:\Program Files\PsychoPy\python.exe"
 
-def launch(config: 'ExperimentConfig', parent=None):
-    """Launches a PsychoPy experiment as a subprocess encapsulated in PsychoPyProcess."""
-    proc = PsychoPyProcess(config, parent)
-    proc.start()
-    return proc
 
-class PsychoPyProcess(QObject):
-    ready = pyqtSignal()
-    finished = pyqtSignal(int, QProcess.ExitStatus)
-    error = pyqtSignal(str)
+def force_foreground(widget) -> None:
+    """Force *widget* to the foreground with keyboard focus.
 
-    def __init__(self, config, parent=None):
-        super().__init__(parent)
-        self.config = config
-        self._handshake_ok = False
-        self.process = QProcess(self)
-        self.process.readyReadStandardOutput.connect(self._on_stdout)
-        self.process.readyReadStandardError.connect(self._on_stderr)
-        self.process.finished.connect(self._on_finished)
+    PsychoPy runs its stimulus in a separate process whose full-screen window
+    owns the foreground, and Windows blocks a background process from simply
+    calling ``SetForegroundWindow``. The reliable workaround is to momentarily
+    attach our input thread to the current foreground window's thread, raise our
+    window, then detach. Without this the operator has to click the dialog by
+    hand before a keypress reaches it. Best-effort and Windows-specific; any
+    failure is swallowed (the dialog still works, it just may not auto-focus).
+    """
+    from PyQt6.QtCore import Qt
 
-    def start(self):
-        # Serialize parameters
-        params = PsychopyParameters(self.config.psychopy_parameters)
-        serialized = dill.dumps(params, byref=True)
-        b64 = base64.b64encode(serialized).decode('ascii')
-        exe = get_psychopy_python_exe()
-        script = os.path.join(self.config._save_dir, self.config.psychopy_filename)
+    widget.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
+    widget.show()
+    widget.raise_()
+    widget.activateWindow()
+    # Best-effort Win32 foreground nudge. We intentionally avoid
+    # AttachThreadInput here: coupling our GUI thread's input queue to
+    # PsychoPy's full-screen-window thread can wedge input handling, and
+    # WindowStaysOnTopHint + activateWindow is enough in practice.
+    try:
+        import ctypes
 
-        # Handshake timeout
-        self._timer = QTimer(self)
-        self._timer.setSingleShot(True)
-        self._timer.timeout.connect(self._on_timeout)
-        self._timer.start(29000)
-
-        # show blocking waiting dialog until ready or error
-        from PyQt6.QtWidgets import QApplication
-        parent_win = self.parent() if callable(getattr(self, 'parent', None)) else None
-        waiting = QMessageBox(parent_win)
-        waiting.setWindowTitle('Launching PsychoPy')
-        waiting.setText('Waiting for PsychoPy script to print(PSYCHOPY_READY, flush=true)...')
-        waiting.setStandardButtons(QMessageBox.NoButton)
-        waiting.setWindowModality(Qt.ApplicationModal)
-        waiting.show()
-        waiting.activateWindow()
-        waiting.raise_()
-        QApplication.processEvents()
-
-        # connect handshake signals to close waiting dialog
-        self.ready.connect(waiting.accept)
-        self.error.connect(waiting.reject)
-
-        # start process
-        self.process.start(exe, [script, b64])
-
-        # block until handshake result
-        result = waiting.exec()
-        # cleanup waiting dialog
-        waiting.close()
-        # show ready or error popup
-        if self._handshake_ok:
-            # show ready popup
-            ready_box = QMessageBox(parent_win)
-            ready_box.setWindowTitle('PsychoPy Ready')
-            ready_box.setText('PsychoPy is ready.\nPress spacebar to start recording.')
-            ready_box.setStandardButtons(QMessageBox.Ok)
-            ready_box.setWindowModality(Qt.ApplicationModal)
-            ready_box.show()
-            ready_box.activateWindow()
-            ready_box.raise_()
-            QApplication.processEvents()
-            ready_box.exec()
-        else:
-            # show timeout error
-            err = QMessageBox(parent_win)
-            err.setIcon(QMessageBox.Critical)
-            err.setWindowTitle('PsychoPy Error')
-            err.setText('PsychoPy handshake timed out')
-            err.exec()
-
-    def _on_stdout(self):
-        data = self.process.readAllStandardOutput().data().decode()
-        print(data, end="")
-        if "PSYCHOPY_READY" in data:
-            # handshake succeeded
-            self._handshake_ok = True
-            if self._timer.isActive():
-                self._timer.stop()
-            self.ready.emit()
-
-    def _on_stderr(self):
-        data = self.process.readAllStandardError().data().decode()
-        print(data, end="")
-
-    def _on_finished(self, exit_code, exit_status):
-        self.finished.emit(exit_code, exit_status)
-
-    def _on_timeout(self):
-        # handshake failed
-        self._handshake_ok = False
-        self.error.emit("PsychoPy handshake timed out")
+        user32 = ctypes.windll.user32
+        hwnd = int(widget.winId())
+        user32.ShowWindow(hwnd, 5)  # SW_SHOW
+        user32.BringWindowToTop(hwnd)
+        user32.SetForegroundWindow(hwnd)
+    except Exception:
+        pass

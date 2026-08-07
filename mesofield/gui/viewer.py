@@ -14,6 +14,23 @@ from qtpy.QtWidgets import (
 )
 from threading import Lock
 
+
+def _connect_main(signal, slot) -> None:
+    """Connect so ``slot`` always runs on the GUI thread, for either signaler.
+
+    pymmcore-plus emits psygnal signals when the core is built without a live
+    QApplication (normal startup) and Qt signals when one exists (e.g. a
+    hardware hot-reload). psygnal delivers on the emitting (acquisition worker)
+    thread, so we request ``thread="main"`` marshaling — drained by run_gui's
+    ``start_emitting_from_queue``. Qt signals reject that kwarg but already
+    auto-queue cross-thread emissions onto the GUI thread.
+    """
+    try:
+        signal.connect(slot, thread="main")
+    except TypeError:
+        signal.connect(slot)
+
+
 class ImagePreview(QWidget):
     """
     A PyQt widget that displays images from a `CMMCorePlus` instance (mmcore).
@@ -145,7 +162,8 @@ class ImagePreview(QWidget):
                  use_with_mda: bool = True,
                  mmcore: CMMCorePlus | None = None,
                  image_payload=None,
-                 progress_payload=None):
+                 progress_payload=None,
+                 min_size: int = 512):
         super().__init__(parent=parent)
         if mmcore is None and image_payload is None:
             raise ValueError(
@@ -169,7 +187,7 @@ class ImagePreview(QWidget):
         self.image_label = QLabel()
         self.image_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setMinimumSize(512, 512)
+        self.image_label.setMinimumSize(min_size, min_size)
         self.image_label.setScaledContents(False)  # Keep aspect ratio
 
         # Set up layout with an image view and an optional progress bar
@@ -202,21 +220,28 @@ class ImagePreview(QWidget):
         self.streaming_timer.timeout.connect(self._on_streaming_timeout)
 
         if self._mmcore is not None:
-            # Connect events for the mmcore
+            # Every handler must run on the GUI thread; see _connect_main. MDA
+            # events fire on the acquisition worker thread, so this is what makes
+            # frames display and the timer run during a recording, not just live.
             ev = self._mmcore.events
-            #ev.imageSnapped.connect(self._on_image_snapped)
-            ev.continuousSequenceAcquisitionStarted.connect(self._on_streaming_start)
-            ev.sequenceAcquisitionStarted.connect(self._on_streaming_start)
-            ev.sequenceAcquisitionStopped.connect(self._on_streaming_stop)
-            ev.exposureChanged.connect(self._on_exposure_changed)
+            #_connect_main(ev.imageSnapped, self._on_image_snapped)
+            _connect_main(ev.continuousSequenceAcquisitionStarted, self._on_streaming_start)
+            _connect_main(ev.sequenceAcquisitionStopped, self._on_streaming_stop)
+            _connect_main(ev.exposureChanged, self._on_exposure_changed)
 
             enev = self._mmcore.mda.events
-            enev.frameReady.connect(self._on_frame_ready)
-            enev.sequenceStarted.connect(self._on_sequence_started)
-            enev.sequenceFinished.connect(self._on_sequence_finished)
-            enev.sequenceCanceled.connect(self._on_sequence_finished)
+            _connect_main(enev.frameReady, self._on_frame_ready)
+            _connect_main(enev.sequenceStarted, self._on_sequence_started)
+            _connect_main(enev.sequenceFinished, self._on_sequence_finished)
+            _connect_main(enev.sequenceCanceled, self._on_sequence_finished)
 
         # Optional non-mmcore frame source (e.g. OpenCVCamera.image_ready).
+        # Keep the signal refs so `cleanup` can sever them: the camera outlives
+        # this widget, so an undropped connection fires a queued frame into a
+        # deleted QLabel ("wrapped C/C++ object ... deleted") on config reload.
+        self._image_payload = image_payload
+        self._progress_payload = progress_payload
+        self._cleaned = False
         if image_payload is not None and hasattr(image_payload, "connect"):
             image_payload.connect(
                 self._on_external_frame, type=Qt.ConnectionType.QueuedConnection
@@ -231,26 +256,50 @@ class ImagePreview(QWidget):
                 self._on_external_progress, type=Qt.ConnectionType.QueuedConnection
             )
 
+        # Backstop only bc `destroyed` fires after C++ deletion, too late to be
+        # the authoritative teardown. The owner (MDA) calls `cleanup()` before
+        # `deleteLater()`; this just covers any path that forgets to.
         self.destroyed.connect(self._disconnect)
 
-    def _disconnect(self) -> None:
+    def cleanup(self) -> None:
+        """Sever every inbound connection and stop timers before destruction.
+
+        Idempotent. Must be called before ``deleteLater()`` (see
+        ``MDA.cleanup`` / ``MainWindow._build_acquisition_ui``) so no signal can
+        deliver a frame into the half-deleted widget.
+        """
+        if self._cleaned:
+            return
+        self._cleaned = True
+
+        with suppress(RuntimeError):
+            self.streaming_timer.stop()
+
+        # External (camera) payloads — the connections the old code never dropped.
+        if self._image_payload is not None and hasattr(self._image_payload, "disconnect"):
+            with suppress(TypeError, RuntimeError):
+                self._image_payload.disconnect(self._on_external_frame)
+        if self._progress_payload is not None and hasattr(self._progress_payload, "disconnect"):
+            with suppress(TypeError, RuntimeError):
+                self._progress_payload.disconnect(self._on_external_progress)
+
         if self._mmcore is None:
             return
-        # Disconnect events for the mmcore
         ev = self._mmcore.events
-        with suppress(TypeError):
-            ev.imageSnapped.disconnect()
+        with suppress(TypeError, RuntimeError):
             ev.continuousSequenceAcquisitionStarted.disconnect()
-            ev.sequenceAcquisitionStarted.disconnect()
             ev.sequenceAcquisitionStopped.disconnect()
             ev.exposureChanged.disconnect()
-
         enev = self._mmcore.mda.events
-        with suppress(TypeError):
+        with suppress(TypeError, RuntimeError):
             enev.frameReady.disconnect()
             enev.sequenceStarted.disconnect()
             enev.sequenceFinished.disconnect()
             enev.sequenceCanceled.disconnect()
+
+    def _disconnect(self) -> None:
+        # `destroyed`-triggered backstop; the real work is in `cleanup`.
+        self.cleanup()
 
     def _on_streaming_start(self) -> None:
         self._reset_fps_counter()
@@ -352,8 +401,12 @@ class ImagePreview(QWidget):
         self.progress_bar.setFormat(f"{self._progress_count}/{self._progress_total}")
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setVisible(True)
+        # MDA has no continuous-acquisition event to start the display timer.
+        if not self.streaming_timer.isActive():
+            self.streaming_timer.start()
 
     def _on_sequence_finished(self, *_) -> None:
+        self.streaming_timer.stop()
         self.progress_bar.setValue(self._progress_total)
         self.progress_bar.setFormat(f"{self._progress_total}/{self._progress_total}")
         # Hide after a short delay
@@ -559,8 +612,10 @@ from pymmcore_plus import CMMCorePlus
 pg.setConfigOptions(imageAxisOrder='row-major', useOpenGL=True)
 
 class InteractivePreview(pg.ImageView):
-    def __init__(self, parent=None, mmcore=None, use_with_mda=True, image_payload=None):
+    def __init__(self, parent=None, mmcore=None, use_with_mda=True, image_payload=None,
+                 min_size: int = 512):
         super().__init__(parent=parent)
+        self.setMinimumSize(min_size, min_size)
         self._mmcore: CMMCorePlus = mmcore
         self._use_with_mda = use_with_mda
         self._clims: Union[Tuple[float, float], Literal["auto"]] = (0, 65535)
@@ -581,40 +636,68 @@ class InteractivePreview(pg.ImageView):
         self._fps_text = pg.TextItem("FPS: --.-", color=(255, 255, 0), anchor=(1, 0))
         self.view.addItem(self._fps_text)
 
+        # Keep the camera signal ref so `cleanup` can sever it before deletion
+        # (the camera outlives this widget; see ImagePreview.cleanup).
+        self._image_payload = image_payload
+        self._cleaned = False
         if image_payload is not None:
             image_payload.connect(self._on_image_payload)
 
         if self._mmcore is not None:
-            self._mmcore.events.imageSnapped.connect(self._on_image_snapped)
-            self._mmcore.events.continuousSequenceAcquisitionStarted.connect(self._on_streaming_start)
-            self._mmcore.events.sequenceAcquisitionStarted.connect(self._on_streaming_start)
-            self._mmcore.events.sequenceAcquisitionStopped.connect(self._on_streaming_stop)
-            self._mmcore.events.exposureChanged.connect(self._on_exposure_changed)
+            # All handlers run on the GUI thread; see _connect_main. MDA frames
+            # display via mda.events.frameReady (marshaled from the worker thread).
+            ev = self._mmcore.events
+            _connect_main(ev.imageSnapped, self._on_image_snapped)
+            _connect_main(ev.continuousSequenceAcquisitionStarted, self._on_streaming_start)
+            _connect_main(ev.sequenceAcquisitionStopped, self._on_streaming_stop)
+            _connect_main(ev.exposureChanged, self._on_exposure_changed)
 
             enev = self._mmcore.mda.events
-            enev.frameReady.connect(self._on_image_payload, type=Qt.ConnectionType.QueuedConnection)
+            _connect_main(enev.frameReady, self._on_image_payload)
             if self._use_with_mda:
-                self._mmcore.mda.events.frameReady.connect(self._on_frame_ready)
+                _connect_main(enev.frameReady, self._on_frame_ready)
 
             self.streaming_timer = QTimer(parent=self)
             self.streaming_timer.setTimerType(Qt.TimerType.PreciseTimer)
             self.streaming_timer.setInterval(10)
             self.streaming_timer.timeout.connect(self._on_streaming_timeout)
 
+        # Backstop only; the owner calls cleanup() before deleteLater().
         self.destroyed.connect(self._disconnect)
 
-    def _disconnect(self) -> None:
+    def cleanup(self) -> None:
+        """Sever inbound connections and stop the timer before destruction.
+
+        Idempotent. Called before ``deleteLater()`` so no queued frame lands on
+        the deleted pyqtgraph view.
+        """
+        if self._cleaned:
+            return
+        self._cleaned = True
+
+        if self._image_payload is not None and hasattr(self._image_payload, "disconnect"):
+            with suppress(TypeError, RuntimeError):
+                self._image_payload.disconnect(self._on_image_payload)
+
+        timer = getattr(self, "streaming_timer", None)
+        if timer is not None:
+            with suppress(RuntimeError):
+                timer.stop()
+
         if self._mmcore:
             ev = self._mmcore.events
-            with suppress(TypeError):
+            with suppress(TypeError, RuntimeError):
                 ev.imageSnapped.disconnect()
                 ev.continuousSequenceAcquisitionStarted.disconnect()
-                ev.sequenceAcquisitionStarted.disconnect()
                 ev.sequenceAcquisitionStopped.disconnect()
                 ev.exposureChanged.disconnect()
             enev = self._mmcore.mda.events
-            with suppress(TypeError):
-                enev.frameReady.disconnect()
+            with suppress(TypeError, RuntimeError):
+                enev.frameReady.disconnect()  # drops both _on_image_payload and _on_frame_ready
+
+    def _disconnect(self) -> None:
+        # `destroyed`-triggered backstop; the real work is in `cleanup`.
+        self.cleanup()
 
     def _on_streaming_start(self) -> None:
         self._reset_fps_counter()

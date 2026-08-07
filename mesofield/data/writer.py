@@ -1,37 +1,23 @@
-"""Custom OME.TIFF + MP4 writers for MDASequences.
+"""OME-TIFF + MP4 writers for MDASequences.
 
-`CustomWriter` extends pymmcore-plus's public :class:`OMETiffWriter` with two
-additions:
+Two MDA output handlers, both plain classes exposing the ``sequenceStarted`` /
+``frameReady`` / ``sequenceFinished`` methods ``CMMCorePlus.run_mda`` connects by
+name, and both emitting the ``<filename>_frame_metadata.json`` sidecar every
+downstream mesofield parser (and the AcquisitionManifest ``metadata_path``) reads:
 
-1. ``bigtiff=True`` on the underlying tifffile call -- mesoscope acquisitions
-   routinely exceed the classic-TIFF 4 GiB ceiling.
-2. A per-frame ``<filename>_frame_metadata.json`` sidecar emitted from
-   :meth:`finalize_metadata`, containing the same metadata pymmcore-plus
-   accumulates internally. This is the legacy ``mesofield`` contract every
-   downstream parser already reads.
+- :class:`OMEWriter` -- OME-TIFF, backed by the maintained ``ome-writers``
+  library (incremental, flushed, no giant memmap pre-allocation). This replaced
+  a memmap-based writer that accumulated ~9 GB of dirty pages in a 400 s
+  dual-camera run and overflowed MMCore's circular buffer.
+- :class:`CV2Writer` -- MP4/AVI via ``cv2.VideoWriter``.
 
-The sidecar JSON is the current source of truth for per-frame metadata. The
-broader goal (tracked separately) is to push the same fields into the OME-XML
-embedded in the TIFF itself so the JSON becomes supplementary and redundant;
-see the TODO in :meth:`OMETiffWriter._sequence_metadata` upstream.
-
-`CV2Writer` subclasses the public :class:`OMETiffWriter` purely to reuse its
-inherited ``frameReady`` plumbing (the machinery that turns MMCamera/MDA signals
-into ``new_array`` / ``write_frame`` / ``store_frame_metadata`` calls and
-accumulates pymmcore-plus metadata). It overrides every TIFF-specific method to
-emit MP4/AVI instead -- there is no public MP4 handler in pymmcore-plus to
-inherit from, and inheriting the public ``OMETiffWriter`` avoids depending on
-pymmcore-plus's private ``_5d_writer_base`` module.
+Neither depends on ``pymmcore_plus.mda.handlers`` (deprecated upstream in favour
+of ``ome-writers``). :class:`NullWriter` is a disk-free :class:`OMEWriter`
+subclass used only for benchmarking.
 """
 
-from datetime import timedelta
-from typing import TYPE_CHECKING, Any
-import warnings
+from typing import Any
 
-if TYPE_CHECKING:
-    from pymmcore_plus.mda.metadata import SummaryMetaV1  # type: ignore
-
-from pymmcore_plus.mda.handlers import OMETiffWriter
 from useq import MDAEvent
 
 import numpy as np
@@ -48,71 +34,6 @@ from mesofield.data.codecs import (  # noqa: E402
     open_video_writer,
 )
 
-class CustomWriter(OMETiffWriter):
-    """OME-TIFF writer extending pymmcore-plus's :class:`OMETiffWriter`.
-
-    Two divergences from the public base:
-
-    - Uses ``bigtiff=True`` so multi-GiB mesoscope acquisitions write cleanly.
-    - Emits the per-frame metadata JSON sidecar mesofield's downstream parsers
-      (and the AcquisitionManifest's ``metadata_path``) depend on.
-
-    Everything else -- filename validation, frame writing, OME-XML sequence
-    metadata, memmap handling -- is inherited from :class:`OMETiffWriter`.
-    """
-
-    def __init__(self, filename: Path | str) -> None:
-        super().__init__(filename)
-        self._frame_metadata_filename = self._filename + FRAME_MD_FILENAME
-
-    def new_array(
-        self, position_key: str, dtype: np.dtype, sizes: dict[str, int]
-    ) -> np.memmap:
-        """Mirror :meth:`OMETiffWriter.new_array` but with ``bigtiff=True``.
-
-        Upstream's implementation hardcodes the ``imwrite`` call; we duplicate
-        it here to flip the ``bigtiff`` flag. Keep the bodies in sync if a
-        pymmcore-plus bump changes the upstream version.
-        """
-        from tifffile import imwrite, memmap
-
-        dims, shape = zip(*sizes.items())
-
-        metadata: dict[str, Any] = self._sequence_metadata()
-        metadata["axes"] = "".join(dims).upper()
-
-        if (seq := self.current_sequence) and seq.sizes.get("p", 1) > 1:
-            ext = ".ome.tif" if self._is_ome else ".tif"
-            fname = self._filename.replace(ext, f"_{position_key}{ext}")
-        else:
-            fname = self._filename
-
-        imwrite(
-            fname,
-            shape=shape,
-            bigtiff=True,
-            dtype=dtype,
-            metadata=metadata,
-            imagej=not self._is_ome,
-            ome=self._is_ome,
-        )
-
-        mmap = memmap(fname, dtype=dtype)
-        mmap.shape = shape
-        return mmap  # type: ignore
-
-    def finalize_metadata(self) -> None:
-        """Write the per-frame metadata sidecar.
-
-        Called by ``OMETiffWriter.sequenceFinished`` after the last frame.
-        Serialises ``self.frame_metadatas`` (the dict pymmcore-plus accumulates
-        for us in ``frameReady``) to JSON at ``<filename>_frame_metadata.json``.
-        """
-        regular_dict = dict(self.frame_metadatas)
-        json_str = json.dumps(regular_dict, indent=4, cls=CustomJSONEncoder)
-        with open(self._frame_metadata_filename, "w") as fh:
-            fh.write(json_str)
-
 
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, object: Any) -> Any:
@@ -121,23 +42,181 @@ class CustomJSONEncoder(json.JSONEncoder):
         return super().default(object)
 
 
-class CV2Writer(OMETiffWriter):
+_OME_SUFFIXES = (".ome.tiff", ".ome.tif", ".tiff", ".tif")
+
+
+def _stringify_meta(meta: Any) -> dict[str, str]:
+    """Flatten a per-frame metadata mapping to string-only values.
+
+    ome-writers stores ``frame_metadata`` in an OME ``Map`` whose values must be
+    strings. Scalars are stringified; nested/container values are JSON-encoded
+    (via :class:`CustomJSONEncoder`, ``default=str`` for anything exotic).
+    """
+    out: dict[str, str] = {}
+    for key, value in (meta or {}).items():
+        if isinstance(value, str):
+            out[str(key)] = value
+        else:
+            try:
+                out[str(key)] = json.dumps(value, cls=CustomJSONEncoder, default=str)
+            except Exception:
+                out[str(key)] = str(value)
+    return out
+
+
+class OMEWriter:
+    """OME-TIFF writer backed by the maintained ``ome-writers`` library.
+
+    Drop-in replacement for :class:`CustomWriter` as an MDA output handler
+    (``run_mda(output=...)``): it exposes the three signal handlers the runner
+    connects by name (``sequenceStarted`` / ``frameReady`` / ``sequenceFinished``)
+    and drives an :class:`ome_writers.OMEStream`.
+
+    Why this exists (measured, not assumed): the memmap-based
+    :class:`CustomWriter` pre-allocates the full multi-GB OME-TIFF and writes
+    into it via ``numpy.memmap`` with no flush, so dirty pages accumulate in RAM
+    (≈9 GB in a 400 s dual-camera run) until flush stalls back up MMCore's
+    circular buffer and it overflows. ``ome-writers`` writes incrementally with
+    real flushing and no giant up-front allocation, and is the path pymmcore-plus
+    is migrating to (``pymmcore_plus.mda.handlers`` is deprecated).
+
+    The mesofield contract is preserved: the ``<filename>_frame_metadata.json``
+    sidecar every downstream parser (and the AcquisitionManifest ``metadata_path``)
+    reads is still emitted from :meth:`finalize_metadata`, built from the same
+    per-frame pymmcore-plus metadata, accumulated here exactly as the deprecated
+    ``_5DWriterBase`` did.
+    """
+
+    def __init__(self, filename: Path | str) -> None:
+        self._filename = str(filename)
+        # Split off the OME/TIFF suffix so ome-writers reconstructs the exact
+        # same output path (root_path + format.suffix == self._filename).
+        self._root_path = self._filename
+        self._suffix = ".ome.tiff"
+        for suf in _OME_SUFFIXES:
+            if self._filename.lower().endswith(suf):
+                self._root_path = self._filename[: -len(suf)]
+                self._suffix = suf
+                break
+        self._frame_metadata_filename = self._filename + FRAME_MD_FILENAME
+
+        self._stream: Any = None
+        self._sequence: Any = None
+        # position key -> list of per-frame metadata (mirrors _5DWriterBase)
+        from collections import defaultdict
+
+        self.frame_metadatas: "defaultdict[str, list]" = defaultdict(list)
+        self._position_key_map: dict[int, str] = {}
+
+        # Off by default -- embedding per-frame metadata in the OME-XML does not
+        # scale (see ``frameReady``). Opt in for small runs only.
+        import os
+
+        self._embed_frame_meta = bool(os.getenv("MESOFIELD_EMBED_FRAME_META"))
+
+    # --- MDA signal handlers (connected by name by mda_listeners_connected) ---
+    def sequenceStarted(self, seq: Any, meta: Any = None) -> None:
+        self._sequence = seq
+        self.frame_metadatas.clear()
+        self._position_key_map.clear()
+
+    def frameReady(self, frame: np.ndarray, event: MDAEvent, meta: Any) -> None:
+        if self._stream is None:
+            self._open_stream(frame)
+        # By default do NOT embed per-frame metadata into the OME-XML. ome-writers
+        # accumulates one OME ``Map`` per plane and serialises all of them at
+        # ``close()``; for a long acquisition (e.g. 60k frames) that is a multi-GB,
+        # multi-minute spike on the MDA worker thread at teardown that can OOM-kill
+        # the process (silently, natively) -- especially across back-to-back runs.
+        # The JSON sidecar written in ``finalize_metadata`` already holds the full,
+        # unflattened per-frame metadata, so embedding is redundant. It can be
+        # re-enabled for small runs via MESOFIELD_EMBED_FRAME_META=1.
+        if self._embed_frame_meta:
+            self._stream.append(frame, frame_metadata=_stringify_meta(meta))
+        else:
+            self._stream.append(frame)
+        self.frame_metadatas[self._position_key(event)].append(meta or {})
+
+    def sequenceFinished(self, seq: Any) -> None:
+        # Write the sidecar FIRST: it is the source of truth for per-frame
+        # metadata, and it must survive even if the ome-writers ``close()`` flush
+        # fails or the process dies during it.
+        self.finalize_metadata()
+        if self._stream is not None:
+            try:
+                self._stream.close()
+            finally:
+                self._stream = None
+
+    # --- helpers ------------------------------------------------------------
+    def _open_stream(self, frame: np.ndarray) -> None:
+        import ome_writers as ow
+
+        h, w = int(frame.shape[-2]), int(frame.shape[-1])
+        dims = ow.dims_from_useq(self._sequence, image_width=w, image_height=h)
+        settings = ow.AcquisitionSettings(
+            root_path=self._root_path,
+            dimensions=dims,
+            dtype=str(frame.dtype),
+            format=ow.OmeTiffFormat(suffix=self._suffix),
+            overwrite=True,
+        )
+        self._stream = ow.create_stream(settings)
+
+    def _position_key(self, event: MDAEvent) -> str:
+        pos_index = event.index.get("p", 0)
+        if pos_index not in self._position_key_map:
+            key = getattr(event, "pos_name", None) or f"p{pos_index}"
+            self._position_key_map[pos_index] = key
+        return self._position_key_map[pos_index]
+
+    def finalize_metadata(self) -> None:
+        """Write the per-frame metadata sidecar (mesofield's legacy contract)."""
+        regular_dict = dict(self.frame_metadatas)
+        json_str = json.dumps(regular_dict, indent=4, cls=CustomJSONEncoder)
+        with open(self._frame_metadata_filename, "w") as fh:
+            fh.write(json_str)
+
+
+class NullWriter(OMEWriter):
+    """Disk-free :class:`OMEWriter` used only for benchmarking.
+
+    Runs the identical MDA drain path (``frameReady`` is still called per frame
+    and metadata still accumulates) but never opens an ome-writers stream and
+    never writes the sidecar, so no bytes hit disk and no dirty pages build up.
+    Comparing a null-writer run against a real run isolates how much backlog/RAM
+    the write path itself contributes.
+
+    Enabled via ``MESOFIELD_NULL_WRITER=1`` (see ``BaseCamera._make_writer``);
+    never selected in normal operation.
+    """
+
+    def frameReady(self, frame: np.ndarray, event: MDAEvent, meta: Any) -> None:
+        # Accumulate metadata like the real path, but write nothing to disk.
+        self.frame_metadatas[self._position_key(event)].append(meta or {})
+
+    def sequenceFinished(self, seq: Any) -> None:
+        # No stream to close, no sidecar to emit.
+        return None
+
+
+class CV2Writer:
     """Write frames to an mp4/avi video using OpenCV.
 
-    Subclasses the public :class:`OMETiffWriter` only to reuse its inherited
-    MDA-signal handling (``frameReady`` / ``sequenceStarted`` /
-    ``sequenceFinished`` / ``store_frame_metadata`` and the
-    ``frame_metadatas`` accumulation). Every TIFF-specific method
-    (``__init__`` / ``new_array`` / ``write_frame`` / ``finalize_metadata``) is
-    overridden below to emit video instead, so none of ``OMETiffWriter``'s
-    tifffile machinery is ever reached.
+    Standalone MDA output handler -- it exposes the three signal methods the
+    runner connects by name (``sequenceStarted`` / ``frameReady`` /
+    ``sequenceFinished``, mirroring :class:`OMEWriter`) and drives
+    ``cv2.VideoWriter`` directly, so it no longer depends on the deprecated
+    ``pymmcore_plus.mda.handlers.OMETiffWriter``.
 
     Two usage modes share the same codec/fourcc/metadata logic:
 
-    - **MDA-driven** (``new_array`` / ``write_frame`` / ``finalize_metadata``)
+    - **MDA-driven** (``sequenceStarted`` / ``frameReady`` / ``sequenceFinished``)
       when handed to ``CMMCorePlus.run_mda`` as an output handler.
     - **Direct** (``begin`` / ``add_frame`` / ``finish``) for cameras that run
       their own capture loop (e.g. :class:`OpenCVCamera`).
+
+    Both modes emit the same ``<filename>_frame_metadata.json`` sidecar.
     """
 
     def __init__(self, filename: Path | str, fps: int = 30, fourcc: str | None = None) -> None:
@@ -157,88 +236,65 @@ class CV2Writer(OMETiffWriter):
         # Direct-use (non-MDA) capture-loop writer; opened by `begin`.
         self._direct_writer: Any = None
 
-        # `OMETiffWriter.sequenceStarted` only reorders position_sizes into
-        # ImageJ axis order when `not self._is_ome`; setting it True makes that
-        # override a pass-through to the base `sequenceStarted` (axis order is
-        # irrelevant to video) and avoids an AttributeError.
-        self._is_ome = True
+        # MDA-mode state (one cv2.VideoWriter per stage position).
+        from collections import defaultdict
 
-        # Skip `OMETiffWriter.__init__` (it validates a .tif/.tiff filename and
-        # imports tifffile); go straight to the base initializer to set up the
-        # frameReady plumbing state (position_arrays, frame_metadatas, etc.).
-        super(OMETiffWriter, self).__init__()
+        self._sequence: Any = None
+        self._writers: dict[str, Any] = {}
+        self.frame_metadatas: "defaultdict[str, list]" = defaultdict(list)
+        self._position_key_map: dict[int, str] = {}
 
-    def _codec_candidates(self) -> list[str]:
-        """Return ordered codec candidates for the current output container."""
-        primary = self._fourcc
-        # MP4 fallback order favors compatibility when OpenH264 is unavailable.
-        if self._filename.endswith(".mp4"):
-            fallbacks = ["avc1", "H264", "mp4v"]
-        else:
-            fallbacks = ["XVID", "MJPG"]
-        ordered = [primary] + [c for c in fallbacks if c.upper() != primary.upper()]
-        return ordered
+    # --- MDA signal handlers (connected by name by mda_listeners_connected) ---
+    def sequenceStarted(self, seq: Any, meta: Any = None) -> None:
+        self._sequence = seq
+        self.frame_metadatas.clear()
+        self._position_key_map.clear()
+        self._writers.clear()
 
-    def _open_writer(
-        self, filename: str, fps: float, width: int, height: int, is_color: bool
-    ) -> tuple[Any, str]:
-        """Open cv2.VideoWriter using codec fallbacks; return (writer, used_fourcc)."""
+    def frameReady(self, frame: np.ndarray, event: MDAEvent, meta: Any) -> None:
         import cv2
 
-        for code in self._codec_candidates():
-            fourcc = cv2.VideoWriter.fourcc(*code)
-            writer = cv2.VideoWriter(
-                filename, fourcc, fps, (width, height), isColor=is_color
+        key = self._position_key(event)
+        writer = self._writers.get(key)
+        if writer is None:
+            is_color = frame.ndim == 3 and frame.shape[-1] in (3, 4)
+            height, width = int(frame.shape[0]), int(frame.shape[1])
+            writer, self._fourcc = open_video_writer(
+                self._fname_for_position(key), self._fourcc, self._fps,
+                (width, height), is_color,
             )
-            if writer.isOpened():
-                if code.upper() != self._fourcc.upper():
-                    warnings.warn(
-                        (
-                            f"VideoWriter fallback: requested fourcc={self._fourcc} "
-                            f"but using {code} for '{filename}'."
-                        ),
-                        RuntimeWarning,
-                        stacklevel=2,
-                    )
-                return writer, code
+            self._writers[key] = writer
+
+        if frame.dtype != np.uint8:
+            frame = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        writer.write(frame)
+        self.frame_metadatas[key].append(meta or {})
+
+    def sequenceFinished(self, seq: Any) -> None:
+        for writer in self._writers.values():
             try:
                 writer.release()
             except Exception:
                 pass
-        raise RuntimeError(
-            f"cv2.VideoWriter failed to open '{filename}' "
-            f"(attempted fourcc={self._codec_candidates()}, fps={self._fps})"
-        )
+        self._writers.clear()
+        self.finalize_metadata()
 
-    def new_array(self, position_key: str, dtype: np.dtype, sizes: dict[str, int]):
-        width = sizes["x"]
-        height = sizes["y"]
-        is_color = sizes.get("c", 1) > 1
+    # --- helpers ------------------------------------------------------------
+    def _position_key(self, event: MDAEvent) -> str:
+        pos_index = event.index.get("p", 0)
+        if pos_index not in self._position_key_map:
+            key = getattr(event, "pos_name", None) or f"p{pos_index}"
+            self._position_key_map[pos_index] = key
+        return self._position_key_map[pos_index]
 
-        if (seq := self.current_sequence) and seq.sizes.get("p", 1) > 1:
+    def _fname_for_position(self, position_key: str) -> str:
+        """Per-position filename; single-position runs keep the base name."""
+        if (seq := self._sequence) and seq.sizes.get("p", 1) > 1:
             fname = self._filename.replace(".mp4", f"_{position_key}.mp4")
-            fname = fname.replace(".avi", f"_{position_key}.avi")
-        else:
-            fname = self._filename
-
-        writer, self._fourcc = open_video_writer(
-            fname, self._fourcc, self._fps, (width, height), is_color
-        )
-        return writer
-
-    def write_frame(self, ary: Any, index: tuple[int, ...], frame: np.ndarray) -> None:
-        import cv2
-
-        frame_8u = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-        ary.write(frame_8u)
+            return fname.replace(".avi", f"_{position_key}.avi")
+        return self._filename
 
     def finalize_metadata(self) -> None:
-        for writer in self.position_arrays.values():
-            try:
-                writer.release()
-            except Exception:
-                pass
-
         regular_dict = dict(self.frame_metadatas)
         json_str = json.dumps(regular_dict, indent=4, cls=CustomJSONEncoder)
         with open(self._frame_metadata_filename, "w") as file:

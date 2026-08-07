@@ -6,6 +6,7 @@ mesofield/_version.py
 /mesofield/logs/
 mesofield/external/drivers
 /experiments
+/experiments/*/data
 # Ignore hardware.yaml everywhere except the one in mesofield/tests and mesofield/sample_experiments
 */hardware.yaml
 !/mesofield/tests/sample_experiment/hardware.yaml
@@ -189,3 +190,6 @@ Dhyana 400BSI_PIDe408.xml
 # Sphinx-apidoc generated stubs (rebuilt every docs build)
 docs/api/mesofield*.rst
 docs/_build/
+
+# Camera throughput benchmark output (scripts/bench_camera_throughput.py)
+bench_out/

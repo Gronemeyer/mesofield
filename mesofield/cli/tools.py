@@ -305,12 +305,12 @@ def export_hardware(procedure_path, output):
     Python. The devices are instantiated and serialized into a `type:`-tagged
     hardware.yaml that can later be loaded the normal file-based way.
     """
-    from mesofield.base import load_procedure_from_config
+    from mesofield.base import load_procedure
 
     out = output or os.path.join(
         os.path.dirname(os.path.abspath(procedure_path)), "hardware.yaml"
     )
-    procedure = load_procedure_from_config(procedure_path)
+    procedure = load_procedure(procedure_path)
     procedure.hardware.to_yaml(out)
     click.secho(f"Exported hardware configuration to {out}", fg="green")
 

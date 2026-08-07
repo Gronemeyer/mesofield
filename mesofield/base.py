@@ -3,9 +3,10 @@ Base procedure classes for implementing experimental workflows in Mesofield.
 
 This module defines a *generic* :class:`Procedure` orchestrator that contains
 zero device-specific logic.  Custom experiment subclasses live outside the
-package (typically under ``experiments/<name>/procedure.py``) and are
-discovered via :func:`load_procedure_from_config`, which reads the optional
-``procedure_file`` and ``procedure_class`` fields from ``experiment.json``.
+package (typically under ``experiments/<name>/procedure.py``) and are launched
+via :func:`load_procedure`. A subclass points at its self-contained
+``experiment.json`` (params + embedded ``hardware`` rig) through the class-level
+:attr:`Procedure.experiment` path.
 
 Lifecycle (subclass hooks shown in **bold**):
 
@@ -20,6 +21,7 @@ Lifecycle (subclass hooks shown in **bold**):
 """
 
 import importlib.util
+import inspect
 import json
 import os
 import sys
@@ -117,11 +119,15 @@ class Procedure:
     # (e.g. an MDA camera capturing an exact frame count) that must complete regardless of wall time.
     stop_after_duration: bool = True
 
+    # Subclasses point at their experiment.json (relative to the subclass
+    # source file, or absolute). Launching the procedure loads it directly.
+    experiment: Optional[str] = None
+
     def __init__(
         self,
-        hardware: Optional[Any] = None,
-        experiment: Optional[str] = None,
+        config: Optional[str] = None,
         *,
+        hardware: Optional[Any] = None,
         experiment_directory: Optional[str] = None,
         **params: Any,
     ):
@@ -129,27 +135,25 @@ class Procedure:
 
         Parameters
         ----------
+        config:
+            Path to a self-contained ``experiment.json`` -- experiment
+            parameters plus an optional embedded ``hardware`` rig block. When
+            omitted, the class-level :attr:`experiment` path (if any) is used.
         hardware:
-            Either a path to a ``hardware.yaml`` rig file, **or** a list of
-            already-constructed device objects, e.g.::
-
-                proc = Procedure(hardware=[LickDetector(port="COM3")], ...)
-
-            A single device is automatically the primary, so one-device
-            scripts never set ``primary=True``. ``None`` falls back to the
-            :meth:`define_hardware` hook.
-        experiment:
-            Path to an ``experiment.json`` parameter file (or ``None``).
+            Optional rig override: a path to a ``hardware.yaml`` file, an
+            in-memory rig mapping, **or** a list of already-constructed device
+            objects (e.g. ``Procedure(hardware=[LickDetector(port="COM3")])``).
+            A device list/mapping replaces any rig embedded in *config*; a lone
+            device is the primary by default. ``None`` falls back to the
+            embedded rig or the :meth:`define_hardware` hook.
         experiment_directory:
             Where acquisition data is written (``<dir>/data/sub-.../ses-...``).
-            This is the simplest way for a standalone script to choose its
-            output location; relative paths resolve against the current working
-            directory. Overrides any value from ``define_config`` / JSON.
+            Relative paths resolve against the current working directory.
+            Overrides any value from ``define_config`` / JSON.
         **params:
             Any other experiment parameters (``subject``, ``session``,
             ``task``, ``duration``, ...) set straight onto the config. These
-            also override ``define_config`` / JSON, so a script can stay a
-            single ``Procedure(...)`` call with no ``define_config`` override.
+            also override ``define_config`` / JSON.
         """
         # Initialize the processor registry before anything else so the
         # ``__setattr__`` hook can run safely from the first assignment on.
@@ -168,26 +172,41 @@ class Procedure:
         self._duration_timer: Optional[threading.Timer] = None
         self._cleanup_started = False
 
-        # `hardware` is either a path to a hardware.yaml rig or a list of
-        # pre-built device objects. Keep the path (if any) for ExperimentConfig;
-        # a device list is handed to a HardwareManager below.
+        # Optional start gate, injected by a front-end (e.g. the GUI
+        # ConfigController). When ``start_on_trigger`` is set, the default
+        # :meth:`await_trigger` calls this after arming and before starting any
+        # device; it owns whatever "ready / press to start" interaction the
+        # front-end wants (launching a stimulus subprocess, a focused dialog,
+        # etc.) and returns ``True`` to proceed or ``False`` to cancel the run.
+        # Left ``None`` for headless runs, which then do not block.
+        self.start_gate: Optional[Any] = None
+
+        # `hardware` may be a rig path, an in-memory rig mapping, or a list of
+        # pre-built device objects.
         hardware_path = hardware if isinstance(hardware, str) else None
+        hardware_spec = hardware if isinstance(hardware, dict) else None
         scripted_devices = (
-            None if isinstance(hardware, (str, type(None))) else list(hardware)
+            None if isinstance(hardware, (str, dict, type(None))) else list(hardware)
         )
 
-        # The rig (hardware.yaml) is the anchor; experiment params are optional
-        # and never touch hardware state.
+        # The config (params + optional embedded rig) is the anchor.
+        config_path = config if config is not None else self._declared_experiment_path()
         self.config: ExperimentConfig
-        self.config = ExperimentConfig(hardware_path)
+        self.config = ExperimentConfig()
 
         # Scripted config: a subclass may declare parameters in Python
         # (a dataclass or mapping) instead of an experiment.json file.
         config_data = self.define_config()
         if config_data is not None:
             self.config.load_dict(config_data)
-        elif experiment:
-            self.config.load_json(experiment)
+        elif config_path:
+            self.config.load_json(config_path)
+
+        # An explicit rig overrides whatever the config embedded.
+        if hardware_path:
+            self.config.load_hardware(hardware_path)
+        elif hardware_spec is not None:
+            self.config.load_hardware_spec(hardware_spec)
 
         # Explicit constructor arguments win over define_config / JSON, so a
         # standalone script can set everything in one readable call.
@@ -264,16 +283,16 @@ class Procedure:
 
     def load_config(self, hardware: Optional[str] = None,
                     experiment: Optional[str] = None) -> None:
-        """Hot-load a hardware YAML and/or experiment JSON into the live config.
+        """Hot-load an experiment JSON and/or hardware YAML into the live config.
 
-        The two inputs are independent: loading experiment params never touches
-        hardware. Callers pass explicit paths (the GUI wizard resolves them from
-        its pickers).
+        The JSON (params + any embedded rig) is applied first; an explicit
+        *hardware* path then overrides whatever rig the JSON embedded. Callers
+        pass explicit paths (the GUI wizard resolves them from its pickers).
         """
-        if hardware:
-            self.config.load_hardware(hardware)
         if experiment:
             self.config.load_json(experiment)
+        if hardware:
+            self.config.load_hardware(hardware)
 
         self.protocol = self.config.get("protocol", "default_experiment")
         self.experimenter = self.config.get("experimenter", "researcher")
@@ -409,6 +428,24 @@ class Procedure:
     # ------------------------------------------------------------------
     # Subclass extension hooks (no-op defaults)
 
+    def _declared_experiment_path(self) -> Optional[str]:
+        """Resolve the class-declared :attr:`experiment` path, or ``None``.
+
+        Relative paths resolve against the subclass's source file so a
+        procedure can sit beside its ``experiment.json``.
+        """
+        declared = getattr(type(self), "experiment", None)
+        if not declared:
+            return None
+        if os.path.isabs(declared):
+            return declared
+        try:
+            src = inspect.getsourcefile(type(self)) or inspect.getfile(type(self))
+        except TypeError:
+            src = None
+        base = os.path.dirname(os.path.abspath(src)) if src else os.getcwd()
+        return os.path.join(base, declared)
+
     def define_config(self) -> Any:
         """Subclass hook to declare experiment parameters in Python.
 
@@ -434,14 +471,59 @@ class Procedure:
         """Subclass hook called before arming devices.  Override as needed."""
         return None
 
-    def await_trigger(self) -> None:
-        """Subclass hook called after arming, before starting devices.
+    def _gate_stimuli_by_task(self) -> None:
+        """Enable only the stimulus device(s) bound to the selected task.
 
-        Default no-op. Override to gate the run on an external or manual
-        trigger (e.g. a spacebar "start on trigger" gate). Devices are armed
-        but nothing has started yet, so blocking here holds the whole run.
+        Stimulus devices declare which tasks they serve (``serves_task``);
+        for the current ``task`` we enable the matching ones and disable the
+        rest, so a rig with several stimulus apps (e.g. PsychoPy + MousePortal)
+        launches only what the task needs instead of all of them at once. A
+        device that serves every task (no binding) is left enabled, and a task
+        bound to no device simply records stimulus-free (the start gate falls
+        back to a manual "press to start"). Runs before :meth:`prerun`, so a
+        subclass may still override ``enabled`` for fully custom logic.
         """
-        return None
+        task = self.config.task
+        for dev in self.config.hardware.devices.values():
+            if getattr(dev, "device_type", None) != "stimulus":
+                continue
+            try:
+                serves = bool(dev.serves_task(task, self.config))
+            except Exception:
+                self.logger.exception(
+                    f"{getattr(dev, 'device_id', dev)}.serves_task failed; "
+                    f"leaving it enabled."
+                )
+                serves = True
+            dev.enabled = serves
+            if not serves:
+                self.logger.info(
+                    f"Task '{task}': {dev.device_id} is not bound to this task; "
+                    f"disabled for this run."
+                )
+
+    def await_trigger(self) -> None:
+        """Gate the run after arming and before starting devices.
+
+        When ``start_on_trigger`` is set and a :attr:`start_gate` has been
+        injected (e.g. by the GUI ConfigController), it is invoked here to own
+        the "ready / press to start" interaction; returning ``False`` cancels
+        the run. Devices are armed but nothing has started yet, so blocking here
+        holds the whole run. Headless runs with no gate do not block.
+
+        This default contains no device-specific logic. Subclasses may still
+        override it for a fully custom trigger.
+        """
+        if not self.config.start_on_trigger:
+            return
+        gate = self.start_gate
+        if gate is None:
+            self.logger.info(
+                "start_on_trigger set but no start gate injected; proceeding."
+            )
+            return
+        if not gate(self):
+            raise RuntimeError("Run cancelled at the start gate")
 
     def on_started(self) -> None:
         """Subclass hook called immediately after ``start_all``."""
@@ -454,6 +536,15 @@ class Procedure:
     # ------------------------------------------------------------------
     # Core lifecycle
 
+    @property
+    def is_running(self) -> bool:
+        """True while a run is in progress (started and not yet finished).
+
+        Used to refuse destructive actions mid-recording — e.g. a hardware
+        hot-reload, which would tear down devices and abandon their writers.
+        """
+        return self.start_time is not None and not self._finished_event.is_set()
+
     def run(self) -> None:
         """Drive a standard experiment run.
 
@@ -462,6 +553,16 @@ class Procedure:
         """
         self.logger.info("================= Starting experiment ===================")
 
+        # 0. Reset per-run termination state. `_cleanup_procedure` latches
+        # `_cleanup_started` so the duration timer and the primary's `finished`
+        # signal only tear down once; without resetting it here, a *second*
+        # `run()` would short-circuit cleanup at the guard, so `stop_all()`
+        # never fires and non-primary capture threads hang with their writers
+        # unflushed. Clearing `_finished_event` keeps `run_until_finished`
+        # correct on re-runs too.
+        self._cleanup_started = False
+        self._finished_event.clear()
+
         # 1. DataManager / queue logger setup
         self.data.setup(self.config)
         if not self.data.devices:
@@ -469,7 +570,9 @@ class Procedure:
         if not self.playback:
             self.data.start_queue_logger()
 
-        # 2. Subclass pre-run hook
+        # 2. Gate stimulus devices by the selected task, then the subclass
+        # pre-run hook (which may further override `enabled` for custom logic).
+        self._gate_stimuli_by_task()
         self.prerun()
 
         try:
@@ -525,6 +628,7 @@ class Procedure:
         mgr.save.all_hardware()
         mgr.save.save_timestamps(self.protocol, self.start_time, self.stopped_time)
         self.config.save_json()
+        self.config.notes.clear()
         self.events.data_saved.emit()
         self.logger.info("Data saved successfully")
 
@@ -657,12 +761,23 @@ class Procedure:
         session_root.mkdir(parents=True, exist_ok=True)
 
         def _relativise(p: Any) -> Optional[str]:
+            """Session-root-relative POSIX path, as the schema requires.
+
+            Always POSIX-separated: the manifest is a cross-platform contract,
+            and consumers split on `/`. A path outside the session root cannot
+            be expressed as a relative one, and emitting the absolute path
+            instead would be silently misread as relative downstream -- so it
+            raises rather than writing a value no consumer can resolve.
+            """
             if not p:
                 return None
             try:
-                return str(Path(p).resolve().relative_to(session_root.resolve()))
-            except ValueError:
-                return str(p)
+                return Path(p).resolve().relative_to(session_root.resolve()).as_posix()
+            except ValueError as exc:
+                raise ValueError(
+                    f"Device output {p!r} is outside the session root {session_root}; "
+                    "cannot record it in the acquisition manifest."
+                ) from exc
 
         def _coerce_sidecars(raw) -> list[SidecarEntry]:
             out: list[SidecarEntry] = []
@@ -700,7 +815,7 @@ class Procedure:
                     data_type=getattr(device, "data_type", device_id),
                     bids_type=getattr(device, "bids_type", None),
                     file_type=getattr(device, "file_type", "csv"),
-                    output_path=_relativise(output_path) or str(output_path),
+                    output_path=_relativise(output_path),
                     metadata_path=_relativise(getattr(device, "metadata_path", None)),
                     sampling_rate_hz=getattr(device, "sampling_rate", None) or None,
                     time_basis=TimeBasis(
@@ -728,6 +843,9 @@ class Procedure:
             extra=self.manifest_extra(),
         )
         out = session_root / "manifest.json"
+        if out.exists():
+            stamp = (self.stopped_time or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%SZ")
+            out = session_root / f"{stamp}_manifest.json"
         manifest.write(out)
         self.logger.info(f"Wrote AcquisitionManifest {hyperlink(out, 'AcquisitionManifest')}")
 
@@ -743,121 +861,86 @@ class Procedure:
 # ----------------------------------------------------------------------
 # Procedure discovery
 
-def _resolve_target(
-    target: Optional[str],
-) -> tuple[Optional[str], Optional[str], Optional[str]]:
-    """Map a launch *target* to ``(hardware_yaml, experiment_json, procedure_py)``.
+def _resolve_target_path(arg: Optional[str]) -> Optional[str]:
+    """Resolve a launch argument to a filesystem path (or ``None``).
 
-    The single place that owns the file-discovery convention:
-
-    - ``None``               -> nothing (default state)
-    - ``*.yaml`` / ``*.yml``  -> hardware only
-    - ``*.py``               -> scripted Procedure subclass (params/hardware via ``define_*``)
-    - ``*.json``             -> experiment params + sibling ``hardware.yaml`` if present
-    - directory              -> ``hardware.yaml`` and/or ``experiment.json`` found inside
+    Accepts an existing path, a canonical rig name (``mesofield rig list``), or
+    the literal ``dev`` (a throwaway mock rig). Unknown names return ``None``.
     """
-    if not target:
-        return None, None, None
-    p = Path(target)
-    ext = p.suffix.lower()
-    if ext in (".yaml", ".yml"):
-        return target, None, None
-    if ext == ".py":
-        return None, None, target
-    if ext == ".json":
-        sibling = p.parent / "hardware.yaml"
-        return (str(sibling) if sibling.is_file() else None), target, None
-    if p.is_dir():
-        hw = p / "hardware.yaml"
-        exp = p / "experiment.json"
-        return (
-            str(hw) if hw.is_file() else None,
-            str(exp) if exp.is_file() else None,
-            None,
-        )
-    return None, None, None
+    if not arg:
+        return None
+    if os.path.exists(arg):
+        return arg
 
+    from mesofield.scaffold import rigs
 
-def load_procedure_from_config(target: Optional[str]) -> "Procedure":
-    """Build the right :class:`Procedure` for a launch *target*.
-
-    ``target`` may be a ``hardware.yaml``, an ``experiment.json``, a scripted
-    ``procedure.py``, an experiment directory, or ``None``. Discovery of the
-    hardware/experiment pair is delegated to :func:`_resolve_target`.
-
-    When the experiment JSON declares ``procedure_file`` + ``procedure_class``,
-    that subclass is imported and used; otherwise a base :class:`Procedure`.
-    """
-    hardware, experiment, procedure_py = _resolve_target(target)
-
-    if procedure_py:
-        return _load_procedure_from_py(procedure_py)
-
-    cls: Type[Procedure] = Procedure
-    if experiment:
-        declared = _load_declared_procedure_class(experiment)
-        if declared is not None:
-            cls = declared
-
-    return cls(hardware=hardware, experiment=experiment)
-
-
-def _load_declared_procedure_class(
-    experiment_json: str,
-) -> Optional[Type["Procedure"]]:
-    """Import the :class:`Procedure` subclass declared by ``procedure_file`` /
-    ``procedure_class`` in an experiment JSON, or ``None`` when not declared.
-
-    The user file is loaded via :func:`importlib.util.spec_from_file_location`
-    so ``experiments/`` does not need to be on ``sys.path``.
-    """
     try:
-        with open(experiment_json, "r", encoding="utf-8") as fh:
-            cfg = json.load(fh)
-    except Exception:
-        return None
+        return str(rigs._resolve_existing(arg))
+    except FileNotFoundError:
+        pass
 
-    proc_file = cfg.get("procedure_file")
-    proc_class = cfg.get("procedure_class")
-    if not proc_file or not proc_class:
-        return None
+    if arg == "dev":
+        import tempfile
+        from mesofield.scaffold.experiment import _hardware_yaml_mock
 
-    # Resolve relative paths against the JSON's directory
-    json_dir = os.path.dirname(os.path.abspath(experiment_json))
-    if not os.path.isabs(proc_file):
-        proc_file = os.path.join(json_dir, proc_file)
+        fd, tmp = tempfile.mkstemp(prefix="mesofield_dev_", suffix=".yaml")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(_hardware_yaml_mock())
+        return tmp
 
-    if not os.path.isfile(proc_file):
-        raise FileNotFoundError(
-            f"procedure_file declared in {experiment_json} not found: {proc_file}"
-        )
-
-    mod_name = f"mesofield_user_procedure_{uuid.uuid4().hex}"
-    spec = importlib.util.spec_from_file_location(mod_name, proc_file)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Could not load procedure_file: {proc_file}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[mod_name] = module
-    spec.loader.exec_module(module)
-
-    cls = getattr(module, proc_class, None)
-    if cls is None:
-        raise AttributeError(f"Class '{proc_class}' not found in {proc_file}")
-    if not (isinstance(cls, type) and issubclass(cls, Procedure)):
-        raise TypeError(
-            f"{proc_class} in {proc_file} must be a subclass of mesofield.base.Procedure"
-        )
-    return cls
+    return None
 
 
-def _load_procedure_from_py(py_path: str) -> "Procedure":
-    """Instantiate the Procedure subclass defined in a scripted ``procedure.py``.
+def load_procedure(target: Optional[str], **params: Any) -> "Procedure":
+    """Build a :class:`Procedure` for a launch *target*.
 
-    The class is selected from a module-level ``PROCEDURE`` attribute when
-    present, otherwise the single :class:`Procedure` subclass *defined in*
-    that file. The instance's ``experiment_dir`` is set to the script's
-    directory so data lands beside it; the ``define_config`` /
-    ``define_hardware`` hooks supply the actual parameters and devices.
+    *target* may be a canonical rig name, the literal ``dev``, or a path to a
+    ``procedure.py``, an ``experiment.json``, a ``hardware.yaml``, or a
+    directory containing them. ``None`` (or an unresolvable name) opens in a
+    default state for the Configuration Wizard.
+
+    Directory precedence: ``procedure.py`` (custom subclass) > ``experiment.json``
+    (self-contained config) > ``hardware.yaml`` (rig only).
+    """
+    path = _resolve_target_path(target)
+    if path is None:
+        if target:
+            from mesofield.scaffold import rigs
+
+            get_logger(__name__).warning(
+                f"No path or rig named {target!r}. Known rigs: "
+                f"{', '.join(rigs.list_rigs()) or '(none)'}. Opening in default state."
+            )
+        return Procedure(**params)
+
+    p = Path(path)
+    if p.is_dir():
+        if (p / "procedure.py").is_file():
+            path = str(p / "procedure.py")
+        elif (p / "experiment.json").is_file():
+            return Procedure(config=str(p / "experiment.json"), **params)
+        else:
+            hw = p / "hardware.yaml"
+            return Procedure(hardware=str(hw) if hw.is_file() else None, **params)
+        p = Path(path)
+
+    ext = p.suffix.lower()
+    if ext == ".py":
+        return _load_procedure_from_py(str(p))
+    if ext == ".json":
+        return Procedure(config=str(p), **params)
+    if ext in (".yaml", ".yml"):
+        return Procedure(hardware=str(p), **params)
+    return Procedure(**params)
+
+
+def _procedure_class_from_py(py_path: str) -> Type["Procedure"]:
+    """Import *py_path* and return its :class:`Procedure` subclass (no instance).
+
+    The class is a module-level ``PROCEDURE`` attribute when present, otherwise
+    the single :class:`Procedure` subclass *defined in* that file. Loaded via
+    :func:`importlib.util.spec_from_file_location` so the directory need not be
+    on ``sys.path``.
     """
     abs_path = os.path.abspath(py_path)
     mod_name = f"mesofield_user_procedure_{uuid.uuid4().hex}"
@@ -894,10 +977,19 @@ def _load_procedure_from_py(py_path: str) -> "Procedure":
         raise TypeError(
             f"{cls!r} in {abs_path} must be a subclass of mesofield.base.Procedure"
         )
+    return cls
+
+
+def _load_procedure_from_py(py_path: str) -> "Procedure":
+    """Instantiate the Procedure subclass defined in a scripted ``procedure.py``.
+
+    The subclass loads its own ``experiment.json`` (via the class-level
+    :attr:`Procedure.experiment` path). When the config did not declare an
+    ``experiment_directory``, data output defaults beside the script.
+    """
+    abs_path = os.path.abspath(py_path)
+    cls = _procedure_class_from_py(abs_path)
     proc = cls()
-    # Scripted procedures supply params/hardware via define_*; when the
-    # config did not declare an `experiment_directory`, default the data
-    # output beside the script rather than the current directory.
     if not proc.config.experiment_dir_is_set:
         proc.config.experiment_dir = os.path.dirname(abs_path)
         proc.data_dir = proc.config.data_dir

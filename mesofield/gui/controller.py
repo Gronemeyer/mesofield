@@ -145,8 +145,14 @@ class ConfigController(QWidget):
     # ------------------------------------------------------------------------------------- #
     def __init__(self, procedure: 'Procedure', display_keys=None):
         super().__init__()
-        self.config: ExperimentConfig = procedure.config 
+        self.config: ExperimentConfig = procedure.config
         self.procedure = procedure
+        self._record_thread: threading.Thread | None = None
+        self._stop_live_hook = None
+        # Own the "start on trigger" gate here (GUI layer) 
+        # base.Procedure.await_trigger() calls this after
+        # arming and before starting devices.
+        self.procedure.start_gate = self._start_gate
         if display_keys is None and hasattr(self.config, "display_keys"):
             display_keys = self.config.display_keys
         self.display_keys = list(display_keys) if display_keys is not None else None
@@ -194,8 +200,13 @@ class ConfigController(QWidget):
 
         # Register live updates for the filename preview. Callbacks fire from
         # ConfigRegister.set() — which is what ConfigFormWidget editors call.
-        for key in ("subject", "session", "task"):
-            self.config.register_callback(key, lambda _k, _v: self._update_filename_preview())
+        # The config object outlives this widget (it's owned by the procedure
+        # and survives a config reload), so we keep references to the exact
+        # callbacks registered here and unregister them in `cleanup()`
+        self._preview_keys = ("subject", "session", "task")
+        self._preview_callback = lambda _k, _v: self._update_filename_preview()
+        for key in self._preview_keys:
+            self.config.register_callback(key, self._preview_callback)
         self._update_filename_preview()
         
         # 4. Record button to start the MDA sequence
@@ -243,6 +254,10 @@ class ConfigController(QWidget):
         # to the bottom edge regardless of window height.
         layout.addStretch(1)
 
+        # NI-DAQ status indicator(s): a trigger-sent light + TTL edge counter
+        self._nidaq_indicators = []
+        self._build_nidaq_indicators(layout)
+
         # Dynamic hardware-specific controls (pinned to bottom of the panel)
         self.dynamic_controller = DynamicController(self.procedure.config, parent=self)
         layout.addWidget(self.dynamic_controller)
@@ -274,12 +289,43 @@ class ConfigController(QWidget):
         dynamic_buttons = [
             (DynamicController.LED_TEST_BTN, self._test_led),
             (DynamicController.STOP_BTN, self._stop_led),
+            (DynamicController.REWARD_BTN, self._deliver_reward),
         ]
         for btn_attr, handler in dynamic_buttons:
             if hasattr(self.dynamic_controller, btn_attr):
                 getattr(self.dynamic_controller, btn_attr).clicked.connect(handler)
 
         # ------------------------------------------------------------------------------------- #
+    # ------------------------------- Lifecycle / teardown --------------------------- #
+    def _build_nidaq_indicators(self, layout) -> None:
+        """Add a :class:`NidaqIndicator` for every NI-DAQ device on the rig."""
+        from mesofield.gui.nidaq_indicator import NidaqIndicator
+
+        devices = getattr(self.procedure.config.hardware, "devices", {}) or {}
+        for device in devices.values():
+            if getattr(device, "device_type", None) != "nidaq":
+                continue
+            try:
+                indicator = NidaqIndicator(device, parent=self)
+            except Exception as exc:
+                print(f"Failed to build NidaqIndicator: {exc}")
+                continue
+            layout.addWidget(indicator)
+            self._nidaq_indicators.append(indicator)
+
+    def cleanup(self) -> None:
+        """Sever live connections before this widget is destroyed on a reload."""
+        callback = getattr(self, "_preview_callback", None)
+        if callback is not None:
+            for key in getattr(self, "_preview_keys", ()):  # type: ignore[arg-type]
+                with suppress(Exception):
+                    self.config.unregister_callback(key, callback)
+            self._preview_callback = None
+        for indicator in getattr(self, "_nidaq_indicators", []):
+            with suppress(Exception):
+                indicator.cleanup()
+        self._nidaq_indicators = []
+
     # ------------------------------- Introspection Helpers --------------------------- #
     def displayed_values(self) -> dict:
         """Return the configuration values currently shown in the form widget."""
@@ -305,21 +351,96 @@ class ConfigController(QWidget):
 
     def record(self):
         """Run the experimental procedure or fallback to legacy MDA sequence."""
+        if self._record_thread is not None and self._record_thread.is_alive():
+            QMessageBox.information(self, "Recording in progress", "A recording is already running.")
+            return
+
         self._stop_live_streams()
         # If a procedure is available, use it for the experimental workflow
         if self.procedure is not None:
+            def _run_procedure():
+                try:
+                    self.procedure.run()
+                except Exception as e:
+                    events = getattr(self.procedure, "events", None)
+                    if events is not None:
+                        try:
+                            events.procedure_error.emit(str(e))
+                        except Exception:
+                            pass
+                finally:
+                    self._record_thread = None
+
             try:
-                # Run the procedure in a separate thread to avoid blocking the GUI
-                self.procedure_thread = threading.Thread(target=self.procedure.run())
-                self.procedure_thread.start()
-                
+                self._record_thread = threading.Thread(
+                    target=_run_procedure,
+                    name="mesofield-record",
+                    daemon=True,
+                )
+                self._record_thread.start()
                 # Signal that recording has started
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 self.recordStarted.emit(timestamp)
                 return
             except Exception as e:
+                self._record_thread = None
                 QMessageBox.critical(self, "Procedure Error", f"Failed to run procedure: {str(e)}")
                 return
+
+    def _start_gate(self, procedure) -> bool:
+        """Hold the armed run until the operator triggers the start.
+
+        Injected onto the procedure as ``start_gate`` and called from
+        :meth:`mesofield.base.Procedure.await_trigger` when ``start_on_trigger``
+        is set (after arming, before any device starts).
+
+        Stimulus-device-agnostic: launch every *enabled* stimulus device that
+        defers its launch to start (``launch_phase == "start"`` -- the
+        operator-in-the-loop kind, e.g. PsychoPy). Each device's ``start`` owns
+        its own readiness handshake and foreground "press to start" gate (its
+        presentation hooks), and returns ``False`` on a failed handshake or an
+        operator cancel -- in which case we abort the run. Arm-phase stimuli
+        (e.g. MousePortal) are already up from ``arm`` and need no gate here.
+        When no start-phase stimulus is present (a spontaneous baseline), show a
+        focused manual start dialog. Returns ``True`` to proceed, ``False`` to
+        cancel.
+        """
+        stimuli = [
+            d for d in procedure.hardware.devices.values()
+            if getattr(d, "device_type", None) == "stimulus"
+            and getattr(d, "launch_phase", "start") == "start"
+            and getattr(d, "enabled", True)
+        ]
+        if not stimuli:
+            return self._manual_start_gate()
+        for dev in stimuli:
+            # start() launches, waits on the readiness handshake, and runs the
+            # device's ready gate; it surfaces any failure via the device's
+            # present_failure hook, so we just honor the result.
+            if not dev.start():
+                procedure.logger.info(
+                    f"Start gate: {dev.device_id} did not start; aborting run."
+                )
+                return False
+        return True
+
+    def _manual_start_gate(self) -> bool:
+        """Focused modal "press to start" gate for runs with no stimulus."""
+        from mesofield.devices.subprocesses.psychopy import force_foreground
+
+        box = QMessageBox(self)
+        box.setWindowTitle("Start recording")
+        box.setText(
+            "Ready to record (no visual stimulus).\n"
+            "Press spacebar (or click OK) to start, Cancel to abort."
+        )
+        box.setStandardButtons(
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
+        )
+        box.setDefaultButton(QMessageBox.StandardButton.Ok)
+        box.setWindowModality(Qt.WindowModality.ApplicationModal)
+        force_foreground(box)
+        return box.exec() == QMessageBox.StandardButton.Ok
 
     def _abort(self):
         """Safely stop the running Procedure (stops hardware, saves data)."""
@@ -341,11 +462,25 @@ class ConfigController(QWidget):
 
     def _stop_live_streams(self) -> None:
         """Ensure any live/sequence streams are halted before starting acquisition."""
+        hook = getattr(self, "_stop_live_hook", None)
+        if callable(hook):
+            with suppress(Exception):
+                hook()
+
+        cameras = tuple(getattr(self.config.hardware, "cameras", ()) or ())
+        for cam in cameras:
+            with suppress(Exception):
+                cam.stop_live()
+
         cores = getattr(self.config, "_cores", ())
         for core in cores:
             with suppress(Exception):
                 if hasattr(core, "isSequenceRunning") and core.isSequenceRunning():
                     core.stopSequenceAcquisition()
+
+    def set_stop_live_hook(self, hook) -> None:
+        """Register a GUI callback used to force all Live toggles off pre-record."""
+        self._stop_live_hook = hook
 
     #-----------------------------------------------------------------------------------------------#
 
@@ -389,6 +524,13 @@ class ConfigController(QWidget):
         """Render the BIDS filename template for the currently selected subject."""
         if not hasattr(self, "filename_preview_label"):
             return
+        # Guard against a stale callback
+        try:
+            from PyQt6 import sip
+            if sip.isdeleted(self.filename_preview_label):
+                return
+        except Exception:
+            pass
         subject = self.config.get("subject") or "?"
         session = self.config.get("session") or "?"
         task = self.config.get("task") or "?"
@@ -506,6 +648,23 @@ class ConfigController(QWidget):
         except Exception as e:
             print(f"Error stopping LED pattern: {e}")
     
+    def _deliver_reward(self):
+        """Manually trigger a reward on any device exposing ``deliver_reward``.
+
+        Finds the first hardware device with a ``deliver_reward`` method (e.g.
+        the ``licker``) and calls it, which sends the 'D' command to the board.
+        """
+        devices = getattr(self.config.hardware, "devices", {}) or {}
+        for device in devices.values():
+            if hasattr(device, "deliver_reward"):
+                try:
+                    device.deliver_reward()
+                    print(f"Reward delivered via '{getattr(device, 'device_id', device)}'.")
+                except Exception as e:
+                    print(f"Error delivering reward: {e}")
+                return
+        print("No device with a reward command is loaded.")
+
     def _add_note(self):
         """
         Open a dialog to get a note from the user, save it to the

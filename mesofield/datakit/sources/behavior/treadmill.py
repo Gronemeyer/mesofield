@@ -1,9 +1,15 @@
 """Treadmill loader.
 
-Data is reconstructed entirely from the central ``*_dataqueue.csv`` log: each
-``EncoderData(timestamp=..., distance=..., speed=...)`` payload row carries the
-full sample, already published on the master clock via ``queue_elapsed``. The
-per-session ``*_treadmill.csv`` is only consulted as a fallback when no
+Data is reconstructed entirely from the central ``*_dataqueue.csv`` log, which
+carries the full sample already published on the master clock via
+``queue_elapsed``. Two on-disk layouts are supported:
+
+* **Modern (preferred):** the sample is fanned out into dedicated
+  ``distance``/``speed``/``device_us`` columns, read directly with no regex.
+* **Legacy:** the sample lives in a single ``EncoderData(timestamp=...,
+  distance=..., speed=...)`` ``payload`` string, parsed by regex.
+
+The per-session ``*_treadmill.csv`` is only consulted as a fallback when no
 dataqueue is available for that session (e.g. legacy fixtures used by the
 ``treadmill_csv_fallback`` test).
 """
@@ -46,6 +52,16 @@ class TreadmillSource(TimeseriesSource):
     dataqueue_queue_column = settings.timeline.queue_column
     dataqueue_device_id_column = "device_id"
     dataqueue_payload_column = "payload"
+
+    # Modern dataqueue format: the treadmill sample is fanned out into
+    # dedicated ``distance``/``speed``/``device_us`` columns (see
+    # ``DataSaver.save_queue`` dict fan-out), so no EncoderData regex is
+    # needed. Preferred when present; the legacy payload parser below is the
+    # fallback for older datasets whose samples still live in ``payload``.
+    dataqueue_device_us_column = "device_us"
+    dataqueue_distance_column = "distance"
+    dataqueue_speed_column = "speed"
+    dataqueue_treadmill_device_patterns = ("treadmill",)
 
     dataqueue_payload_prefix = "EncoderData"
     timeline_master_patterns = ("dhyana", "mesoscope")
@@ -185,6 +201,12 @@ class TreadmillSource(TimeseriesSource):
         re-read the raw CSV via ``dq_path``.
         """
 
+        # Prefer the modern three-column layout when it is available; only
+        # fall through to the legacy EncoderData regex for older datasets.
+        native = self._native_column_samples(dq_path, dataqueue_frame)
+        if native is not None:
+            return native
+
         dq = dataqueue_frame
         if dq is not None:
             payload = dq.get(self.dataqueue_payload_column)
@@ -203,6 +225,77 @@ class TreadmillSource(TimeseriesSource):
             low_memory=False,
         )
         return self._parse_dataqueue_payloads(raw)
+
+    def _native_column_samples(
+        self,
+        dq_path: Path | None,
+        dataqueue_frame: pd.DataFrame | None,
+    ) -> dict[str, np.ndarray] | None:
+        """Read treadmill samples from the modern three-column dataqueue.
+
+        The Teensy/mock treadmill now pushes a ``{distance, speed, device_us}``
+        dict payload, which ``DataSaver.save_queue`` fans out into dedicated
+        ``distance``/``speed``/``device_us`` columns. When those columns are
+        present we read them directly — no regex — and return the same parallel
+        arrays as :meth:`_parse_dataqueue_payloads`. Returns ``None`` when the
+        columns are absent so the legacy payload parser handles older datasets.
+        """
+
+        needed = (
+            self.dataqueue_queue_column,
+            self.dataqueue_device_us_column,
+            self.dataqueue_distance_column,
+            self.dataqueue_speed_column,
+        )
+
+        dq = dataqueue_frame
+        if dq is None:
+            if dq_path is None:
+                return None
+            header = pd.read_csv(dq_path, nrows=0).columns
+            if not all(col in header for col in needed):
+                return None
+            usecols = [
+                col
+                for col in (
+                    self.dataqueue_queue_column,
+                    self.dataqueue_device_id_column,
+                    self.dataqueue_device_us_column,
+                    self.dataqueue_distance_column,
+                    self.dataqueue_speed_column,
+                )
+                if col in header
+            ]
+            dq = pd.read_csv(dq_path, usecols=usecols, low_memory=False)
+        elif not all(col in dq.columns for col in needed):
+            return None
+
+        queue = pd.to_numeric(dq[self.dataqueue_queue_column], errors="coerce")
+        device_us = pd.to_numeric(dq[self.dataqueue_device_us_column], errors="coerce")
+        distance = pd.to_numeric(dq[self.dataqueue_distance_column], errors="coerce")
+        speed = pd.to_numeric(dq[self.dataqueue_speed_column], errors="coerce")
+
+        mask = queue.notna() & device_us.notna() & distance.notna() & speed.notna()
+        # Restrict to treadmill rows so other devices that may share these
+        # columns (blank for them anyway) never leak into the samples.
+        if self.dataqueue_device_id_column in dq.columns:
+            device = dq[self.dataqueue_device_id_column].astype(str)
+            dev_mask = np.zeros(len(dq), dtype=bool)
+            for pattern in self.dataqueue_treadmill_device_patterns:
+                dev_mask |= device.str.contains(
+                    pattern, case=False, na=False, regex=False
+                ).to_numpy()
+            mask &= pd.Series(dev_mask, index=dq.index)
+
+        if int(mask.sum()) < 1:
+            return None
+
+        return {
+            "queue_elapsed": queue[mask].to_numpy(dtype=np.float64),
+            "encoder_ts": device_us[mask].to_numpy(dtype=np.float64),
+            "distance_mm": distance[mask].to_numpy(dtype=np.float64),
+            "speed_mm": speed[mask].to_numpy(dtype=np.float64),
+        }
 
     def _parse_dataqueue_payloads(self, dq: pd.DataFrame) -> dict[str, np.ndarray]:
         if (

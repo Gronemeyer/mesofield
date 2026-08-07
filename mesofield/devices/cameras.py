@@ -15,7 +15,7 @@ from mesofield.protocols import HardwareDevice, DataProducer
 from mesofield.engines import DevEngine, MesoEngine, PupilEngine
 #from tests.arducam import VideoThread
 from mesofield.devices.base_camera import BaseCamera
-from mesofield.data import CustomWriter, CV2Writer
+from mesofield.data import CV2Writer, OMEWriter
 from mesofield.data.codecs import (
     configure_opencv_codec,
     default_fourcc,
@@ -35,14 +35,14 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
     ``HardwareDevice`` Protocols so existing isinstance() checks keep
     working. The actual frame flow is driven by pymmcore-plus's MDA event
     system; this class wires those events into the standard
-    :class:`DeviceSignals` bundle and constructs a :class:`CustomWriter`
+    :class:`DeviceSignals` bundle and constructs an :class:`OMEWriter`
     (OME-TIFF) or :class:`CV2Writer` (MP4) for the output.
     """
 
     sampling_rate: float = 30.0  # Default sampling rate in Hz
     file_type: ClassVar[str] = "ome.tiff"
     bids_type: ClassVar[Optional[str]] = "func"
-    writer: CustomWriter | CV2Writer
+    writer: OMEWriter | CV2Writer
 
     def __init__(self, cfg: dict):
         # BaseCamera surface (signals, identity, viewer cosmetics, output
@@ -92,18 +92,19 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
             except Exception:
                 pass
 
-        try:
-            evt.sequenceStarted.connect(_on_started)
-        except Exception:
-            pass
-        try:
-            evt.sequenceFinished.connect(_on_finished)
-        except Exception:
-            pass
-        try:
-            evt.frameReady.connect(_on_frame)
-        except Exception:
-            pass
+        # Keep handles so `_release` can disconnect these on shutdown — the
+        # closures were previously never severed, leaking handlers on the core
+        # (which may outlive this camera if a core is ever reused).
+        self._mda_handlers = {
+            "sequenceStarted": _on_started,
+            "sequenceFinished": _on_finished,
+            "frameReady": _on_frame,
+        }
+        for event_name, handler in self._mda_handlers.items():
+            try:
+                getattr(evt, event_name).connect(handler)
+            except Exception:
+                pass
 
     def _setup_micromanager(self, cfg):
         core = CMMCorePlus(cfg.get("micromanager_path"))
@@ -123,7 +124,7 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         self.core = core
 
     # `set_writer` is inherited from BaseCamera: it resolves the output path
-    # and picks the writer (CustomWriter for OME-TIFF, CV2Writer for MP4)
+    # and picks the writer (OMEWriter for OME-TIFF, CV2Writer for MP4)
     # from the shared `_WRITER_FOR_FILE_TYPE` mapping. Override only if you
     # need to swap the mapping for a specific MMCamera subclass.
 
@@ -257,20 +258,20 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         return True
 
     def stop(self) -> bool:
-        """Stop acquisition.
+        """Stop acquisition for any running Micro-Manager camera (incl. primary).
 
-        Non-primary Micro-Manager cameras must be told explicitly to halt
-        their sequence acquisition — the primary camera's MDA driver
-        does not stop them.
+        ``stopSequenceAcquisition`` is non-joining and idempotent: on natural
+        completion the engine already stopped the sequence (no-op here), and on
+        abort/duration-cap it flips the flag the engine loop polls so the run
+        ends and buffered frames flush. Safe from any thread — unlike
+        ``mda.cancel()``, which joins the runner and would self-deadlock when
+        cleanup runs on the MDA worker thread (the primary's ``finished`` path).
         """
         self._stopped = datetime.now()
-        if (
-            self.backend == "micromanager"
-            and not self.is_primary
-            and self.core is not None
-        ):
+        if self.backend == "micromanager" and self.core is not None:
             try:
-                self.core.stopSequenceAcquisition()
+                if self.core.isSequenceRunning():
+                    self.core.stopSequenceAcquisition()
             except Exception as exc:
                 self.logger.warning(f"stopSequenceAcquisition failed: {exc}")
         return True
@@ -307,11 +308,28 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
         except Exception as exc:
             self.logger.debug(f"stopSequenceAcquisition: {exc}")
 
-    def shutdown(self):
-        """Cancel any in-flight MDA on the Micro-Manager backend."""
-        if self.backend == "micromanager" and hasattr(self.core, "reset"):
+    def _release(self) -> None:
+        """Cancel any in-flight MDA and disconnect the mmcore event handlers.
+
+        Called by ``BaseCamera.shutdown`` (the template) after ``stop()``. The
+        handlers wired in ``_wire_signals`` were previously never disconnected;
+        sever them so no closure keeps emitting into this (torn-down) camera.
+        """
+        if self.backend != "micromanager" or self.core is None:
+            return
+        try:
             self.core.mda.cancel()
-    
+        except Exception as exc:
+            self.logger.debug(f"mda.cancel: {exc}")
+        evt = getattr(self.core.mda, "events", None)
+        handlers = getattr(self, "_mda_handlers", None)
+        if evt is not None and handlers:
+            for event_name, handler in handlers.items():
+                try:
+                    getattr(evt, event_name).disconnect(handler)
+                except (TypeError, RuntimeError):
+                    pass
+
     def __getattr__(self, name: str):
         """
         Any attribute not found on MMCamera will be looked up
@@ -628,13 +646,10 @@ class OpenCVCamera(BaseCamera, QThread):
         self.signals.finished.emit()
         return True
 
-    def shutdown(self) -> None:
-        """Tear down the capture thread.
-
-        ``stop()`` joins the capture thread; its ``run()`` finally-block
-        releases the :class:`CV2Writer` and writes the sidecar JSON.
-        """
-        self.stop()
+    # `shutdown()` is inherited from BaseCamera: the template calls `stop()`
+    # (joins the capture thread; run()'s finally releases the CV2Writer and
+    # writes the sidecar) then disconnects this camera's frame_ready/image_ready/
+    # progress Qt signals. No OpenCV-specific `_release` is needed.
 
     # --- live preview contract (BaseCamera abstract methods) ------------
     # `snap()` reads a frame from a one-shot VideoCapture; the live capture
@@ -718,13 +733,16 @@ class OpenCVCamera(BaseCamera, QThread):
             return
 
         self._capture = cap
-        # where `start_live()` clears `self.writer`). If `begin` fails (e.g. a
-        # missing codec on Linux), abort the recording instead of entering the
-        # loop — otherwise every `add_frame` would raise "called before
-        # begin()" once per frame.        # where `start_live()` clears `self.writer`).
-        if self.writer is not None:
+        # Snapshot the writer once at thread start. `self.writer` can change
+        # from other threads (e.g. live-preview -> record transitions), and
+        # reading a swapped-in writer inside the loop can call add_frame()
+        # before begin().
+        writer = self.writer
+        # If begin fails (e.g. missing codec), abort recording instead of
+        # entering the loop where every add_frame would fail.
+        if writer is not None:
             try:
-                self.writer.begin(self._frame_width, self._frame_height, self.is_color)
+                writer.begin(self._frame_width, self._frame_height, self.is_color)
             except Exception as exc:  # pragma: no cover - codec failure
                 self.logger.error(f"CV2Writer.begin failed, aborting recording: {exc}")
                 cap.release()
@@ -736,10 +754,14 @@ class OpenCVCamera(BaseCamera, QThread):
                 # rather than spinning forever on a primary that never writes.
                 self.signals.finished.emit()
                 return
-        # A primary OpenCV camera has no externally-driven sequence length, so
-        # it must self-terminate after the expected number of frames; that
-        # emission of `signals.finished` is what drives Procedure cleanup.
-        stop_at_expected = self.is_primary and self.writer is not None and self._expected_frames > 0
+        # Any recording OpenCV camera with a known length self-terminates after
+        # its expected frame count, so a camera never depends solely on the
+        # primary -> _cleanup_procedure -> stop_all chain to stop (which would
+        # strand its capture thread + open writer if cleanup misfires). Only the
+        # *primary* emits `signals.finished` on natural stop (see the finally
+        # block) to drive Procedure cleanup; non-primary cameras just stop
+        # writing and release their own writer.
+        stop_at_expected = writer is not None and self._expected_frames > 0
         period = 1.0 / self.sampling_rate if self.sampling_rate > 0 else 0.0
         next_t = time.perf_counter()
         # Watchdog: a wrong backend / capture format makes read() fail forever
@@ -772,21 +794,26 @@ class OpenCVCamera(BaseCamera, QThread):
                 self._frame_timestamps.append((idx, ts))
 
                 # Write to disk via the shared CV2Writer
-                if self.writer is not None:
+                if writer is not None:
                     if not self.is_color and frame.ndim == 3:
                         frame_to_write = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                     else:
                         frame_to_write = frame
                     try:
-                        self.writer.add_frame(frame_to_write)
+                        writer.add_frame(frame_to_write)
                     except Exception as exc:  # pragma: no cover - codec failure
                         self.logger.error(f"CV2Writer.add_frame failed: {exc}")
 
-                # GUI live-preview signals (Qt-native, decoupled from queue)
-                self.frame_ready.emit(frame)
-                self.image_ready.emit(frame)
+                # GUI live-preview signals (Qt-native, decoupled from queue).
+                # These cross into the GUI thread, where ImagePreview holds the
+                # array until its next timer tick. `cap.read()` recycles its
+                # internal buffer in place on the following grab, so the held
+                # reference must be a private copy or the display tears.
+                display_frame = frame.copy()
+                self.frame_ready.emit(display_frame)
+                self.image_ready.emit(display_frame)
                 # Recording progress (only meaningful while a writer is attached)
-                if self.writer is not None:
+                if writer is not None:
                     self.progress.emit(idx + 1, self._expected_frames)
                 # Standardized data signal -> DataQueue
                 self.signals.data.emit(idx, ts)
@@ -814,9 +841,9 @@ class OpenCVCamera(BaseCamera, QThread):
             except Exception:
                 pass
             self._capture = None
-            if self.writer is not None:
+            if writer is not None:
                 try:
-                    self.writer.finish(extra_metadata=self._frame_metadata())
+                    writer.finish(extra_metadata=self._frame_metadata())
                 except Exception as exc:
                     self.logger.error(f"CV2Writer.finish failed: {exc}")
                 # `-1` is the "recording done -- hide the progress bar" sentinel.

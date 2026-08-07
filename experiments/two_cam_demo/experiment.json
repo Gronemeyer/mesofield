@@ -5,8 +5,6 @@
         "duration": 10,
         "start_on_trigger": false
     },
-    "procedure_file": "procedure.py",
-    "procedure_class": "TwoCamDemoProcedure",
     "Subjects": {
         "DEMO": {
             "session": "01",
@@ -20,5 +18,43 @@
         "experimenter",
         "protocol",
         "duration"
-    ]
+    ],
+    "hardware": {
+        "memory_buffer_size": 4000,
+        "mesoscope": {
+            "type": "opencv_camera",
+            "device_index": 0,
+            "primary": true,
+            "frame_interval_ms": 100,
+            "cv_backend": "mpv4",
+            "backend": "opencv",
+            "output": {
+                "suffix": "meso",
+                "file_type": "mp4",
+                "bids_type": "func"
+            }
+        },
+        "pupil": {
+            "type": "mock_camera",
+            "width": 64,
+            "height": 64,
+            "frame_interval_ms": 50,
+            "output": {
+                "suffix": "pupil",
+                "file_type": "ome.tiff",
+                "bids_type": "behav"
+            }
+        },
+        "wheel": {
+            "type": "mock_wheel",
+            "sample_interval_ms": 20,
+            "cpr": 2400,
+            "diameter_mm": 80,
+            "output": {
+                "suffix": "wheel",
+                "file_type": "csv",
+                "bids_type": "beh"
+            }
+        }
+    }
 }

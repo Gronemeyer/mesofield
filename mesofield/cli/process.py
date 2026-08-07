@@ -133,6 +133,8 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
     import tifffile
     from PIL import Image, ImageDraw, ImageFont
 
+    from mesofield.data.tiffio import memmap_ome_stack
+
     # --- Discover tiffs via datakit ---
     entries = _discover_meso_entries(dir, sub)
     if not entries:
@@ -191,7 +193,7 @@ def montage_meso(dir, sub, frame, rotate, ses_filter):
 
                 tiff_path = session[task]
                 try:
-                    tiff_array = tifffile.memmap(tiff_path)
+                    tiff_array = memmap_ome_stack(tiff_path)
                     if tiff_array.shape[0] <= frame:
                         click.echo(f"WARNING: {tiff_path} has only {tiff_array.shape[0]} frames, skipping")
                         continue

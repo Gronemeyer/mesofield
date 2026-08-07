@@ -5,8 +5,10 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from .base import FrameProcessor
+from .registry import register_processor
 
 
+@register_processor("frame_mean")
 class FrameMean(FrameProcessor):
     data_type = "frame_mean"
 

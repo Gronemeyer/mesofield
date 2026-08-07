@@ -25,7 +25,7 @@ from datetime import datetime
 import pandas as pd
 
 from mesofield.config import ExperimentConfig
-from mesofield.data.writer import CustomWriter, CV2Writer
+from mesofield.data.writer import OMEWriter, CV2Writer
 from mesofield.utils._logger import get_logger, log_this_fr, hyperlink
 
 
@@ -70,6 +70,14 @@ class DataQueue:
 
     def empty(self) -> bool:
         return self._queue.empty()
+
+    def clear(self) -> None:
+        """Discard any packets still queued."""
+        while True:
+            try:
+                self._queue.get_nowait()
+            except queue.Empty:
+                break
 
 
 @dataclass
@@ -266,6 +274,16 @@ class DataManager:
     ) -> None:
         """Attach configuration and optionally register devices."""
         self.save = DataSaver(config)
+        # Assign each device its allocated output path up front (it was just
+        # built once by DataPaths). Devices that write their own file during the
+        # run -- e.g. subprocess stimuli like MousePortal -- can then read
+        # ``self.output_path`` at arm time and write to the
+        # ExperimentConfig-authoritative path instead of inventing one. Devices
+        # saved by DataSaver get the same path reassigned at save (idempotent).
+        for dev_id, path in self.save.paths.hardware.items():
+            device = config.hardware.devices.get(dev_id)
+            if device is not None:
+                device.output_path = path
         if devices is not None:
             self.register_devices(devices)
 
@@ -295,6 +313,8 @@ class DataManager:
         # in-memory storage for log rows
         self.queue_packets = []
         self._stop_queue = False
+        # Drop any packets left over from a prior run in this session.
+        self.queue.clear()
 
         # start background thread to record queue packets
         self._queue_thread = threading.Thread(
@@ -307,7 +327,7 @@ class DataManager:
         """Stop the queue logging thread and flush data to disk."""
         self._stop_queue = True
         if self._queue_thread:
-            self._queue_thread.join(timeout=1)
+            self._queue_thread.join()
 
         # save recorded packets via DataSaver
         if self.save and self.queue_log_path:
@@ -352,7 +372,24 @@ class DataManager:
         if data_sig is None or not hasattr(data_sig, "connect"):
             return
 
+        # Per-device queue filter/transform hook (see
+        # ``BaseDataProducer.queue_payload``). Lets a device control what it
+        # contributes to the dataqueue *independently* of the full-fidelity
+        # ``signals.data`` stream (which still feeds the device's own CSV and
+        # the live plots). Returning ``None`` drops the sample from the queue;
+        # returning a (possibly reshaped) payload pushes that instead.
+        # ``getattr`` keeps this safe for Qt/camera devices that duck-type the
+        # signal contract without inheriting ``BaseDataProducer``.
+        queue_filter = getattr(device, "queue_payload", None)
+
         def _push(payload: Any, device_ts: Any = None, *, _id=dev_id) -> None:
+            if queue_filter is not None:
+                try:
+                    payload = queue_filter(payload)
+                except Exception:
+                    return
+                if payload is None:
+                    return
             self.queue.push(_id, payload, device_ts=device_ts)
 
         try:

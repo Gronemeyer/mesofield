@@ -29,6 +29,11 @@ try:
 except ImportError:
     PsychoPyDevice = None  # type: ignore[assignment,misc]
 
+try:
+    from .mouseportal_device import MousePortalDevice
+except ImportError:
+    MousePortalDevice = None  # type: ignore[assignment,misc]
+
 # Mocks have no rig-only dependencies; import them so their
 # ``@DeviceRegistry.register`` decorators (``mock_wheel`` / ``mock_camera``)
 # run, letting the ``dev`` rig and the GUI builder produce runnable configs
@@ -49,6 +54,7 @@ __all__ = [
     "SerialWorker",
     "EncoderSerialInterface",
     "PsychoPyDevice",
+    "MousePortalDevice",
     "MockEncoderDevice",
     "MockFrameProducer",
 ]

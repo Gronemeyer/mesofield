@@ -20,17 +20,20 @@ class HardwareManager():
     :meth:`initialize` to bring hardware up.
     """
 
-    def __init__(self, config_file: Optional[str] = None, devices=None):
+    def __init__(self, config_file: Optional[str] = None, devices=None,
+                 spec: Optional[dict] = None):
         self.logger = get_logger(f'{__name__}.{self.__class__.__name__}')
         if config_file:
             self.logger.info(
                 "Initializing HardwareManager with config: "
                 f"{hyperlink(config_file, os.path.basename(os.path.normpath(config_file)))}"
             )
+        elif spec is not None:
+            self.logger.info("Initializing HardwareManager from an in-memory rig spec")
         else:
             self.logger.info("Initializing HardwareManager with config: None")
 
-        self.config_file = config_file
+        self.config_file = None if spec is not None else config_file
         self.devices: Dict[str, DataProducer] = {}
         self._configured: bool = False
         # Devices constructed programmatically (scripted procedures). When set,
@@ -45,6 +48,11 @@ class HardwareManager():
             self.logger.info(
                 f"Initialized with {len(self._prebuilt_devices)} pre-built device(s)."
             )
+        elif spec is not None:
+            # An inline rig mapping (e.g. the ``hardware`` block of an
+            # experiment.json) is the YAML by another name.
+            self.yaml = dict(spec)
+            self._configured = True
         elif config_file and os.path.isfile(config_file):
             try:
                 self.yaml = self._load_yaml(config_file)
@@ -170,7 +178,6 @@ class HardwareManager():
             self._init_cameras()
             self._init_encoder()
             self._init_daq()
-            self._init_psychopy()
             self._init_extras()
         self._configure_engines(cfg)
         # Inject the ExperimentConfig onto every device so producers can reach
@@ -184,7 +191,7 @@ class HardwareManager():
     # Anything else with a ``type:`` field is dispatched through
     # ``_init_extras`` against the global :class:`DeviceRegistry`.
     _RESERVED_YAML_KEYS = frozenset({
-        "cameras", "encoder", "nidaq", "psychopy",
+        "cameras", "encoder", "nidaq",
         "memory_buffer_size", "blue_led_power_mw", "violet_led_power_mw",
         "viewer_type", "widgets",
     })
@@ -290,6 +297,26 @@ class HardwareManager():
                 f"(device_type={getattr(device, 'device_type', None)})."
             )
         self.cameras = tuple(cams)
+
+        # Surface any GUI feature keys declared by scripted devices 
+        # so DynamicController renders them. YAML rigs aggregate these 
+        # via `_aggregate_widgets`; the prebuilt path has no YAML, so merge them in here.
+        extra_widgets: List[str] = []
+        for device in self._prebuilt_devices or []:
+            extra_widgets.extend(getattr(device, "gui_widgets", []) or [])
+        if extra_widgets:
+            self.widgets = list(dict.fromkeys([*self.widgets, *extra_widgets]))
+
+    def rig_spec(self) -> dict:
+        """Return an embeddable rig mapping for this manager.
+
+        Prefers the loaded YAML/spec (authoritative and available before
+        ``initialize``); falls back to serializing live devices for a
+        programmatically-built rig.
+        """
+        if self.yaml:
+            return dict(self.yaml)
+        return self.to_yaml()
 
     def to_yaml(self, path: Optional[str] = None) -> dict:
         """Serialize the current devices into a ``hardware.yaml`` mapping.
@@ -432,18 +459,27 @@ class HardwareManager():
             return yaml.safe_load(f) or {}
 
     def _aggregate_widgets(self) -> List[str]:
-        """Collect unique widget keys from all device sections."""
-        sources = [
-            self.yaml.get('widgets', []),
-            *[cam.get('widgets', []) for cam in self.yaml.get('cameras', [])],
-            self.yaml.get('encoder', {}).get('widgets', []),
-            self.yaml.get('nidaq', {}).get('widgets', []),
-            self.yaml.get('psychopy', {}).get('widgets', []),
-        ]
+        """Collect unique widget keys from every device stanza.
+
+        Scans the top-level ``widgets`` list plus a ``widgets:`` key on any
+        stanza -- mappings (``encoder``/``nidaq``/``psychopy`` and registered
+        extras like ``mouseportal``) and lists of mappings (``cameras``) -- so
+        any device can contribute a GUI widget without special-casing here.
+        """
+        sources: List[list] = [self.yaml.get('widgets', []) or []]
+        for key, val in (self.yaml or {}).items():
+            if key == 'widgets':
+                continue
+            if isinstance(val, dict):
+                sources.append(val.get('widgets', []) or [])
+            elif isinstance(val, list):
+                for item in val:
+                    if isinstance(item, dict):
+                        sources.append(item.get('widgets', []) or [])
         # flatten and dedupe while preserving order
         seen: dict[str, None] = {}
         for group in sources:
-            for w in group:
+            for w in group or []:
                 seen.setdefault(w, None)
         return list(seen)
 
@@ -530,21 +566,6 @@ class HardwareManager():
         self._apply_output_args(self.nidaq, params.get("output", {}), "nidaq")
         self.nidaq.is_primary = bool(params.get("primary", False))
         self.devices["nidaq"] = self.nidaq
-
-    def _init_psychopy(self):
-        params = self.yaml.get("psychopy")
-        if not params:
-            return
-        Cls = DeviceRegistry.get_class("psychopy")
-        if Cls is None:
-            self.logger.error("No class registered under 'psychopy'")
-            return
-        cfg = dict(params)
-        cfg.setdefault("id", "psychopy")
-        device = Cls(cfg)
-        device.is_primary = bool(params.get("primary", False))
-        self.psychopy = device
-        self.devices[device.device_id] = device
 
     # ---- Engine configuration ----------------------------------------------
 

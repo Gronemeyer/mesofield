@@ -11,13 +11,12 @@ Provides a unified widget for selecting and applying:
 from __future__ import annotations
 
 import os
-import json
-import inspect
 from typing import TYPE_CHECKING, Optional, List
 
 from PyQt6.QtCore import pyqtSignal, Qt, QSettings, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
+    QApplication,
     QComboBox,
     QFileDialog,
     QGroupBox,
@@ -406,6 +405,9 @@ class ConfigWizard(QWidget):
 
     Signals
     -------
+    hardwareAboutToChange
+        Emitted **before** a (re)load tears down the current hardware, so the
+        GUI can disconnect live viewers from the outgoing cameras first.
     configApplied
         Emitted **after** the experiment JSON (and optionally hardware YAML)
         have been successfully applied to the running :class:`Procedure`.
@@ -413,6 +415,7 @@ class ConfigWizard(QWidget):
         Emitted after hardware has been initialised (cameras available).
     """
 
+    hardwareAboutToChange = pyqtSignal()
     configApplied = pyqtSignal()
     hardwareReady = pyqtSignal()
     procedureChanged = pyqtSignal(object)  # emitted when a JSON declares a different Procedure subclass
@@ -425,7 +428,15 @@ class ConfigWizard(QWidget):
         self.procedure = procedure
         self._settings = QSettings("Mesofield", "Mesofield")
         self._build_ui()
+        # Restore the last-used pickers first (helpful on a fresh launch), then
+        # let the live procedure's actually-loaded files win: a procedure built
+        # from a CLI target, a scripted procedure.py, an experiment directory,
+        # or a prior hot-swap never touches this wizard's Apply button, so its
+        # real paths must override any stale QSettings value -- otherwise the
+        # Setup tab could advertise a different experiment.json than the
+        # ExperimentConfig tab is actually editing.
         self._restore_recent_paths()
+        self.sync_from_procedure()
 
         # If hardware is already configured, pre-populate the MM section
         if self.procedure.config.hardware.is_configured:
@@ -437,6 +448,57 @@ class ConfigWizard(QWidget):
         """Re-populate the MicroManager config section from current hardware."""
         cameras = self.procedure.config.hardware.cameras
         self._mm_section.set_cameras(cameras)
+
+    def sync_from_procedure(self) -> None:
+        """Reflect the live procedure's actually-loaded config files in the UI.
+
+        ``ExperimentConfig._json_file_path`` (and ``hardware.config_file``) are
+        the single source of truth for *what is currently loaded*. The wizard's
+        own pickers are only a staging area for the next Apply, so whenever the
+        procedure was configured outside this wizard -- a CLI target, a scripted
+        ``procedure.py``, an experiment directory, or a hot-swap candidate -- we
+        adopt and persist its real paths here. This keeps the Setup tab and the
+        ExperimentConfig tab in agreement and makes the last-used experiment.json
+        survive a relaunch even when Apply was never clicked.
+        """
+        cfg = getattr(self.procedure, "config", None)
+        if cfg is None:
+            return
+
+        json_path = getattr(cfg, "_json_file_path", "") or ""
+        if json_path and os.path.isfile(json_path):
+            self._set_experiment_json(json_path, "experiment loaded")
+            if not self._outdir_edit.text().strip():
+                self._outdir_edit.setText(os.path.dirname(json_path))
+        elif getattr(cfg.hardware, "is_configured", False):
+            # The procedure is live but its parameters came from a scripted
+            # define_config (no JSON file on disk). Drop any stale restored path
+            # so the Setup tab can't advertise an experiment.json the running
+            # config never loaded.
+            self._experiment_json = ""
+            self._json_status.setText(
+                "• running from a scripted procedure (no experiment.json)"
+            )
+            self._json_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
+            self._json_status.setToolTip("")
+
+        yaml_path = getattr(cfg.hardware, "config_file", "") or ""
+        if yaml_path and os.path.isfile(yaml_path):
+            self._set_hardware_path(yaml_path, status="rig loaded")
+            self._select_rig_in_combo(yaml_path)
+        elif getattr(cfg.hardware, "is_configured", False):
+            # A rig embedded in experiment.json has no standalone file.
+            self._yaml_status.setText("✔ rig embedded in experiment.json")
+            self._yaml_status.setStyleSheet(f"color: {theme.ACCENT};")
+
+        # Reflect an already-applied launch config so the Setup tab doesn't
+        # look unconfigured.
+        if getattr(cfg.hardware, "is_configured", False):
+            self._mark_applied()
+
+        # Persist whatever the procedure actually loaded so a relaunch restores
+        # the right files even when the user never pressed Apply.
+        self._save_recent_paths()
 
     # -- UI ------------------------------------------------------------------
 
@@ -593,6 +655,12 @@ class ConfigWizard(QWidget):
         if last_yaml and os.path.isfile(last_yaml):
             self._set_hardware_path(last_yaml, status="rig restored")
             self._select_rig_in_combo(last_yaml)
+        # Restore the experiment.json too 
+        last_json = self._settings.value(self._SETTINGS_KEY_JSON, "", type=str)
+        if last_json and os.path.isfile(last_json):
+            self._set_experiment_json(last_json, "experiment restored")
+            configured_dir = self._experiment_dir_from_json(last_json)
+            self._outdir_edit.setText(configured_dir or os.path.dirname(last_json))
 
     def _save_recent_paths(self) -> None:
         """Persist current picker values to QSettings."""
@@ -600,6 +668,11 @@ class ConfigWizard(QWidget):
             self._settings.setValue(self._SETTINGS_KEY_JSON, self._experiment_json)
         if self._hardware_path:
             self._settings.setValue(self._SETTINGS_KEY_YAML, self._hardware_path)
+
+    def _dialog_start_dir(self, settings_key: str) -> str:
+        """Folder a Browse dialog should open in: the last picked file's dir."""
+        last = self._settings.value(settings_key, "", type=str)
+        return os.path.dirname(last) if last else ""
 
     # -- Helpers -------------------------------------------------------------
 
@@ -617,6 +690,23 @@ class ConfigWizard(QWidget):
         self._json_status.setText(f"✔ {status}")
         self._json_status.setStyleSheet(f"color: {theme.ACCENT};")
         self._json_status.setToolTip(path)
+
+    @staticmethod
+    def _experiment_dir_from_json(json_path: str) -> str:
+        """Return experiment_dir declared in an experiment.json file, if any."""
+        try:
+            with open(json_path, "r", encoding="utf-8") as fh:
+                doc = json.load(fh)
+        except Exception:
+            return ""
+
+        if isinstance(doc.get("Configuration"), dict):
+            cfg = doc["Configuration"]
+            val = cfg.get("experiment_dir") or cfg.get("experiment_directory")
+            return str(val).strip() if val else ""
+
+        val = doc.get("experiment_dir") or doc.get("experiment_directory")
+        return str(val).strip() if val else ""
 
     def _select_rig_in_combo(self, yaml_path: str) -> None:
         """Highlight the rig-store entry matching *yaml_path*, if any."""
@@ -672,7 +762,8 @@ class ConfigWizard(QWidget):
     def _browse_yaml(self) -> None:
         """Pick an explicit hardware.yaml outside the rig store."""
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select hardware.yaml", "", "YAML Config (*.yaml *.yml);;All Files (*)"
+            self, "Select hardware.yaml", self._dialog_start_dir(self._SETTINGS_KEY_YAML),
+            "YAML Config (*.yaml *.yml);;All Files (*)"
         )
         if not path:
             return
@@ -773,12 +864,13 @@ class ConfigWizard(QWidget):
     def _browse_json(self) -> None:
         """Select an experiment.json from anywhere on disk."""
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select experiment.json", "", "JSON Config (*.json);;All Files (*)"
+            self, "Select experiment.json", self._dialog_start_dir(self._SETTINGS_KEY_JSON),
+            "JSON Config (*.json);;All Files (*)"
         )
         if not path:
             return
-        if not self._outdir_edit.text().strip():
-            self._outdir_edit.setText(os.path.dirname(path))
+        configured_dir = self._experiment_dir_from_json(path)
+        self._outdir_edit.setText(configured_dir or os.path.dirname(path))
         self._set_experiment_json(path, "experiment.json selected — will load")
 
     def _apply(self) -> None:
@@ -794,63 +886,29 @@ class ConfigWizard(QWidget):
             )
             return
 
+        # Refuse to reload while a recording is in progress: load_config tears
+        # down the live hardware, which would abandon the open writers and
+        # truncate the output files. The user must stop the run first.
+        if getattr(self.procedure, "is_running", False):
+            QMessageBox.warning(
+                self,
+                "Recording in progress",
+                "Stop the current recording before reloading the configuration.",
+            )
+            return
+
+        # Sever live viewers from the outgoing cameras BEFORE the teardown below
+        # deinitializes them, so no in-flight frame lands on a doomed widget.
+        self.hardwareAboutToChange.emit()
+
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            # If the JSON declares a custom Procedure subclass that differs
-            # from the currently active class, instantiate the new one and
-            # propagate to the parent (MainWindow).  Otherwise just hot-load
-            # the new config in place.
-            from mesofield.base import load_procedure_from_config
-
-            if json_path and os.path.isfile(json_path):
-                with open(json_path, "r", encoding="utf-8") as fh:
-                    cfg = json.load(fh)
-
-                proc_file = cfg.get("procedure_file") if isinstance(cfg, dict) else None
-                proc_class = cfg.get("procedure_class") if isinstance(cfg, dict) else None
-
-                should_switch_procedure = False
-                if proc_file and proc_class:
-                    json_dir = os.path.dirname(os.path.abspath(json_path))
-                    declared_file = proc_file
-                    if not os.path.isabs(declared_file):
-                        declared_file = os.path.join(json_dir, declared_file)
-                    declared_file = os.path.abspath(declared_file)
-
-                    current_cls = type(self.procedure)
-                    current_file = inspect.getsourcefile(current_cls) or inspect.getfile(current_cls) or ""
-                    current_file = os.path.abspath(current_file) if current_file else ""
-
-                    same_class_name = current_cls.__name__ == proc_class
-                    same_file = (
-                        bool(current_file)
-                        and os.path.normcase(os.path.normpath(current_file))
-                        == os.path.normcase(os.path.normpath(declared_file))
-                    )
-                    should_switch_procedure = not (same_class_name and same_file)
-
-                if should_switch_procedure:
-                    candidate = load_procedure_from_config(json_path)
-                    # The candidate's __init__ already loaded the JSON and the
-                    # sibling hardware.yaml. Only reload if the user explicitly
-                    # picked a *different* YAML; otherwise we'd orphan the live
-                    # HardwareManager (devices still hold the cameras) and loop
-                    # on re-initialization.
-                    if yaml_path:
-                        existing_yaml = candidate.config.hardware.config_file
-                        picked_yaml = os.path.abspath(yaml_path)
-                        if not existing_yaml or picked_yaml != os.path.abspath(existing_yaml):
-                            candidate.load_config(hardware=yaml_path)
-                    self.procedure = candidate
-                    self.procedureChanged.emit(candidate)
-                else:
-                    self.procedure.load_config(
-                        hardware=yaml_path,
-                        experiment=json_path,
-                    )
-            else:
-                self.procedure.load_config(
-                    hardware=yaml_path,
-                    experiment=json_path,
+            self.procedure.load_config(hardware=yaml_path, experiment=json_path)
+            # Fold the live rig into experiment.json so the next launch is
+            # self-contained and skips the wizard.
+            if json_path and self.procedure.config.hardware.is_configured:
+                self.procedure.config.update_hardware(
+                    self.procedure.config.hardware.rig_spec()
                 )
         except Exception as exc:
             QMessageBox.critical(
@@ -859,12 +917,16 @@ class ConfigWizard(QWidget):
                 f"Failed to apply configuration:\n\n{exc}",
             )
             return
+        finally:
+            QApplication.restoreOverrideCursor()
 
         # An explicit output directory overrides the JSON/cwd default.
         out_dir = self._outdir_edit.text().strip()
         if out_dir:
             self.procedure.config.experiment_dir = out_dir
             self.procedure.data_dir = self.procedure.config.data_dir
+            if json_path:
+                self.procedure.config.save_json()
 
         # Persist the selected paths for next launch
         self._save_recent_paths()
@@ -878,6 +940,10 @@ class ConfigWizard(QWidget):
         if self.procedure.config.hardware.is_configured:
             self.hardwareReady.emit()
 
+        self._mark_applied()
+
+    def _mark_applied(self) -> None:
+        """Show the Apply button in its applied (green) state."""
         self._apply_btn.setText("✔  Configuration Applied")
         self._apply_btn.setStyleSheet(
             "QPushButton { padding: 8px 16px; font-weight: bold; color: green; }"

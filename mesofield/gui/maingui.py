@@ -26,7 +26,7 @@ from mesofield.config import ExperimentConfig
 from mesofield.protocols import Procedure
 
 class MainWindow(QMainWindow):
-    def __init__(self, procedure: Procedure):
+    def __init__(self, procedure: Procedure, *, force_wizard: bool = False):
         super().__init__()
         app = QApplication.instance()
         if app is not None:
@@ -88,6 +88,12 @@ class MainWindow(QMainWindow):
         self._top_row.addLayout(self._mda_layout, 1)
         self._top_row.addWidget(self.right_tabs, 0)
         self.main_layout.addLayout(self._top_row)
+
+        # Row that holds every live SerialWidget (device + processor plots),
+        # laid out left-to-right so multiple serial traces sit side-by-side on
+        # a single row rather than stacked vertically.
+        self._plots_row = QHBoxLayout()
+        self.main_layout.addLayout(self._plots_row)
         #--------------------------------------------------------------------#
 
         # Tracking for widgets that get built after config is loaded
@@ -96,21 +102,28 @@ class MainWindow(QMainWindow):
         # One live SerialWidget per streaming (non-camera) data producer,
         # keyed by device_id. Tracked so we can tear them down on rebuild.
         self._device_widgets: dict[str, SerialWidget] = {}
+        self._mouseportal_controller: QWidget | None = None
+        self._psychopy_controller: QWidget | None = None
         # Widgets built from `procedure.processors` -- one SerialWidget per
         # FrameProcessor whose `plot_enabled` is True. Tracked here so we
         # can tear them down on a `_build_acquisition_ui` rebuild.
         self._processor_widgets: list[SerialWidget] = []
 
         # Connect hot-load signals
+        self.config_wizard.hardwareAboutToChange.connect(self._on_hardware_about_to_change)
         self.config_wizard.configApplied.connect(self._on_config_applied)
         self.config_wizard.hardwareReady.connect(self._build_acquisition_ui)
         self.config_wizard.procedureChanged.connect(self._on_procedure_changed)
 
-        # If hardware is already configured (e.g. config_path was passed),
-        # build the full UI immediately.
-        if self.procedure.config.hardware.is_configured:
+        # A configured rig boots straight into acquisition; otherwise the
+        # Setup tab is the entry point. ``--wizard`` forces it to the front
+        # even when already configured.
+        configured = self.procedure.config.hardware.is_configured
+        if configured:
             self._build_acquisition_ui()
             self._on_config_applied()
+        if force_wizard or not configured:
+            self.right_tabs.setCurrentWidget(self.config_wizard)
 
     #============================== Methods =================================#    
     def toggle_console(self):
@@ -247,6 +260,10 @@ class MainWindow(QMainWindow):
         # instance instead of the empty default created at launch.
         if getattr(self, "kernel", None) is not None:
             self.kernel.shell.push({"procedure": new_procedure})
+        # Keep the Setup tab's displayed/persisted paths pinned to the file the
+        # swapped-in procedure actually loaded, so it can't drift from the
+        # ExperimentConfig tab built from the same procedure.
+        self.config_wizard.sync_from_procedure()
 
     def _on_config_applied(self) -> None:
         """Rebuild config-dependent tabs after the user applies a configuration."""
@@ -256,15 +273,80 @@ class MainWindow(QMainWindow):
         if self._config_controller is not None:
             idx = self.right_tabs.indexOf(self._config_controller)
             self.right_tabs.removeTab(idx)
+            try:
+                self._config_controller.cleanup()
+            except Exception:
+                pass
             self._config_controller.deleteLater()
 
         self._config_controller = ConfigController(
             self.procedure, display_keys=self.display_keys
         )
+        self._config_controller.set_stop_live_hook(
+            lambda: self._acquisition_gui.stop_all_live_previews()
+            if self._acquisition_gui is not None
+            else None
+        )
         # Insert after the Setup tab (index 1) so ordering is:
         # [Setup] [ExperimentConfig] [Terminal]
         self.right_tabs.insertTab(1, self._config_controller, "ExperimentConfig")
         self.right_tabs.setCurrentWidget(self._config_controller)
+
+        # MousePortal tab (only when a mouseportal device is loaded). Editable
+        # corridor + gain-trial parameters, persisted via update_mouseportal().
+        if self._mouseportal_controller is not None:
+            idx = self.right_tabs.indexOf(self._mouseportal_controller)
+            if idx >= 0:
+                self.right_tabs.removeTab(idx)
+            # Sever its connections to the (persistent) Procedure events before
+            # deletion, or the dead controller keeps reacting to procedure_started
+            # and crashes on its deleted widgets.
+            try:
+                self._mouseportal_controller.cleanup()
+            except Exception:
+                pass
+            self._mouseportal_controller.deleteLater()
+            self._mouseportal_controller = None
+        if self.procedure.config.hardware.devices.get("mouseportal") is not None:
+            from mesofield.gui.mouseportal_controller import MousePortalController
+            self._mouseportal_controller = MousePortalController(self.procedure)
+            # Saving a task binding re-derives the ExperimentConfig task choices.
+            self._mouseportal_controller.tasksChanged.connect(
+                lambda: self._config_controller.set_display_keys(
+                    self.procedure.config.display_keys
+                )
+            )
+            # Insert right after ExperimentConfig: [Setup][ExperimentConfig][MousePortal][Terminal]
+            self.right_tabs.insertTab(2, self._mouseportal_controller, "MousePortal")
+
+        # PsychoPy tab (only when a psychopy device is loaded). Editable
+        # task->script map persisted via update_psychopy(); saving re-derives the
+        # ExperimentConfig task dropdown via the tasksChanged hook below.
+        if self._psychopy_controller is not None:
+            idx = self.right_tabs.indexOf(self._psychopy_controller)
+            if idx >= 0:
+                self.right_tabs.removeTab(idx)
+            # Sever its connections to the (persistent) Procedure events before
+            # deletion, or the dead controller keeps reacting to procedure_started
+            # and crashes on its deleted widgets.
+            try:
+                self._psychopy_controller.cleanup()
+            except Exception:
+                pass
+            self._psychopy_controller.deleteLater()
+            self._psychopy_controller = None
+        if self.procedure.config.hardware.devices.get("psychopy") is not None:
+            from mesofield.gui.psychopy_controller import PsychoPyController
+            self._psychopy_controller = PsychoPyController(self.procedure)
+            # Rebuilding the ConfigController re-reads the task choices that Save
+            # just re-derived from the script map.
+            self._psychopy_controller.tasksChanged.connect(
+                lambda: self._config_controller.set_display_keys(
+                    self.procedure.config.display_keys
+                )
+            )
+            # Insert right after ExperimentConfig (before any MousePortal tab).
+            self.right_tabs.insertTab(2, self._psychopy_controller, "PsychoPy")
 
         # Pin the right column width to the ConfigController's fixed width
         # (plus a small allowance for tab frame/margins) so the tab area is
@@ -272,10 +354,31 @@ class MainWindow(QMainWindow):
         cc_width = self._config_controller.width() or self._config_controller.sizeHint().width()
         self.right_tabs.setFixedWidth(cc_width + 12)
 
+    def _on_hardware_about_to_change(self) -> None:
+        """Sever live viewers from the outgoing cameras before they're torn down.
+
+        Fires on ``hardwareAboutToChange`` (emitted by the wizard before
+        ``load_config`` deinitializes the old hardware), so frames in flight
+        from a still-running camera can't reach a viewer that's about to be
+        rebuilt. The full rebuild still happens later on ``hardwareReady``.
+        """
+        if self._acquisition_gui is not None:
+            try:
+                self._acquisition_gui.cleanup()
+            except Exception:
+                pass
+
     def _build_acquisition_ui(self) -> None:
         """Build (or rebuild) hardware-dependent widgets: MDA viewer and encoder."""
         # -- MDA / acquisition GUI -------------------------------------------
         if self._acquisition_gui is not None:
+            # Disconnect previews from their (longer-lived) cameras BEFORE the
+            # async deleteLater(), so a still-streaming camera can't fire a frame
+            # into a half-deleted viewer. Mirrors the _build_device_plots idiom.
+            try:
+                self._acquisition_gui.cleanup()
+            except Exception:
+                pass
             self._mda_layout.removeWidget(self._acquisition_gui)
             self._acquisition_gui.deleteLater()
             self._acquisition_gui = None
@@ -312,13 +415,13 @@ class MainWindow(QMainWindow):
         up in the GUI with zero GUI code: the bridge to Qt is attached here,
         lazily, rather than hand-wired in each device's ``__init__``.
         """
-        from mesofield.gui.qt_device_adapter import QtDeviceAdapter
+        from mesofield.gui.qt_device_adapter import QtDeviceAdapter, DeviceChannelSampler
 
         # Tear down the previous pass.
         for widget in self._device_widgets.values():
             try:
                 widget.cleanup()
-                self.main_layout.removeWidget(widget)
+                self._plots_row.removeWidget(widget)
                 widget.deleteLater()
             except Exception:
                 pass
@@ -329,27 +432,24 @@ class MainWindow(QMainWindow):
         cameras = set(getattr(hardware, "cameras", ()) or ())
 
         for dev_id, device in getattr(hardware, "devices", {}).items():
-            if device in cameras or getattr(device, "device_type", None) == "camera":
+            dev_type = getattr(device, "device_type", None)
+            if device in cameras or dev_type == "camera":
+                continue
+            if dev_type == "stimulus":
+                continue
+            if dev_type == "nidaq":
                 continue
             # Must speak the standard signal contract to be plottable.
             signals = getattr(device, "signals", None)
             if signals is None or not hasattr(signals, "data"):
                 continue
 
-            # Lazily attach the psygnal->Qt bridge if the device didn't build
-            # one itself, then expose the live signal under the conventional
-            # attribute name SerialWidget looks for.
-            if getattr(device, "serialSpeedUpdated", None) is None:
-                try:
-                    adapter = QtDeviceAdapter(device)
-                except Exception as exc:
-                    self._log_exception(f"attach Qt adapter to {dev_id}", exc)
-                    continue
-                # Keep a ref on the device so the adapter (a QObject) outlives
-                # this method and the psygnal connection stays alive.
-                device._gui_qt_adapter = adapter
-                device.serialDataReceived = adapter.serialDataReceived
-                device.serialSpeedUpdated = adapter.serialSpeedUpdated
+            # Multi-channel devices declare a `plot_config` mapping
+            # channel -> styling and expose one `{channel}Updated` pyqtSignal per channel
+            plot_cfg = getattr(device, "plot_config", None)
+            if isinstance(plot_cfg, dict) and plot_cfg:
+                self._build_multichannel_device_plots(cfg, dev_id, device, plot_cfg)
+                continue
 
             # Styling defaults give a usable plot with zero device config; a
             # device may refine them by declaring a `gui_plot_config` dict
@@ -363,18 +463,118 @@ class MainWindow(QMainWindow):
             override = getattr(device, "gui_plot_config", None)
             if isinstance(override, dict):
                 styling.update(override)
+
+            # Use pull-based sampling for single-channel devices too, so
+            # high-rate serial producers don't emit one Qt signal per sample.
+            source = lambda payload: (
+                payload.get("speed")
+                if isinstance(payload, dict)
+                else payload
+            )
+            max_points = int(styling.get("max_points", 100))
+            try:
+                sampler = DeviceChannelSampler(
+                    device,
+                    {"value": source},
+                    max_points=max_points,
+                )
+                device._gui_channel_sampler = sampler
+                data_provider = sampler.provider("value")
+            except Exception as exc:
+                self._log_exception(f"attach channel sampler to {dev_id}", exc)
+                data_provider = None
+
+            # Fallback: keep the old Qt bridge path when pull sampling fails.
+            if data_provider is None:
+                if getattr(device, "serialSpeedUpdated", None) is None:
+                    try:
+                        adapter = QtDeviceAdapter(device)
+                    except Exception as exc:
+                        self._log_exception(f"attach Qt adapter to {dev_id}", exc)
+                        continue
+                    # Keep a ref on the device so the adapter (a QObject) outlives
+                    # this method and the psygnal connection stays alive.
+                    device._gui_qt_adapter = adapter
+                    device.serialDataReceived = adapter.serialDataReceived
+                    device.serialSpeedUpdated = adapter.serialSpeedUpdated
             try:
                 widget = SerialWidget(
                     cfg=cfg,
                     device_attr=dev_id,
                     signal_name="serialSpeedUpdated",
+                    data_provider=data_provider,
                     **styling,
                 )
             except Exception as exc:
                 self._log_exception(f"build SerialWidget for {dev_id}", exc)
                 continue
-            self.main_layout.addWidget(widget)
+            self._plots_row.addWidget(widget)
             self._device_widgets[dev_id] = widget
+
+    def _build_multichannel_device_plots(self, cfg, dev_id, device, plot_cfg) -> None:
+        """Build one :class:`SerialWidget` per channel for a multi-channel device.
+
+        The device declares a ``plot_config`` mapping channel -> styling; each
+        entry may carry a ``"source"`` naming the payload-dict key (default: the
+        channel name) that yields that channel's scalar. A single
+        :class:`DeviceChannelSampler` subscribes to the device's ``signals.data``
+        and maintains a bounded ring buffer per channel; each :class:`SerialWidget`
+        *pulls* a snapshot on its own redraw timer. This is pull-based by design:
+        no per-sample Qt signal crosses threads, so a fast device (~1 kHz) cannot
+        flood the GUI event queue. A device gets multi-channel plots from
+        ``plot_config`` alone, with no GUI or Qt code of its own.
+
+        Widgets are tracked in ``self._device_widgets`` under
+        ``"{dev_id}:{channel}"`` keys so the normal teardown in
+        :meth:`_build_device_plots` cleans them up.
+        """
+        from mesofield.gui.qt_device_adapter import DeviceChannelSampler
+
+        channels = getattr(device, "channels", None) or tuple(plot_cfg.keys())
+        channels = [ch for ch in channels if ch in plot_cfg]
+        if not channels:
+            return
+
+        # One sampler bridges psygnal -> ring buffers for every channel. The
+        # channel's payload source is its `plot_config["source"]`, defaulting to
+        # the channel name. Size the buffers to the largest channel's window.
+        channel_sources = {ch: plot_cfg[ch].get("source", ch) for ch in channels}
+        max_points = max(
+            int(plot_cfg[ch].get("max_points", 100)) for ch in channels
+        )
+        try:
+            sampler = DeviceChannelSampler(device, channel_sources, max_points=max_points)
+        except Exception as exc:
+            self._log_exception(f"attach channel sampler to {dev_id}", exc)
+            return
+        # Keep a ref on the device so the sampler outlives this method and the
+        # psygnal connection stays alive.
+        device._gui_channel_sampler = sampler
+
+        for channel in channels:
+            # `source` is dispatch metadata, not SerialWidget styling.
+            styling = {k: v for k, v in plot_cfg[channel].items() if k != "source"}
+            styling.setdefault(
+                "label", f"{str(dev_id).replace('_', ' ').title()} — {channel}"
+            )
+            styling.setdefault("value_label", "Value")
+            styling.setdefault("value_units", "")
+            styling.setdefault("value_scale", 1.0)
+            try:
+                widget = SerialWidget(
+                    cfg=cfg,
+                    device_attr=dev_id,
+                    signal_name=f"{channel}Updated",
+                    data_provider=sampler.provider(channel),
+                    **styling,
+                )
+            except Exception as exc:
+                self._log_exception(
+                    f"build SerialWidget for {dev_id}:{channel}", exc
+                )
+                continue
+            self._plots_row.addWidget(widget)
+            self._device_widgets[f"{dev_id}:{channel}"] = widget
 
     def _build_processor_plots(self) -> None:
         """Add one SerialWidget per (processor, channel) where the channel
@@ -389,7 +589,7 @@ class MainWindow(QMainWindow):
         for widget in self._processor_widgets:
             try:
                 widget.cleanup()
-                self.main_layout.removeWidget(widget)
+                self._plots_row.removeWidget(widget)
                 widget.deleteLater()
             except Exception:
                 pass
@@ -430,7 +630,7 @@ class MainWindow(QMainWindow):
                         f"build SerialWidget for {attr}:{channel}", exc
                     )
                     continue
-                self.main_layout.addWidget(widget)
+                self._plots_row.addWidget(widget)
                 self._processor_widgets.append(widget)
 
     def _log_exception(self, ctx: str, exc: Exception) -> None:
@@ -545,7 +745,8 @@ def _make_splash():
     return QSplashScreen(pixmap)
 
 
-def run_gui(procedure: Procedure, *, splash: bool = True) -> int:
+def run_gui(procedure: Procedure, *, splash: bool = True,
+            force_wizard: bool = False) -> int:
     """Open the Mesofield GUI for an already-built ``procedure`` and block.
 
     Creates (or reuses) the :class:`QApplication`, applies the theme, optionally
@@ -563,6 +764,11 @@ def run_gui(procedure: Procedure, *, splash: bool = True) -> int:
     from PyQt6.QtGui import QIcon
 
     app = QApplication.instance() or QApplication([])
+    # Drain psygnal `thread="main"` emissions on the GUI thread. mmcore/MDA
+    # signals fire on the acquisition worker thread; widgets subscribe with
+    # thread="main" so their slots (timer start, widget mutation) run here.
+    from psygnal.qt import start_emitting_from_queue
+    start_emitting_from_queue()
     theme.apply_theme(app)
     icon_path = os.path.join(os.path.dirname(__file__), "Mesofield_icon.png")
     if os.path.exists(icon_path):
@@ -574,7 +780,7 @@ def run_gui(procedure: Procedure, *, splash: bool = True) -> int:
         app.processEvents()
         time.sleep(0.5)  # give the splash a moment to show
 
-    window = MainWindow(procedure)
+    window = MainWindow(procedure, force_wizard=force_wizard)
     window.show()
     if splash_screen is not None:
         splash_screen.finish(window)

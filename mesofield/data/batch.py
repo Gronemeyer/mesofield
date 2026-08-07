@@ -10,6 +10,8 @@ import tifffile
 
 from scipy.ndimage import percentile_filter
 
+from mesofield.data.tiffio import memmap_ome_stack
+
 # Defaults for sCMOS widefield with GCaMP8s — tune per setup.
 DFF_DEFAULTS = dict(
     camera_offset=1602,    # validated from dark frames on 260422 in the dhyana-sensitivty experiment
@@ -110,7 +112,7 @@ def _make_progress_reporter(total_work, desc, enabled=True):
 def _dff_collapse_first(tiff_path, params, progress=_noop_progress):
     """Method A: spatial mean → moving-percentile F0 → ΔF/F on the 1D trace.
     Cheap. Pixels weighted by photon yield."""
-    tiff_array = tifffile.memmap(tiff_path)
+    tiff_array = memmap_ome_stack(tiff_path)
     max_frames = params.get('max_frames')
     if max_frames is not None:
         tiff_array = tiff_array[:max_frames]
@@ -141,7 +143,7 @@ def _dff_pixelwise(tiff_path, params, progress=_noop_progress):
     F0 from n_f0_samples temporally-distributed frames (cheap, accurate
     for slow drifts). No drift correction in F0 itself; detrend downstream
     if bleaching matters. Pixels weighted equally — amplifies low-SNR regions."""
-    tiff_array = tifffile.memmap(tiff_path)
+    tiff_array = memmap_ome_stack(tiff_path)
     T = tiff_array.shape[0]
     offset = params['camera_offset']
 
@@ -191,7 +193,7 @@ def _tiff_frame_count(path):
         with tifffile.TiffFile(path) as tf:
             return len(tf.pages)
     except Exception:
-        return int(tifffile.memmap(path).shape[0])
+        return int(memmap_ome_stack(path).shape[0])
 
 
 def dff_trace_from_tiff(tiff_paths, method='collapse_first',
@@ -233,7 +235,7 @@ def mean_trace_from_tiff(tiff_paths, show_progress=True, save=False):
     import concurrent.futures
     
     def _compute_mean_trace(tiff_path):
-        tiff_array = tifffile.memmap(tiff_path)
+        tiff_array = memmap_ome_stack(tiff_path)
         return np.mean(tiff_array, axis=(1, 2))
     
     with ThreadPoolExecutor() as executor:
@@ -265,7 +267,7 @@ def tiff_to_video(tiff_path: str,
     Converts a multi-page TIFF stack to a video format.
     """
 
-    tiff_array = tifffile.memmap(tiff_path)  # shape -> (num_frames, height, width) or (num_frames, height, width, channels)
+    tiff_array = memmap_ome_stack(tiff_path)  # shape -> (num_frames, height, width) or (num_frames, height, width, channels)
     
     num_frames = tiff_array.shape[0]
     height = tiff_array.shape[1]
