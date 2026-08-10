@@ -18,6 +18,7 @@ from PyQt6.QtCore import Qt, QObject, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel
 
 from mesofield.gui import theme
+from mesofield.signals import Bindings
 
 
 class _NidaqBridge(QObject):
@@ -27,24 +28,12 @@ class _NidaqBridge(QObject):
     pulse = pyqtSignal()
     stopped = pyqtSignal()
 
-    _SLOTS = ("started", "data", "finished")
-
     def __init__(self, device: Any) -> None:
         super().__init__()
-        self._device = device
-        self._handlers = {
-            "started": self._on_started,
-            "data": self._on_data,
-            "finished": self._on_finished,
-        }
-        signals = getattr(device, "signals", None)
-        for name in self._SLOTS:
-            sig = getattr(signals, name, None) if signals is not None else None
-            if sig is not None and hasattr(sig, "connect"):
-                try:
-                    sig.connect(self._handlers[name])
-                except Exception:
-                    pass
+        self._binds = Bindings()
+        self._binds.connect(device.signals.started, self._on_started)
+        self._binds.connect(device.signals.data, self._on_data)
+        self._binds.connect(device.signals.finished, self._on_finished)
 
     def _on_started(self, *_a) -> None:
         self.triggerSent.emit()
@@ -57,14 +46,7 @@ class _NidaqBridge(QObject):
 
     def cleanup(self) -> None:
         """Sever the psygnal connections so a torn-down indicator stops firing."""
-        signals = getattr(self._device, "signals", None)
-        for name in self._SLOTS:
-            sig = getattr(signals, name, None) if signals is not None else None
-            if sig is not None and hasattr(sig, "disconnect"):
-                try:
-                    sig.disconnect(self._handlers[name])
-                except Exception:
-                    pass
+        self._binds.close()
 
 
 class NidaqIndicator(QWidget):

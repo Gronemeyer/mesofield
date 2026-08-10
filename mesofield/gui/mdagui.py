@@ -18,6 +18,7 @@ from pymmcore_widgets import MDAWidget
 
 from mesofield.data.writer import OMEWriter
 from mesofield.gui.viewer import ImagePreview, InteractivePreview
+from mesofield.signals import Bindings
 from mesofield.utils._logger import get_logger
 
 
@@ -256,7 +257,7 @@ class MDA(QWidget):
         # Track previews so `cleanup` can disconnect them from the (longer-lived)
         # cameras before this widget is deleteLater()'d on a hardware reload.
         self._previews: list = []
-        self._procedure_events = getattr(procedure, "events", None)
+        self._binds = Bindings()
 
         for cam in self.cameras:
             # Per-core container
@@ -316,14 +317,13 @@ class MDA(QWidget):
         # added it inside the loop, producing duplicate top-level widgets).
         self.layout().addWidget(cores_groupbox)
 
-        # Lock the Snap/Live buttons for the duration of a Procedure run.
-        # Bound-method connections auto-disconnect when this QWidget is
-        # destroyed (the widget is rebuilt on every hardware reload).
-        events = getattr(procedure, "events", None)
-        if events is not None:
-            events.procedure_started.connect(self._on_acquisition_started)
-            events.procedure_finished.connect(self._on_acquisition_finished)
-            events.procedure_error.connect(self._on_acquisition_finished)
+        # Lock the Snap/Live buttons for the duration of a Procedure run. The
+        # procedure outlives this widget (rebuilt on every hardware reload), so
+        # cleanup() must sever these before deletion.
+        events = procedure.events
+        self._binds.connect(events.procedure_started, self._on_acquisition_started)
+        self._binds.connect(events.procedure_finished, self._on_acquisition_finished)
+        self._binds.connect(events.procedure_error, self._on_acquisition_finished)
 
     @staticmethod
     def _preview_columns(n_cameras: int) -> int:
@@ -390,25 +390,16 @@ class MDA(QWidget):
         Called by ``MainWindow._build_acquisition_ui`` before ``deleteLater()``
         so previews disconnect from their cameras (which outlive this widget)
         and the procedure-event slots don't fire into a deleted MDA on the next
-        run. Idempotent and exception-safe.
+        run.
         """
         for preview in self._previews:
-            try:
-                preview.cleanup()
-            except Exception:
-                pass
+            preview.cleanup()
         self._previews.clear()
+        self._binds.close()
 
-        events = self._procedure_events
-        if events is not None:
-            for sig, slot in (
-                (getattr(events, "procedure_started", None), self._on_acquisition_started),
-                (getattr(events, "procedure_finished", None), self._on_acquisition_finished),
-                (getattr(events, "procedure_error", None), self._on_acquisition_finished),
-            ):
-                if sig is not None:
-                    with suppress(TypeError, RuntimeError):
-                        sig.disconnect(slot)
+    def closeEvent(self, event):  # noqa: N802 - Qt naming
+        self.cleanup()
+        super().closeEvent(event)
 
     def _on_acquisition_started(self, *_args) -> None:
         self.set_acquisition_active(True)

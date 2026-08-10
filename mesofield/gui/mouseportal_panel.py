@@ -18,7 +18,7 @@ from typing import Any, Dict, Optional
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QGroupBox, QGridLayout, QLabel
 
-from mesofield.signals import qt_bridge
+from mesofield.signals import Bindings, qt_relay
 
 
 # status key -> (dot color, human label)
@@ -70,29 +70,17 @@ class MousePortalPanel(QGroupBox):
         self._apply_status(getattr(device, "gui_status", "loaded"))
 
         # Device status -> GUI. psygnal (may fire from the subprocess reader
-        # thread) -> pyqtSignal -> slot (queued onto the GUI thread). The device
-        # outlives this panel, so keep the relay handle for cleanup().
+        # thread) -> pyqtSignal -> slot (queued onto the GUI thread).
         self._status_relay.connect(self._apply_status)
-        self._status_sig = getattr(device, "status_changed", None)
-        self._status_handle = None
-        if self._status_sig is not None:
-            self._status_handle = qt_bridge(self._status_sig, self._status_relay)
+        self._binds = Bindings()
+        self._binds.connect(device.status_changed, qt_relay(self._status_relay))
 
     # -- lifecycle ------------------------------------------------------
     def cleanup(self) -> None:
-        """Sever the device->GUI bridge before destruction. Idempotent."""
-        signal, handle = self._status_sig, self._status_handle
-        self._status_sig = self._status_handle = None
-        if signal is None or handle is None:
-            return
-        try:
-            signal.disconnect(handle)
-        except (TypeError, RuntimeError, ValueError):
-            # Already disconnected, or never connected.
-            pass
+        """Sever the device->GUI bridge before destruction."""
+        self._binds.close()
 
     def closeEvent(self, event):  # noqa: N802 - Qt naming
-        """Safety net: disconnect if closed without an explicit cleanup()."""
         self.cleanup()
         super().closeEvent(event)
 

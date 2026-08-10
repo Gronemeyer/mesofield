@@ -31,6 +31,8 @@ from typing import Any, Callable, Dict, Mapping, Optional, Union
 import numpy as np
 from PyQt6.QtCore import QObject, pyqtSignal
 
+from mesofield.signals import Bindings
+
 
 class QtDeviceAdapter(QObject):
     """Bridges ``device.signals.data`` into Qt-friendly emissions.
@@ -51,29 +53,19 @@ class QtDeviceAdapter(QObject):
         self._device = device
         # First live-trace timestamp seen; used to rebase x to ~0 (see _on_data).
         self._t0: Optional[float] = None
-        signals = getattr(device, "signals", None)
-        self._data_sig = getattr(signals, "data", None) if signals is not None else None
-        if self._data_sig is not None and hasattr(self._data_sig, "connect"):
-            try:
-                self._data_sig.connect(self._on_data)
-            except Exception:
-                pass
+        self._binds = Bindings()
+        self._binds.connect(device.signals.data, self._on_data)
 
     def disconnect(self) -> None:
         """Sever the device subscription before the GUI drops this adapter.
 
         The device outlives the adapter, so an unsevered subscription keeps
-        emitting into a Qt signal whose consumers are gone. Idempotent. Named to
-        match :meth:`DeviceChannelSampler.disconnect` so the GUI can tear either
+        emitting into a Qt signal whose consumers are gone. Named to match
+        :meth:`DeviceChannelSampler.disconnect` so the GUI can tear either
         bridge down through the same call; that shadows ``QObject.disconnect``,
         which nothing here uses.
         """
-        sig, self._data_sig = self._data_sig, None
-        if sig is not None:
-            try:
-                sig.disconnect(self._on_data)
-            except Exception:
-                pass
+        self._binds.close()
 
     def _on_data(self, payload: Any, ts: Any = None) -> None:
         try:
@@ -151,13 +143,8 @@ class DeviceChannelSampler:
         # buffer has constant length, so length can't tell the GUI whether new
         # data arrived -- this counter can.
         self._counts: Dict[str, int] = {ch: 0 for ch in self._sources}
-        signals = getattr(device, "signals", None)
-        self._data_sig = getattr(signals, "data", None) if signals is not None else None
-        if self._data_sig is not None and hasattr(self._data_sig, "connect"):
-            try:
-                self._data_sig.connect(self._on_data)
-            except Exception:
-                pass
+        self._binds = Bindings()
+        self._binds.connect(device.signals.data, self._on_data)
 
     def _on_data(self, payload: Any, ts: Any = None) -> None:
         """Runs on the device thread -- append only, never touch Qt."""
@@ -203,13 +190,8 @@ class DeviceChannelSampler:
         return lambda: self.snapshot(channel)
 
     def disconnect(self) -> None:
-        """Sever the device subscription. Idempotent."""
-        sig, self._data_sig = self._data_sig, None
-        if sig is not None:
-            try:
-                sig.disconnect(self._on_data)
-            except Exception:
-                pass
+        """Sever the device subscription."""
+        self._binds.close()
 
 
 class QtImageAdapter(QObject):

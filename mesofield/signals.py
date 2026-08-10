@@ -27,8 +27,9 @@ Four signals form the standard contract:
 
 The implementation wraps :mod:`psygnal` so emission is Qt-free, weakly
 referenced and thread-safe.  GUI code that needs a Qt slot can use
-:func:`qt_bridge` to forward a :class:`psygnal.Signal` into a
-``pyqtSignal``.
+:func:`qt_relay` to forward a :class:`psygnal.Signal` into a ``pyqtSignal``,
+and should connect through :class:`Bindings` so the subscription is severed
+before the widget is destroyed.
 """
 
 from __future__ import annotations
@@ -37,7 +38,32 @@ from typing import Any, Callable, Optional
 
 from psygnal import Signal
 
-__all__ = ["Signal", "DeviceSignals", "qt_bridge"]
+__all__ = ["Signal", "DeviceSignals", "Bindings", "qt_relay"]
+
+
+class Bindings:
+    """Records signal->slot connections so an owner can sever them all at once.
+
+    Devices and the procedure outlive the widgets that subscribe to them, so
+    every subscriber has to disconnect before it is destroyed or it goes on
+    firing into a deleted object.  Connect through here and call :meth:`close`
+    in the owner's teardown; a missed connection is then a missing line rather
+    than a forgotten disconnect.  Works with psygnal and pyqtSignal alike.
+    """
+
+    def __init__(self) -> None:
+        self._bound: list[tuple[Any, Callable]] = []
+
+    def connect(self, signal: Any, slot: Callable, **kwargs: Any) -> Callable:
+        signal.connect(slot, **kwargs)
+        self._bound.append((signal, slot))
+        return slot
+
+    def close(self) -> None:
+        """Disconnect everything, once. Must run before the owner is destroyed."""
+        bound, self._bound = self._bound, []
+        for signal, slot in reversed(bound):
+            signal.disconnect(slot)
 
 
 class DeviceSignals:
@@ -62,31 +88,20 @@ class DeviceSignals:
         self.frame: SignalInstance = SignalInstance((object, object, object))
 
     def disconnect_all(self) -> None:
+        """Drop every subscriber, e.g. when the owning device shuts down."""
         for sig in (self.started, self.finished, self.data, self.frame):
-            try:
-                sig.disconnect()
-            except Exception:
-                pass
+            sig.disconnect()
 
 
-def qt_bridge(signal: Any, qt_signal: Any) -> Callable[..., None]:
-    """Forward emissions of a ``psygnal`` signal to a ``pyqtSignal``.
+def qt_relay(qt_signal: Any) -> Callable[..., None]:
+    """Return a slot that forwards a ``psygnal`` emission to a ``pyqtSignal``.
 
-    Use from GUI code only.  Both signals must accept the same argument
-    arity.  The connection is one-way: psygnal -> Qt.
-
-    Returns the relay callable so the caller can sever the bridge with
-    ``signal.disconnect(handle)``.  Devices outlive the widgets that bridge
-    them, and an unsevered relay emits into a deleted C++ object, so keeping the
-    handle and disconnecting in the widget's ``cleanup()`` is the expected usage.
+    Use from GUI code only, and connect it through :class:`Bindings` so the
+    device stops relaying into the widget before that widget is destroyed.
+    Both signals must accept the same argument arity; the relay is one-way.
     """
 
     def _relay(*args: Any) -> None:
-        try:
-            qt_signal.emit(*args)
-        except RuntimeError:
-            # Receiver already deleted; anything else is a real bug.
-            pass
+        qt_signal.emit(*args)
 
-    signal.connect(_relay)
     return _relay

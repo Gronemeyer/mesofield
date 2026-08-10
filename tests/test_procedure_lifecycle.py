@@ -31,6 +31,9 @@ class _FakeStim:
         self._ok = ok
         self.started = False
 
+    def serves_task(self, task, config) -> bool:
+        return True
+
     def start(self) -> bool:
         self.started = True
         return self._ok

@@ -521,16 +521,12 @@ class MainWindow(QMainWindow):
         Both are stashed on the device, which outlives them, so each rebuild
         must sever the old subscription before overwriting the attribute.
         """
-        devices = getattr(self.procedure.config.hardware, "devices", {}) or {}
-        for device in devices.values():
+        for device in self.procedure.config.hardware.devices.values():
             for attr in ("_gui_channel_sampler", "_gui_qt_adapter"):
                 bridge = getattr(device, attr, None)
                 if bridge is None:
                     continue
-                try:
-                    bridge.disconnect()
-                except Exception as exc:
-                    self._log_exception(f"detach {attr} from device", exc)
+                bridge.disconnect()
                 setattr(device, attr, None)
                 if attr == "_gui_qt_adapter":
                     # Drop the signals the adapter published onto the device, or

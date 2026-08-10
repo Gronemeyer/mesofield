@@ -56,7 +56,6 @@ def test_cleanup_disconnects_payload(preview_and_adapter, qtbot):
     preview, adapter = preview_and_adapter
 
     preview.cleanup()
-    assert preview._cleaned is True
 
     # After cleanup the queued connection is gone: a late frame is not stashed.
     adapter.emit_frame(_frame())

@@ -1,17 +1,15 @@
 """Unit tests for mesofield.signals.
 
 Validates that DeviceSignals provides the documented contract
-(started / finished / data) and that qt_bridge correctly forwards
-psygnal -> Qt pyqtSignal emissions.
+(started / finished / data), that Bindings severs exactly what it connected,
+and that qt_relay forwards psygnal -> Qt pyqtSignal emissions.
 """
 
 from __future__ import annotations
 
-import time
-
 import pytest
 
-from mesofield.signals import DeviceSignals, qt_bridge
+from mesofield.signals import Bindings, DeviceSignals, qt_relay
 
 
 def test_device_signals_lifecycle_payload() -> None:
@@ -49,8 +47,7 @@ def test_device_signals_disconnect() -> None:
     assert seen == ["a"]
 
 
-def test_qt_bridge_propagates_to_pyqt_signal() -> None:
-    pytest.importorskip("PyQt6")
+def test_qt_relay_forwards_to_a_pyqt_signal() -> None:
     from PyQt6.QtCore import QObject, pyqtSignal
 
     class Holder(QObject):
@@ -61,35 +58,30 @@ def test_qt_bridge_propagates_to_pyqt_signal() -> None:
     received: list = []
     holder.forwarded.connect(lambda p, t: received.append((p, t)))
 
-    qt_bridge(sigs.data, holder.forwarded)
-
+    binds = Bindings()
+    binds.connect(sigs.data, qt_relay(holder.forwarded))
     sigs.data.emit({"frame": 1}, 9.99)
-
-    # qt_bridge uses a direct connection; emit synchronously propagates.
     assert received == [({"frame": 1}, 9.99)]
 
+    binds.close()
+    sigs.data.emit({"frame": 2}, 0.0)
+    assert len(received) == 1
 
-def test_qt_bridge_returns_disconnectable_handle() -> None:
-    """The relay handle is what lets a widget sever the bridge in cleanup()."""
-    pytest.importorskip("PyQt6")
-    from PyQt6.QtCore import QObject, pyqtSignal
 
-    class Holder(QObject):
-        forwarded = pyqtSignal(object, object)
-
+def test_bindings_close_is_idempotent_and_ordered() -> None:
     sigs = DeviceSignals()
-    holder = Holder()
-    received: list = []
-    holder.forwarded.connect(lambda p, t: received.append(p))
+    seen: list = []
+    binds = Bindings()
+    binds.connect(sigs.started, lambda: seen.append("a"))
+    binds.connect(sigs.started, lambda: seen.append("b"))
 
-    handle = qt_bridge(sigs.data, holder.forwarded)
-    assert callable(handle)
+    sigs.started.emit()
+    assert seen == ["a", "b"]
 
-    sigs.data.emit("before", 0.0)
-    sigs.data.disconnect(handle)
-    sigs.data.emit("after", 0.0)
-
-    assert received == ["before"]
+    binds.close()
+    binds.close()  # nothing left to disconnect
+    sigs.started.emit()
+    assert seen == ["a", "b"]
 
 
 def test_mouseportal_panel_cleanup_severs_device_bridge(qtbot) -> None:

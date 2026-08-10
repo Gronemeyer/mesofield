@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
 )
 
 from mesofield.gui.mouseportal_panel import MousePortalPanel
+from mesofield.signals import Bindings
 from mesofield.gui.mouseportal_config import (
     KNOWN_TRANSFORMS, TRANSFORM_PARAM, ZERO_PARAM, TRIAL_END_CONDITIONS,
     validate_block, parse_block_sequences, format_block_sequences,
@@ -135,20 +136,15 @@ class MousePortalController(QWidget):
 
         # The editable area locks while a Procedure is running.
         self._editors = [task_box, exp_box, cond_box, seq_box, self.save_btn]
-        # The Procedure outlives this controller -- a fresh controller is built
-        # on every config/hardware reload (see maingui._rebuild_config_controller)
-        # while the Procedure (and its `events`) persists. Keep references to the
-        # handlers so cleanup() can sever them: an undisconnected stale controller
-        # keeps reacting to procedure_started/finished/error and calls
-        # _set_editable() on its already-deleted QGroupBoxes, which raises
-        # RuntimeError out of procedure_started.emit() and aborts the whole run.
-        self._events = getattr(self.procedure, "events", None)
-        self._lock_handler = lambda *_: self._set_editable(False)
-        self._unlock_handler = lambda *_: self._set_editable(True)
-        if self._events is not None:
-            self._events.procedure_started.connect(self._lock_handler)
-            self._events.procedure_finished.connect(self._unlock_handler)
-            self._events.procedure_error.connect(self._unlock_handler)
+        # The Procedure outlives this controller -- a fresh one is built on every
+        # config/hardware reload while the Procedure (and its `events`) persists.
+        # A stale controller left connected calls _set_editable() on its deleted
+        # QGroupBoxes, raising out of procedure_started.emit() and aborting the run.
+        events = self.procedure.events
+        self._binds = Bindings()
+        self._binds.connect(events.procedure_started, lambda *_: self._set_editable(False))
+        for sig in (events.procedure_finished, events.procedure_error):
+            self._binds.connect(sig, lambda *_: self._set_editable(True))
 
         self._reload()
 
@@ -156,33 +152,14 @@ class MousePortalController(QWidget):
     def cleanup(self) -> None:
         """Disconnect from the shared Procedure's events before destruction.
 
-        Must be called before ``deleteLater()`` when this controller is
-        rebuilt (config/hardware hot-swap). Idempotent. Cascades into the
-        status panel we own, whose device->GUI bridge outlives it the same way.
+        Must run before ``deleteLater()`` on a config/hardware hot-swap.
+        Cascades into the status panel we own.
         """
-        panel = getattr(self, "_panel", None)
-        if panel is not None:
-            try:
-                panel.cleanup()
-            except RuntimeError:
-                pass
-        events = self._events
-        self._events = None
-        if events is None:
-            return
-        for sig, handler in (
-            (events.procedure_started, self._lock_handler),
-            (events.procedure_finished, self._unlock_handler),
-            (events.procedure_error, self._unlock_handler),
-        ):
-            try:
-                sig.disconnect(handler)
-            except (TypeError, RuntimeError):
-                # Already disconnected, or never connected.
-                pass
+        if self._panel is not None:
+            self._panel.cleanup()
+        self._binds.close()
 
     def closeEvent(self, event):  # noqa: N802 - Qt naming
-        """Safety net: disconnect if the widget is closed without an explicit cleanup()."""
         self.cleanup()
         super().closeEvent(event)
 

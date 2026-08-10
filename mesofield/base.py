@@ -53,6 +53,7 @@ try:
 except Exception:  # pragma: no cover
     _MESOFIELD_VERSION = "0.0.0+unknown"
 from mesofield.hardware import HardwareManager
+from mesofield.processors import FrameProcessor
 from mesofield.ui import ui
 from mesofield.utils._logger import get_logger, hyperlink
 
@@ -171,6 +172,9 @@ class Procedure:
         # We bypass the hook itself with object.__setattr__ to avoid the
         # isinstance import dance on a guaranteed-non-processor value.
         object.__setattr__(self, "processors", [])
+        # Always present, so a processor assigned before hardware comes up
+        # still registers. `initialize_hardware` replaces it per rig.
+        self.data = DataManager()
 
         self.events = ProcedureSignals()
         self._finished_event = threading.Event()
@@ -265,14 +269,12 @@ class Procedure:
     # Hardware bring-up
 
     def initialize_hardware(self) -> None:
-        """Boot up hardware and a :class:`DataManager`."""
+        """Boot up hardware and register its devices for data capture."""
         try:
             self.config.hardware.initialize(self.config)
             self.data = DataManager()
-            # Register devices eagerly so iPython terminals and GUI inspectors
-            # see them on `procedure.data.devices` before run() is called.
-            # `Procedure.run()` short-circuits the re-registration via its
-            # `if not self.data.devices:` guard.
+            # Register eagerly so iPython terminals and GUI inspectors see the
+            # devices on `procedure.data.devices` before run() is called.
             self.data.register_devices(self.config.hardware.devices.values())
             self.logger.info("Hardware initialized successfully")
         except RuntimeError as e:
@@ -315,13 +317,6 @@ class Procedure:
 
     def __setattr__(self, name: str, value: Any) -> None:
         super().__setattr__(name, value)
-        # Avoid importing at module load (the processors package imports
-        # PyQt6, which we don't want forced on headless callers that never
-        # use processors).
-        try:
-            from mesofield.processors import FrameProcessor
-        except Exception:
-            return
         if isinstance(value, FrameProcessor):
             self._register_processor(value, attr_name=name)
 
@@ -349,24 +344,11 @@ class Procedure:
         if attr_name is not None:
             for existing in list(procs):
                 if existing.device_id == proc.device_id and existing is not proc:
-                    try:
-                        existing.detach()
-                    except Exception:
-                        pass
+                    existing.detach()
                     procs.remove(existing)
                     break
         procs.append(proc)
-        # DataManager may not exist yet during early construction; the
-        # later ``Procedure.run`` call also re-registers devices, so this
-        # is best-effort.
-        dm = getattr(self, "data", None)
-        if dm is not None:
-            try:
-                dm.register_hardware_device(proc)
-            except Exception as exc:
-                self.logger.warning(
-                    f"register_hardware_device({proc.device_id}) failed: {exc}"
-                )
+        self.data.register_hardware_device(proc)
 
     def _materialize_decorated_processors(self) -> None:
         """Instantiate every ``@processor``-decorated method on this class.
@@ -375,10 +357,6 @@ class Procedure:
         Skips names that already resolve to a :class:`FrameProcessor` on
         this instance (idempotent for ``load_config`` hot reloads).
         """
-        try:
-            from mesofield.processors import FrameProcessor
-        except Exception:
-            return
         seen: set[str] = set()
         for klass in type(self).__mro__:
             for attr_name, member in klass.__dict__.items():
@@ -410,15 +388,10 @@ class Procedure:
 
     def _resolve_camera(self, device_id: str, for_name: str) -> Any:
         """Look up a hardware device by ``device_id``; clear error if missing."""
-        devices = getattr(self.hardware, "devices", {}) or {}
-        # ``devices`` is a {device_id: device} mapping in HardwareManager.
+        devices = self.hardware.devices
         if device_id in devices:
             return devices[device_id]
-        # Fall back to scanning ``cameras`` tuple by their .device_id / .id.
-        for cam in getattr(self.hardware, "cameras", ()) or ():
-            if getattr(cam, "device_id", getattr(cam, "id", None)) == device_id:
-                return cam
-        available = sorted(devices.keys())
+        available = sorted(devices)
         raise ValueError(
             f"@processor(camera={device_id!r}) on {type(self).__name__}.{for_name}: "
             f"no hardware device with that id. Available: {available}"
@@ -470,6 +443,16 @@ class Procedure:
         """Subclass hook called before arming devices.  Override as needed."""
         return None
 
+    def _stimuli(self) -> list:
+        """Every stimulus device on the rig, enabled or not.
+
+        ``device_type`` is part of the HardwareDevice contract (protocols.py).
+        """
+        return [
+            d for d in self.hardware.devices.values()
+            if d.device_type == "stimulus"
+        ]
+
     def _gate_stimuli_by_task(self) -> None:
         """Enable only the stimulus device(s) bound to the selected task.
 
@@ -483,17 +466,8 @@ class Procedure:
         subclass may still override ``enabled`` for fully custom logic.
         """
         task = self.config.task
-        for dev in self.config.hardware.devices.values():
-            if getattr(dev, "device_type", None) != "stimulus":
-                continue
-            try:
-                serves = bool(dev.serves_task(task, self.config))
-            except Exception:
-                self.logger.exception(
-                    f"{getattr(dev, 'device_id', dev)}.serves_task failed; "
-                    f"leaving it enabled."
-                )
-                serves = True
+        for dev in self._stimuli():
+            serves = bool(dev.serves_task(task, self.config))
             dev.enabled = serves
             if not serves:
                 self.logger.info(
@@ -512,10 +486,8 @@ class Procedure:
         if not self.config.start_on_trigger:
             return
         stimuli = [
-            d for d in self.hardware.devices.values()
-            if getattr(d, "device_type", None) == "stimulus"
-            and getattr(d, "launch_phase", "start") == "start"
-            and getattr(d, "enabled", True)
+            d for d in self._stimuli()
+            if d.enabled and d.launch_phase == "start"
         ]
         if not stimuli:
             if not ui().confirm(
@@ -611,11 +583,10 @@ class Procedure:
         self._duration_timer.start()
 
     def save_data(self) -> None:
-        mgr = getattr(self, "data_manager", self.data)
-        mgr.save.configuration()
-        mgr.save.all_notes()
-        mgr.save.all_hardware()
-        mgr.save.save_timestamps(self.protocol, self.start_time, self.stopped_time)
+        self.data.save.configuration()
+        self.data.save.all_notes()
+        self.data.save.all_hardware()
+        self.data.save.save_timestamps(self.protocol, self.start_time, self.stopped_time)
         self.config.save_json()
         self.config.notes.clear()
         self.events.data_saved.emit()
@@ -640,17 +611,16 @@ class Procedure:
             if self._duration_timer is not None:
                 self._duration_timer.cancel()
                 self._duration_timer = None
-            with suppress(Exception):
+            if started:
                 self.hardware.primary.signals.finished.disconnect(self.cleanup)
-            # Detach procedure-authored FrameProcessors so their worker threads
-            # exit and the camera frame signal is released before shutdown.
-            for proc in list(self.processors):
-                try:
+            try:
+                # Detach procedure-authored FrameProcessors so their worker
+                # threads exit and the camera frame signal is released first.
+                for proc in self.processors:
                     proc.detach()
-                except Exception as exc:
-                    self.logger.warning(f"processor detach failed: {exc}")
-            self.processors.clear()
-            self.hardware.stop_all()
+                self.processors.clear()
+            finally:
+                self.hardware.stop_all()
             if not self.playback:
                 self.data.stop_queue_logger()
             if started:

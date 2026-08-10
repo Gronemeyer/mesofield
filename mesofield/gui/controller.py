@@ -29,6 +29,8 @@ if TYPE_CHECKING:
     from mesofield.config import ExperimentConfig
     from mesofield.protocols import Procedure
 
+from mesofield.signals import Bindings
+
 from .dynamic_controller import DynamicController
 
 class ConfigFormWidget(QWidget):
@@ -149,6 +151,7 @@ class ConfigController(QWidget):
         self.procedure = procedure
         self._record_thread: threading.Thread | None = None
         self._stop_live_hook = None
+        self._binds = Bindings()
         if display_keys is None and hasattr(self.config, "display_keys"):
             display_keys = self.config.display_keys
         self.display_keys = list(display_keys) if display_keys is not None else None
@@ -273,11 +276,10 @@ class ConfigController(QWidget):
         # Toggle Record/Abort availability from the live procedure lifecycle.
         # The Procedure outlives this widget and `deleteLater()` is async, so an
         # emit can still land on a stale controller; `cleanup()` severs these.
-        self._events = getattr(self.procedure, "events", None)
-        if self._events is not None:
-            self._events.procedure_started.connect(self._on_run_started)
-            self._events.procedure_finished.connect(self._on_run_finished)
-            self._events.procedure_error.connect(self._on_run_finished)
+        events = self.procedure.events
+        self._binds.connect(events.procedure_started, self._on_run_started)
+        self._binds.connect(events.procedure_finished, self._on_run_finished)
+        self._binds.connect(events.procedure_error, self._on_run_finished)
 
         # Connect dynamic controls using constants defined in DynamicController.
         # Snap and PsychoPy launch are handled elsewhere (CameraButtons in
@@ -297,15 +299,10 @@ class ConfigController(QWidget):
         """Add a :class:`NidaqIndicator` for every NI-DAQ device on the rig."""
         from mesofield.gui.nidaq_indicator import NidaqIndicator
 
-        devices = getattr(self.procedure.config.hardware, "devices", {}) or {}
-        for device in devices.values():
-            if getattr(device, "device_type", None) != "nidaq":
+        for device in self.procedure.config.hardware.devices.values():
+            if device.device_type != "nidaq":
                 continue
-            try:
-                indicator = NidaqIndicator(device, parent=self)
-            except Exception as exc:
-                print(f"Failed to build NidaqIndicator: {exc}")
-                continue
+            indicator = NidaqIndicator(device, parent=self)
             layout.addWidget(indicator)
             self._nidaq_indicators.append(indicator)
 
@@ -314,29 +311,16 @@ class ConfigController(QWidget):
 
         Idempotent; must run before ``deleteLater()``.
         """
-        callback = getattr(self, "_preview_callback", None)
-        if callback is not None:
-            for key in getattr(self, "_preview_keys", ()):  # type: ignore[arg-type]
-                with suppress(Exception):
-                    self.config.unregister_callback(key, callback)
+        if self._preview_callback is not None:
+            for key in self._preview_keys:
+                self.config.unregister_callback(key, self._preview_callback)
             self._preview_callback = None
-        events = getattr(self, "_events", None)
-        self._events = None
-        if events is not None:
-            for sig, handler in (
-                (events.procedure_started, self._on_run_started),
-                (events.procedure_finished, self._on_run_finished),
-                (events.procedure_error, self._on_run_finished),
-            ):
-                with suppress(TypeError, RuntimeError):
-                    sig.disconnect(handler)
-        for indicator in getattr(self, "_nidaq_indicators", []):
-            with suppress(Exception):
-                indicator.cleanup()
+        self._binds.close()
+        for indicator in self._nidaq_indicators:
+            indicator.cleanup()
         self._nidaq_indicators = []
 
     def closeEvent(self, event):  # noqa: N802 - Qt naming
-        """Safety net: sever connections if closed without an explicit cleanup()."""
         self.cleanup()
         super().closeEvent(event)
 
@@ -364,47 +348,29 @@ class ConfigController(QWidget):
     # ============================== Public Class Methods ============================================ #
 
     def record(self):
-        """Run the experimental procedure or fallback to legacy MDA sequence."""
+        """Run the procedure off the GUI thread so the window stays responsive."""
         if self._record_thread is not None and self._record_thread.is_alive():
             QMessageBox.information(self, "Recording in progress", "A recording is already running.")
             return
 
         self._stop_live_streams()
-        # If a procedure is available, use it for the experimental workflow
-        if self.procedure is not None:
-            def _run_procedure():
-                try:
-                    self.procedure.run()
-                except Exception as e:
-                    events = getattr(self.procedure, "events", None)
-                    if events is not None:
-                        try:
-                            events.procedure_error.emit(str(e))
-                        except Exception:
-                            pass
-                finally:
-                    self._record_thread = None
 
+        def _run_procedure():
+            # `run` reports its own failures (logs + procedure_error) before
+            # re-raising; anything that escapes belongs on stderr.
             try:
-                self._record_thread = threading.Thread(
-                    target=_run_procedure,
-                    name="mesofield-record",
-                    daemon=True,
-                )
-                self._record_thread.start()
-                # Signal that recording has started
-                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                self.recordStarted.emit(timestamp)
-                return
-            except Exception as e:
+                self.procedure.run()
+            finally:
                 self._record_thread = None
-                QMessageBox.critical(self, "Procedure Error", f"Failed to run procedure: {str(e)}")
-                return
+
+        self._record_thread = threading.Thread(
+            target=_run_procedure, name="mesofield-record", daemon=True
+        )
+        self._record_thread.start()
+        self.recordStarted.emit(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
     def _abort(self):
         """Safely stop the running Procedure (stops hardware, saves data)."""
-        if self.procedure is None:
-            return
         self.abort_button.setEnabled(False)
         try:
             self.procedure.cleanup()
@@ -421,21 +387,13 @@ class ConfigController(QWidget):
 
     def _stop_live_streams(self) -> None:
         """Ensure any live/sequence streams are halted before starting acquisition."""
-        hook = getattr(self, "_stop_live_hook", None)
-        if callable(hook):
-            with suppress(Exception):
-                hook()
-
-        cameras = tuple(getattr(self.config.hardware, "cameras", ()) or ())
-        for cam in cameras:
-            with suppress(Exception):
-                cam.stop_live()
-
-        cores = getattr(self.config, "_cores", ())
-        for core in cores:
-            with suppress(Exception):
-                if hasattr(core, "isSequenceRunning") and core.isSequenceRunning():
-                    core.stopSequenceAcquisition()
+        if self._stop_live_hook is not None:
+            self._stop_live_hook()
+        for cam in self.config.hardware.cameras:
+            cam.stop_live()
+        for core in self.config._cores:
+            if core.isSequenceRunning():
+                core.stopSequenceAcquisition()
 
     def set_stop_live_hook(self, hook) -> None:
         """Register a GUI callback used to force all Live toggles off pre-record."""
@@ -480,16 +438,11 @@ class ConfigController(QWidget):
         self._update_filename_preview()
 
     def _update_filename_preview(self):
-        """Render the BIDS filename template for the currently selected subject."""
-        if not hasattr(self, "filename_preview_label"):
-            return
-        # Guard against a stale callback
-        try:
-            from PyQt6 import sip
-            if sip.isdeleted(self.filename_preview_label):
-                return
-        except Exception:
-            pass
+        """Render the BIDS filename template for the currently selected subject.
+
+        Fired by a config callback that ``cleanup`` unregisters, so the label
+        is alive whenever this runs.
+        """
         subject = self.config.get("subject") or "?"
         session = self.config.get("session") or "?"
         task = self.config.get("task") or "?"
