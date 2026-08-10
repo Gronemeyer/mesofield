@@ -98,6 +98,12 @@ class MousePortalController(QWidget):
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         body = QWidget()
         layout = QVBoxLayout(body)
+        # The sections are themed group boxes whose titles sit in a 14px top
+        # margin; the default 6px inter-widget spacing runs the previous
+        # section's border straight into the next one's title. Give the
+        # collapsible sections room to read as separate blocks.
+        layout.setContentsMargins(6, 4, 6, 4)
+        layout.setSpacing(16)
         scroll.setWidget(body)
         outer.addWidget(scroll)
 
