@@ -285,17 +285,21 @@ class ImagePreview(QWidget):
 
         if self._mmcore is None:
             return
+        # Per-slot: the core's events are shared with every other widget on this
+        # rig, so an argument-less disconnect() drops their subscriptions too.
         ev = self._mmcore.events
-        with suppress(TypeError, RuntimeError):
-            ev.continuousSequenceAcquisitionStarted.disconnect()
-            ev.sequenceAcquisitionStopped.disconnect()
-            ev.exposureChanged.disconnect()
         enev = self._mmcore.mda.events
-        with suppress(TypeError, RuntimeError):
-            enev.frameReady.disconnect()
-            enev.sequenceStarted.disconnect()
-            enev.sequenceFinished.disconnect()
-            enev.sequenceCanceled.disconnect()
+        for signal, slot in (
+            (ev.continuousSequenceAcquisitionStarted, self._on_streaming_start),
+            (ev.sequenceAcquisitionStopped, self._on_streaming_stop),
+            (ev.exposureChanged, self._on_exposure_changed),
+            (enev.frameReady, self._on_frame_ready),
+            (enev.sequenceStarted, self._on_sequence_started),
+            (enev.sequenceFinished, self._on_sequence_finished),
+            (enev.sequenceCanceled, self._on_sequence_finished),
+        ):
+            with suppress(TypeError, RuntimeError, ValueError):
+                signal.disconnect(slot)
 
     def _disconnect(self) -> None:
         # `destroyed`-triggered backstop; the real work is in `cleanup`.
@@ -685,15 +689,21 @@ class InteractivePreview(pg.ImageView):
                 timer.stop()
 
         if self._mmcore:
+            # Per-slot; see ImagePreview.cleanup.
             ev = self._mmcore.events
-            with suppress(TypeError, RuntimeError):
-                ev.imageSnapped.disconnect()
-                ev.continuousSequenceAcquisitionStarted.disconnect()
-                ev.sequenceAcquisitionStopped.disconnect()
-                ev.exposureChanged.disconnect()
             enev = self._mmcore.mda.events
-            with suppress(TypeError, RuntimeError):
-                enev.frameReady.disconnect()  # drops both _on_image_payload and _on_frame_ready
+            slots = [
+                (ev.imageSnapped, self._on_image_snapped),
+                (ev.continuousSequenceAcquisitionStarted, self._on_streaming_start),
+                (ev.sequenceAcquisitionStopped, self._on_streaming_stop),
+                (ev.exposureChanged, self._on_exposure_changed),
+                (enev.frameReady, self._on_image_payload),
+            ]
+            if self._use_with_mda:
+                slots.append((enev.frameReady, self._on_frame_ready))
+            for signal, slot in slots:
+                with suppress(TypeError, RuntimeError, ValueError):
+                    signal.disconnect(slot)
 
     def _disconnect(self) -> None:
         # `destroyed`-triggered backstop; the real work is in `cleanup`.

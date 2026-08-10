@@ -426,6 +426,8 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
         self._device_widgets.clear()
+        # ...including the subscriptions the previous pass left on the devices.
+        self._detach_device_bridges()
 
         cfg = self.procedure.config
         hardware = cfg.hardware
@@ -510,6 +512,33 @@ class MainWindow(QMainWindow):
                 continue
             self._plots_row.addWidget(widget)
             self._device_widgets[dev_id] = widget
+
+    def _detach_device_bridges(self) -> None:
+        """Disconnect the sampler/adapter bridges attached on the previous pass.
+
+        Both are stashed on the device, which outlives them, so each rebuild
+        must sever the old subscription before overwriting the attribute.
+        """
+        devices = getattr(self.procedure.config.hardware, "devices", {}) or {}
+        for device in devices.values():
+            for attr in ("_gui_channel_sampler", "_gui_qt_adapter"):
+                bridge = getattr(device, attr, None)
+                if bridge is None:
+                    continue
+                try:
+                    bridge.disconnect()
+                except Exception as exc:
+                    self._log_exception(f"detach {attr} from device", exc)
+                setattr(device, attr, None)
+                if attr == "_gui_qt_adapter":
+                    # Drop the signals the adapter published onto the device, or
+                    # the next pass sees them and skips rebuilding a live one.
+                    # A device declaring its own pyqtSignals keeps them.
+                    for sig_attr in ("serialDataReceived", "serialSpeedUpdated"):
+                        try:
+                            delattr(device, sig_attr)
+                        except AttributeError:
+                            pass
 
     def _build_multichannel_device_plots(self, cfg, dev_id, device, plot_cfg) -> None:
         """Build one :class:`SerialWidget` per channel for a multi-channel device.

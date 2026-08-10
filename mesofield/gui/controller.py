@@ -275,13 +275,13 @@ class ConfigController(QWidget):
         self.open_bids_button.clicked.connect(self._open_bids_directory)
 
         # Toggle Record/Abort availability from the live procedure lifecycle.
-        # Bound-method connections auto-disconnect when this widget (a
-        # QObject) is destroyed on a config reload.
-        events = getattr(self.procedure, "events", None)
-        if events is not None:
-            events.procedure_started.connect(self._on_run_started)
-            events.procedure_finished.connect(self._on_run_finished)
-            events.procedure_error.connect(self._on_run_finished)
+        # The Procedure outlives this widget and `deleteLater()` is async, so an
+        # emit can still land on a stale controller; `cleanup()` severs these.
+        self._events = getattr(self.procedure, "events", None)
+        if self._events is not None:
+            self._events.procedure_started.connect(self._on_run_started)
+            self._events.procedure_finished.connect(self._on_run_finished)
+            self._events.procedure_error.connect(self._on_run_finished)
 
         # Connect dynamic controls using constants defined in DynamicController.
         # Snap and PsychoPy launch are handled elsewhere (CameraButtons in
@@ -314,17 +314,35 @@ class ConfigController(QWidget):
             self._nidaq_indicators.append(indicator)
 
     def cleanup(self) -> None:
-        """Sever live connections before this widget is destroyed on a reload."""
+        """Sever live connections before this widget is destroyed on a reload.
+
+        Idempotent; must run before ``deleteLater()``.
+        """
         callback = getattr(self, "_preview_callback", None)
         if callback is not None:
             for key in getattr(self, "_preview_keys", ()):  # type: ignore[arg-type]
                 with suppress(Exception):
                     self.config.unregister_callback(key, callback)
             self._preview_callback = None
+        events = getattr(self, "_events", None)
+        self._events = None
+        if events is not None:
+            for sig, handler in (
+                (events.procedure_started, self._on_run_started),
+                (events.procedure_finished, self._on_run_finished),
+                (events.procedure_error, self._on_run_finished),
+            ):
+                with suppress(TypeError, RuntimeError):
+                    sig.disconnect(handler)
         for indicator in getattr(self, "_nidaq_indicators", []):
             with suppress(Exception):
                 indicator.cleanup()
         self._nidaq_indicators = []
+
+    def closeEvent(self, event):  # noqa: N802 - Qt naming
+        """Safety net: sever connections if closed without an explicit cleanup()."""
+        self.cleanup()
+        super().closeEvent(event)
 
     # ------------------------------- Introspection Helpers --------------------------- #
     def displayed_values(self) -> dict:
@@ -404,6 +422,11 @@ class ConfigController(QWidget):
         When no start-phase stimulus is present (a spontaneous baseline), show a
         focused manual start dialog. Returns ``True`` to proceed, ``False`` to
         cancel.
+
+        ``dev.start()`` stays on the calling thread on purpose: it spawns a
+        subprocess and blocks on its readiness handshake, which would freeze the
+        window if it ran on the GUI thread. Only the operator dialogs it reaches
+        are marshaled there (see :mod:`mesofield.gui._mainthread`).
         """
         stimuli = [
             d for d in procedure.hardware.devices.values()
@@ -425,22 +448,31 @@ class ConfigController(QWidget):
         return True
 
     def _manual_start_gate(self) -> bool:
-        """Focused modal "press to start" gate for runs with no stimulus."""
-        from mesofield.devices.subprocesses.psychopy import force_foreground
+        """Focused modal "press to start" gate for runs with no stimulus.
 
-        box = QMessageBox(self)
-        box.setWindowTitle("Start recording")
-        box.setText(
-            "Ready to record (no visual stimulus).\n"
-            "Press spacebar (or click OK) to start, Cancel to abort."
-        )
-        box.setStandardButtons(
-            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
-        )
-        box.setDefaultButton(QMessageBox.StandardButton.Ok)
-        box.setWindowModality(Qt.WindowModality.ApplicationModal)
-        force_foreground(box)
-        return box.exec() == QMessageBox.StandardButton.Ok
+        The gate is reached from the run, which does not own the GUI thread, so
+        the dialog is built and executed there via ``run_on_main_thread``.
+        """
+        from mesofield.gui._mainthread import run_on_main_thread
+
+        def _ask() -> bool:
+            from mesofield.devices.subprocesses.psychopy import force_foreground
+
+            box = QMessageBox(self)
+            box.setWindowTitle("Start recording")
+            box.setText(
+                "Ready to record (no visual stimulus).\n"
+                "Press spacebar (or click OK) to start, Cancel to abort."
+            )
+            box.setStandardButtons(
+                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
+            )
+            box.setDefaultButton(QMessageBox.StandardButton.Ok)
+            box.setWindowModality(Qt.WindowModality.ApplicationModal)
+            force_foreground(box)
+            return box.exec() == QMessageBox.StandardButton.Ok
+
+        return run_on_main_thread(_ask)
 
     def _abort(self):
         """Safely stop the running Procedure (stops hardware, saves data)."""

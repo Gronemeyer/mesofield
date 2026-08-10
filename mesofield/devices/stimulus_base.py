@@ -328,9 +328,10 @@ class SubprocessStimulusDevice:
     def _wait_ready_pumping(self, timeout: float) -> bool:
         """Wait for the readiness handshake, pumping Qt events if a GUI is up.
 
-        In the GUI, arm_all/start_all run on the Qt main thread, so a plain
-        blocking wait would freeze the window. Pumping ``processEvents`` keeps
-        it responsive during the brief boot; headless callers just poll.
+        A caller that *is* the Qt main thread would freeze the window on a plain
+        blocking wait, so pump ``processEvents`` there to keep it responsive
+        during the brief boot. Off that thread there is nothing to pump -- the
+        GUI thread pumps itself -- so this just polls, as headless callers do.
 
         Polls in short slices so it can **fail fast**: if the child exits before
         the handshake (a stimulus script that errors on startup), this returns
@@ -339,8 +340,10 @@ class SubprocessStimulusDevice:
         if self._process is None:
             return False
         try:
+            from mesofield.gui._mainthread import on_main_thread
             from PyQt6.QtWidgets import QApplication
-            app = QApplication.instance()
+
+            app = QApplication.instance() if on_main_thread() else None
         except Exception:
             app = None
 

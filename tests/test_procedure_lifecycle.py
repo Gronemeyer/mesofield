@@ -89,11 +89,48 @@ def test_start_gate_cancel_raises(hardware_yaml, experiment_json, tmp_path):
         Procedure, hardware_yaml, experiment_json, tmp_path, start_on_trigger=True
     )
     proc.start_gate = lambda _p: False  # operator cancels
-    try:
-        with pytest.raises(RuntimeError):
-            proc.run()
-    finally:
-        proc.cleanup()  # stop the queue-logger thread started before the gate
+    with pytest.raises(RuntimeError):
+        proc.run()
+
+
+def test_start_gate_cancel_tears_down_the_armed_run(
+    hardware_yaml, experiment_json, tmp_path
+):
+    """Cancelling at the gate must not leave the armed rig running.
+
+    Devices and the queue logger are up by the time the gate is consulted and
+    nothing below it is self-terminating. Equally, the run never started, so no
+    timestamps or acquisition manifest may be written for it.
+    """
+    out = tmp_path / "out"
+    proc = _build(
+        Procedure, hardware_yaml, experiment_json, tmp_path, start_on_trigger=True
+    )
+    proc.start_gate = lambda _p: False
+    stopped: list = []
+    for dev in proc.config.hardware.devices.values():
+        original = dev.stop
+        dev.stop = lambda *a, _d=dev, _o=original, **k: (
+            stopped.append(_d.device_id) or _o(*a, **k)
+        )
+
+    with pytest.raises(RuntimeError, match="cancelled at the start gate"):
+        proc.run()
+
+    assert stopped == [
+        d.device_id for d in proc.config.hardware.devices.values()
+    ], "armed devices were left running"
+    logger_thread = proc.data._queue_thread
+    assert logger_thread is None or not logger_thread.is_alive(), "queue logger left running"
+    assert proc._finished_event.is_set(), "run never reported finished"
+    assert proc.start_time is None
+    assert proc.stopped_time is None
+    assert not list(out.rglob("manifest.json")), "manifest written for a run that never started"
+
+    # A follow-up cleanup() must not then save against an unset start_time.
+    proc.cleanup()
+    assert not list(out.rglob("manifest.json"))
+    assert proc.stopped_time is None
 
 
 def test_start_gate_proceeds_when_accepted(hardware_yaml, experiment_json, tmp_path):

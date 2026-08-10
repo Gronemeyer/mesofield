@@ -598,8 +598,43 @@ class Procedure:
             self._arm_duration_timer()
         except Exception as e:
             self.logger.error(f"Error during experiment: {e}")
+            # Nothing between `arm_all` and `start_all` is self-terminating, so
+            # a failure or cancel in there would leave the armed rig running.
+            if self.start_time is None:
+                self._abort_armed()
+            else:
+                self._cleanup_procedure()
             self.events.procedure_error.emit(str(e))
             raise
+
+    def _abort_armed(self) -> None:
+        """Tear down a run that never started (arm failure / gate cancel).
+
+        Deliberately *not* :meth:`_cleanup_procedure`: with no ``start_time``
+        there is no acquisition to save, and that path would write timestamps
+        and a manifest for a run that never happened. Stop what arming brought
+        up, release the queue logger, and mark the procedure finished.
+        """
+        self.logger.info("Aborting armed run (never started)")
+        try:
+            if self._duration_timer is not None:
+                self._duration_timer.cancel()
+                self._duration_timer = None
+        except Exception as e:
+            self.logger.warning(f"Error cancelling duration timer: {e}")
+        try:
+            self.hardware.stop_all()
+        except Exception as e:
+            self.logger.error(f"Error stopping hardware during abort: {e}")
+        if not self.playback:
+            try:
+                self.data.stop_queue_logger()
+            except Exception as e:
+                self.logger.error(f"Error stopping the queue logger during abort: {e}")
+        # Latch the teardown guard so a follow-up `cleanup()` can't then save
+        # and write a manifest. `run()` clears the latch on the next run.
+        self._cleanup_started = True
+        self._finished_event.set()
 
     def _arm_duration_timer(self) -> None:
         """Stop the run after the configured ``duration`` (seconds).

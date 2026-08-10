@@ -70,11 +70,31 @@ class MousePortalPanel(QGroupBox):
         self._apply_status(getattr(device, "gui_status", "loaded"))
 
         # Device status -> GUI. psygnal (may fire from the subprocess reader
-        # thread) -> pyqtSignal -> slot (queued onto the GUI thread).
+        # thread) -> pyqtSignal -> slot (queued onto the GUI thread). The device
+        # outlives this panel, so keep the relay handle for cleanup().
         self._status_relay.connect(self._apply_status)
-        status_sig = getattr(device, "status_changed", None)
-        if status_sig is not None:
-            qt_bridge(status_sig, self._status_relay)
+        self._status_sig = getattr(device, "status_changed", None)
+        self._status_handle = None
+        if self._status_sig is not None:
+            self._status_handle = qt_bridge(self._status_sig, self._status_relay)
+
+    # -- lifecycle ------------------------------------------------------
+    def cleanup(self) -> None:
+        """Sever the device->GUI bridge before destruction. Idempotent."""
+        signal, handle = self._status_sig, self._status_handle
+        self._status_sig = self._status_handle = None
+        if signal is None or handle is None:
+            return
+        try:
+            signal.disconnect(handle)
+        except (TypeError, RuntimeError, ValueError):
+            # Already disconnected, or never connected.
+            pass
+
+    def closeEvent(self, event):  # noqa: N802 - Qt naming
+        """Safety net: disconnect if closed without an explicit cleanup()."""
+        self.cleanup()
+        super().closeEvent(event)
 
     # -- rendering ------------------------------------------------------
     def _apply_status(self, status: str) -> None:

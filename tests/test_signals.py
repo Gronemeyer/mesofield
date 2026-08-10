@@ -67,3 +67,52 @@ def test_qt_bridge_propagates_to_pyqt_signal() -> None:
 
     # qt_bridge uses a direct connection; emit synchronously propagates.
     assert received == [({"frame": 1}, 9.99)]
+
+
+def test_qt_bridge_returns_disconnectable_handle() -> None:
+    """The relay handle is what lets a widget sever the bridge in cleanup()."""
+    pytest.importorskip("PyQt6")
+    from PyQt6.QtCore import QObject, pyqtSignal
+
+    class Holder(QObject):
+        forwarded = pyqtSignal(object, object)
+
+    sigs = DeviceSignals()
+    holder = Holder()
+    received: list = []
+    holder.forwarded.connect(lambda p, t: received.append(p))
+
+    handle = qt_bridge(sigs.data, holder.forwarded)
+    assert callable(handle)
+
+    sigs.data.emit("before", 0.0)
+    sigs.data.disconnect(handle)
+    sigs.data.emit("after", 0.0)
+
+    assert received == ["before"]
+
+
+def test_mouseportal_panel_cleanup_severs_device_bridge(qtbot) -> None:
+    """A cleaned-up panel stops reacting to the (longer-lived) device."""
+    pytest.importorskip("PyQt6")
+    from psygnal import SignalInstance
+
+    from mesofield.gui.mouseportal_panel import MousePortalPanel
+
+    class _Device:
+        gui_status = "loaded"
+
+        def __init__(self):
+            self.status_changed = SignalInstance((str,))
+
+    device = _Device()
+    panel = MousePortalPanel({}, device)
+    qtbot.addWidget(panel)
+
+    device.status_changed.emit("ready")
+    assert panel.toolTip() == "MousePortal status: ready"
+
+    panel.cleanup()
+    panel.cleanup()  # idempotent
+    device.status_changed.emit("failed")
+    assert panel.toolTip() == "MousePortal status: ready"

@@ -33,7 +33,7 @@ referenced and thread-safe.  GUI code that needs a Qt slot can use
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from psygnal import Signal
 
@@ -69,17 +69,24 @@ class DeviceSignals:
                 pass
 
 
-def qt_bridge(signal: Any, qt_signal: Any) -> None:
+def qt_bridge(signal: Any, qt_signal: Any) -> Callable[..., None]:
     """Forward emissions of a ``psygnal`` signal to a ``pyqtSignal``.
 
     Use from GUI code only.  Both signals must accept the same argument
     arity.  The connection is one-way: psygnal -> Qt.
+
+    Returns the relay callable so the caller can sever the bridge with
+    ``signal.disconnect(handle)``.  Devices outlive the widgets that bridge
+    them, and an unsevered relay emits into a deleted C++ object, so keeping the
+    handle and disconnecting in the widget's ``cleanup()`` is the expected usage.
     """
 
     def _relay(*args: Any) -> None:
         try:
             qt_signal.emit(*args)
-        except Exception:
+        except RuntimeError:
+            # Receiver already deleted; anything else is a real bug.
             pass
 
     signal.connect(_relay)
+    return _relay

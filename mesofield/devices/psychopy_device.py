@@ -114,45 +114,61 @@ class PsychoPyDevice(SubprocessStimulusDevice):
         return self.python_exe or get_psychopy_python_exe()
 
     # -- operator presentation hooks ------------------------------------
+    # These run wherever the device lifecycle runs, which is not the GUI thread,
+    # so every widget below is built and shown through `run_on_main_thread`.
+    # PyQt6 stays lazily imported so the device is importable headless.
     def present_launching(self) -> None:
         """Show a non-blocking 'waiting for PSYCHOPY_READY' indicator."""
-        app = self._qapp()
-        if app is None:
+        if self._qapp() is None:
             return
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtWidgets import QMessageBox
+        from mesofield.gui._mainthread import run_on_main_thread
 
-        box = QMessageBox()
-        box.setWindowTitle("Launching PsychoPy")
-        box.setText("Waiting for the PsychoPy script to print PSYCHOPY_READY...")
-        box.setStandardButtons(QMessageBox.StandardButton.NoButton)
-        box.setWindowModality(Qt.WindowModality.ApplicationModal)
-        box.show()
-        box.raise_()
-        box.activateWindow()
-        app.processEvents()
-        self._launching_box = box
+        def _show():
+            from PyQt6.QtCore import Qt
+            from PyQt6.QtWidgets import QMessageBox
+
+            box = QMessageBox()
+            box.setWindowTitle("Launching PsychoPy")
+            box.setText("Waiting for the PsychoPy script to print PSYCHOPY_READY...")
+            box.setStandardButtons(QMessageBox.StandardButton.NoButton)
+            box.setWindowModality(Qt.WindowModality.ApplicationModal)
+            box.show()
+            box.raise_()
+            box.activateWindow()
+            return box
+
+        self._launching_box = run_on_main_thread(_show)
 
     def dismiss_launching(self) -> None:
         box = self._launching_box
-        if box is not None:
+        if box is None:
+            return
+        self._launching_box = None
+        if self._qapp() is None:
             box.close()
-            self._launching_box = None
+            return
+        from mesofield.gui._mainthread import run_on_main_thread
+
+        run_on_main_thread(box.close)
 
     def present_failure(self, message: str, detail: str = "") -> None:
         super().present_failure(message, detail)  # always log
-        app = self._qapp()
-        if app is None:
+        if self._qapp() is None:
             return
-        from PyQt6.QtWidgets import QMessageBox
+        from mesofield.gui._mainthread import run_on_main_thread
 
-        box = QMessageBox()
-        box.setIcon(QMessageBox.Icon.Critical)
-        box.setWindowTitle("PsychoPy Error")
-        box.setText(message)
-        if detail.strip():
-            box.setDetailedText(detail.strip())
-        box.exec()
+        def _show():
+            from PyQt6.QtWidgets import QMessageBox
+
+            box = QMessageBox()
+            box.setIcon(QMessageBox.Icon.Critical)
+            box.setWindowTitle("PsychoPy Error")
+            box.setText(message)
+            if detail.strip():
+                box.setDetailedText(detail.strip())
+            box.exec()
+
+        run_on_main_thread(_show)
 
     def confirm_ready_to_record(self) -> bool:
         """Focused 'PsychoPy ready -- press to start recording' gate.
@@ -164,25 +180,28 @@ class PsychoPyDevice(SubprocessStimulusDevice):
         PsychoPy window to begin the stimulus (cameras lead; timelines are
         aligned post-hoc). Returns ``False`` (Cancel) to abort the run.
         """
-        app = self._qapp()
-        if app is None:
+        if self._qapp() is None:
             return True
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtWidgets import QMessageBox
+        from mesofield.gui._mainthread import run_on_main_thread
 
-        box = QMessageBox()
-        box.setWindowTitle("PsychoPy Ready")
-        box.setText(
-            "PsychoPy is ready.\nPress spacebar (or click OK) to start recording."
-        )
-        box.setStandardButtons(
-            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
-        )
-        box.setDefaultButton(QMessageBox.StandardButton.Ok)
-        box.setWindowModality(Qt.WindowModality.ApplicationModal)
-        force_foreground(box)
-        app.processEvents()
-        return box.exec() == QMessageBox.StandardButton.Ok
+        def _ask() -> bool:
+            from PyQt6.QtCore import Qt
+            from PyQt6.QtWidgets import QMessageBox
+
+            box = QMessageBox()
+            box.setWindowTitle("PsychoPy Ready")
+            box.setText(
+                "PsychoPy is ready.\nPress spacebar (or click OK) to start recording."
+            )
+            box.setStandardButtons(
+                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
+            )
+            box.setDefaultButton(QMessageBox.StandardButton.Ok)
+            box.setWindowModality(Qt.WindowModality.ApplicationModal)
+            force_foreground(box)
+            return box.exec() == QMessageBox.StandardButton.Ok
+
+        return run_on_main_thread(_ask)
 
     @staticmethod
     def _qapp():

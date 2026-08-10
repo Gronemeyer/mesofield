@@ -14,6 +14,8 @@ modal ever blocks.
 
 from __future__ import annotations
 
+import threading
+
 import pytest
 
 # Register mock device types for the hardware_yaml fixture.
@@ -97,6 +99,49 @@ def test_manual_start_gate_ok_proceeds(controller, monkeypatch):
     )
     monkeypatch.setattr(QMessageBox, "exec", lambda self: QMessageBox.StandardButton.Ok)
     assert controller._manual_start_gate() is True
+
+
+def test_manual_start_gate_from_record_thread_builds_dialog_on_gui_thread(
+    controller, qtbot, monkeypatch
+):
+    """Regression: the gate used to hang when reached off the GUI thread.
+
+    ``record()`` runs the procedure on a worker thread, so the gate builds its
+    dialog there; a QWidget created off the GUI thread can't be parented to one
+    and its ``exec()`` never returns. The other gate tests call it on the main
+    thread, which is why none of them caught it.
+    """
+    from PyQt6.QtCore import QThread
+    from PyQt6.QtWidgets import QApplication, QMessageBox
+
+    monkeypatch.setattr(
+        "mesofield.devices.subprocesses.psychopy.force_foreground", lambda w: None
+    )
+    seen: dict = {}
+
+    def _exec(box):
+        seen["thread"] = box.thread()
+        seen["exec_thread"] = QThread.currentThread()
+        return QMessageBox.StandardButton.Ok
+
+    monkeypatch.setattr(QMessageBox, "exec", _exec)
+
+    # No start-phase stimulus on the mock rig -> the manual gate.
+    controller.config.set("start_on_trigger", True)
+    result: dict = {}
+    thread = threading.Thread(
+        target=lambda: result.update(gate=controller._start_gate(controller.procedure)),
+        name="mesofield-record",
+        daemon=True,
+    )
+    thread.start()
+    qtbot.waitUntil(lambda: "gate" in result, timeout=5000)
+    thread.join(timeout=1)
+
+    assert result["gate"] is True
+    gui_thread = QApplication.instance().thread()
+    assert seen["thread"] is gui_thread, "dialog was created off the GUI thread"
+    assert seen["exec_thread"] is gui_thread, "dialog was executed off the GUI thread"
 
 
 # --------------------------------------------------------------------------- #

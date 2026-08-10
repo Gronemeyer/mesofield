@@ -12,10 +12,19 @@ Windows-specific helpers that the device and the GUI start gate still need:
 """
 
 import os
-import winreg
+
+# Both helpers are Windows-specific, but this module is imported on paths that
+# are not (the GUI start gate), so a top-level `import winreg` would break them
+# off Windows. Import it conditionally and let each helper degrade instead.
+if os.name == "nt":
+    import winreg
+else:  # pragma: no cover - exercised off Windows
+    winreg = None
 
 
 def get_psychopy_python_exe():
+    if winreg is None:
+        return r"C:\Program Files\PsychoPy\python.exe"
     try:
         key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\PsychoPy", 0, winreg.KEY_READ)
         install_path, _ = winreg.QueryValueEx(key, "InstallPath")
@@ -37,7 +46,8 @@ def force_foreground(widget) -> None:
     attach our input thread to the current foreground window's thread, raise our
     window, then detach. Without this the operator has to click the dialog by
     hand before a keypress reaches it. Best-effort and Windows-specific; any
-    failure is swallowed (the dialog still works, it just may not auto-focus).
+    failure is swallowed (the dialog still works, it just may not auto-focus),
+    leaving the portable show/raise/activate above.
     """
     from PyQt6.QtCore import Qt
 

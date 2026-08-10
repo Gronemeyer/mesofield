@@ -157,8 +157,15 @@ class MousePortalController(QWidget):
         """Disconnect from the shared Procedure's events before destruction.
 
         Must be called before ``deleteLater()`` when this controller is
-        rebuilt (config/hardware hot-swap). Idempotent.
+        rebuilt (config/hardware hot-swap). Idempotent. Cascades into the
+        status panel we own, whose device->GUI bridge outlives it the same way.
         """
+        panel = getattr(self, "_panel", None)
+        if panel is not None:
+            try:
+                panel.cleanup()
+            except RuntimeError:
+                pass
         events = self._events
         self._events = None
         if events is None:

@@ -52,10 +52,26 @@ class QtDeviceAdapter(QObject):
         # First live-trace timestamp seen; used to rebase x to ~0 (see _on_data).
         self._t0: Optional[float] = None
         signals = getattr(device, "signals", None)
-        data_sig = getattr(signals, "data", None) if signals is not None else None
-        if data_sig is not None and hasattr(data_sig, "connect"):
+        self._data_sig = getattr(signals, "data", None) if signals is not None else None
+        if self._data_sig is not None and hasattr(self._data_sig, "connect"):
             try:
-                data_sig.connect(self._on_data)
+                self._data_sig.connect(self._on_data)
+            except Exception:
+                pass
+
+    def disconnect(self) -> None:
+        """Sever the device subscription before the GUI drops this adapter.
+
+        The device outlives the adapter, so an unsevered subscription keeps
+        emitting into a Qt signal whose consumers are gone. Idempotent. Named to
+        match :meth:`DeviceChannelSampler.disconnect` so the GUI can tear either
+        bridge down through the same call; that shadows ``QObject.disconnect``,
+        which nothing here uses.
+        """
+        sig, self._data_sig = self._data_sig, None
+        if sig is not None:
+            try:
+                sig.disconnect(self._on_data)
             except Exception:
                 pass
 
@@ -187,9 +203,11 @@ class DeviceChannelSampler:
         return lambda: self.snapshot(channel)
 
     def disconnect(self) -> None:
-        if self._data_sig is not None:
+        """Sever the device subscription. Idempotent."""
+        sig, self._data_sig = self._data_sig, None
+        if sig is not None:
             try:
-                self._data_sig.disconnect(self._on_data)
+                sig.disconnect(self._on_data)
             except Exception:
                 pass
 
