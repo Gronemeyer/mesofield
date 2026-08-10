@@ -2,8 +2,8 @@
 
 Reuses the legacy SampleProcedure's wall-clock duration cap so the run
 terminates cleanly without any GUI or real hardware. The
-AcquisitionManifest is written by the base `Procedure._cleanup_procedure`
-hook -- subclasses do not have to import or know about mesokit-schema.
+AcquisitionManifest is written by the base `Procedure.cleanup`
+-- subclasses do not have to import or know about mesokit-schema.
 
 Registers two synthetic device types so `hardware.yaml` can reference
 them without touching real hardware:

@@ -8,16 +8,17 @@ via :func:`load_procedure`. A subclass points at its self-contained
 ``experiment.json`` (params + embedded ``hardware`` rig) through the class-level
 :attr:`Procedure.experiment` path.
 
-Lifecycle (subclass hooks shown in **bold**):
+Lifecycle (subclass hooks shown in **bold**), with the run state it leaves:
 
 1. ``initialize_hardware``  -- bring devices up
 2. ``prerun``               -- **subclass hook** (default: no-op)
-3. ``hardware.arm_all``     -- per-run prep on every device
-4. connect ``hardware.primary.signals.finished`` -> ``_cleanup_procedure``
-5. ``on_started``           -- **subclass hook** (default: no-op)
-6. ``hardware.start_all``
-7. ``on_finished``          -- **subclass hook** (default: no-op)
-8. ``save_data`` + cleanup
+3. ``hardware.arm_all``     -- per-run prep on every device      -> ARMED
+4. ``await_trigger``        -- hold for the operator, if configured
+5. ``hardware.start_all``   -- ``on_started`` **hook** after     -> RUNNING
+6. ``cleanup``              -- stop, save, ``on_finished`` **hook** -> DONE
+
+``cleanup`` is the only teardown path (manual stop, duration cap, the primary
+device finishing, or a failure in ``run``) and runs once per run.
 """
 
 import importlib.util
@@ -27,7 +28,9 @@ import os
 import sys
 import threading
 import uuid
+from contextlib import suppress
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Optional, Type
 
@@ -50,7 +53,15 @@ try:
 except Exception:  # pragma: no cover
     _MESOFIELD_VERSION = "0.0.0+unknown"
 from mesofield.hardware import HardwareManager
+from mesofield.ui import ui
 from mesofield.utils._logger import get_logger, hyperlink
+
+
+class RunState(Enum):
+    IDLE = "idle"
+    ARMED = "armed"
+    RUNNING = "running"
+    DONE = "done"
 
 
 def processor(*, camera: str, plot: bool = False, **plot_kwargs: Any):
@@ -166,20 +177,8 @@ class Procedure:
         self.events.procedure_finished.connect(self._finished_event.set)
         self.events.procedure_error.connect(lambda _msg: self._finished_event.set())
 
-        # Wall-clock duration cap (see `stop_after_duration`) and a one-shot
-        # guard so the timer and the primary device's `finished` signal can
-        # both target cleanup without it running twice.
+        self.state = RunState.IDLE
         self._duration_timer: Optional[threading.Timer] = None
-        self._cleanup_started = False
-
-        # Optional start gate, injected by a front-end (e.g. the GUI
-        # ConfigController). When ``start_on_trigger`` is set, the default
-        # :meth:`await_trigger` calls this after arming and before starting any
-        # device; it owns whatever "ready / press to start" interaction the
-        # front-end wants (launching a stimulus subprocess, a focused dialog,
-        # etc.) and returns ``True`` to proceed or ``False`` to cancel the run.
-        # Left ``None`` for headless runs, which then do not block.
-        self.start_gate: Optional[Any] = None
 
         # `hardware` may be a rig path, an in-memory rig mapping, or a list of
         # pre-built device objects.
@@ -503,27 +502,32 @@ class Procedure:
                 )
 
     def await_trigger(self) -> None:
-        """Gate the run after arming and before starting devices.
+        """Hold the armed run until the operator triggers the start.
 
-        When ``start_on_trigger`` is set and a :attr:`start_gate` has been
-        injected (e.g. by the GUI ConfigController), it is invoked here to own
-        the "ready / press to start" interaction; returning ``False`` cancels
-        the run. Devices are armed but nothing has started yet, so blocking here
-        holds the whole run. Headless runs with no gate do not block.
-
-        This default contains no device-specific logic. Subclasses may still
-        override it for a fully custom trigger.
+        Launches every enabled stimulus that defers its launch to start (each
+        owns its own readiness handshake and ready gate); with none, asks the
+        operator directly. Devices are armed but nothing has started yet, so
+        blocking here holds the whole run. Raises to cancel.
         """
         if not self.config.start_on_trigger:
             return
-        gate = self.start_gate
-        if gate is None:
-            self.logger.info(
-                "start_on_trigger set but no start gate injected; proceeding."
-            )
+        stimuli = [
+            d for d in self.hardware.devices.values()
+            if getattr(d, "device_type", None) == "stimulus"
+            and getattr(d, "launch_phase", "start") == "start"
+            and getattr(d, "enabled", True)
+        ]
+        if not stimuli:
+            if not ui().confirm(
+                "Start recording",
+                "Ready to record (no visual stimulus).\n"
+                "Press spacebar (or click OK) to start, Cancel to abort.",
+            ):
+                raise RuntimeError("Run cancelled at the start gate")
             return
-        if not gate(self):
-            raise RuntimeError("Run cancelled at the start gate")
+        for dev in stimuli:
+            if not dev.start():
+                raise RuntimeError(f"Run cancelled: {dev.device_id} did not start")
 
     def on_started(self) -> None:
         """Subclass hook called immediately after ``start_all``."""
@@ -538,12 +542,12 @@ class Procedure:
 
     @property
     def is_running(self) -> bool:
-        """True while a run is in progress (started and not yet finished).
+        """True while devices are acquiring.
 
         Used to refuse destructive actions mid-recording — e.g. a hardware
         hot-reload, which would tear down devices and abandon their writers.
         """
-        return self.start_time is not None and not self._finished_event.is_set()
+        return self.state is RunState.RUNNING
 
     def run(self) -> None:
         """Drive a standard experiment run.
@@ -552,89 +556,39 @@ class Procedure:
         any combination of devices declared in ``hardware.yaml``.
         """
         self.logger.info("================= Starting experiment ===================")
-
-        # 0. Reset per-run termination state. `_cleanup_procedure` latches
-        # `_cleanup_started` so the duration timer and the primary's `finished`
-        # signal only tear down once; without resetting it here, a *second*
-        # `run()` would short-circuit cleanup at the guard, so `stop_all()`
-        # never fires and non-primary capture threads hang with their writers
-        # unflushed. Clearing `_finished_event` keeps `run_until_finished`
-        # correct on re-runs too.
-        self._cleanup_started = False
+        self.state = RunState.IDLE
         self._finished_event.clear()
 
-        # 1. DataManager / queue logger setup
         self.data.setup(self.config)
         if not self.data.devices:
             self.data.register_devices(self.config.hardware.devices.values())
         if not self.playback:
             self.data.start_queue_logger()
+        # From here the run owns resources (logger thread, then armed devices),
+        # so any exit has to go through `cleanup`.
+        self.state = RunState.ARMED
 
-        # 2. Gate stimulus devices by the selected task, then the subclass
-        # pre-run hook (which may further override `enabled` for custom logic).
+        # Enable only the stimuli bound to this task, then let the subclass
+        # refine `enabled` for fully custom logic.
         self._gate_stimuli_by_task()
         self.prerun()
 
         try:
-            # 3. Per-run device prep
             self.hardware.arm_all(self.config)
-
-            # 3b. Optional trigger gate (subclass hook): hold here until an
-            # external/manual trigger before anything starts.
             self.await_trigger()
 
-            # 4. Wire termination: primary device's finished signal triggers cleanup
-            self.hardware.primary.signals.finished.connect(self._cleanup_procedure)
-
-            # 5. Start everything
+            self.hardware.primary.signals.finished.connect(self.cleanup)
             self.start_time = datetime.now(timezone.utc)
+            self.state = RunState.RUNNING
             self.events.procedure_started.emit()
             self.hardware.start_all()
-
-            # 6. Subclass post-start hook
             self.on_started()
-
-            # 7. Arm the wall-clock duration cap (see `stop_after_duration`).
             self._arm_duration_timer()
         except Exception as e:
             self.logger.error(f"Error during experiment: {e}")
-            # Nothing between `arm_all` and `start_all` is self-terminating, so
-            # a failure or cancel in there would leave the armed rig running.
-            if self.start_time is None:
-                self._abort_armed()
-            else:
-                self._cleanup_procedure()
+            self.cleanup()
             self.events.procedure_error.emit(str(e))
             raise
-
-    def _abort_armed(self) -> None:
-        """Tear down a run that never started (arm failure / gate cancel).
-
-        Deliberately *not* :meth:`_cleanup_procedure`: with no ``start_time``
-        there is no acquisition to save, and that path would write timestamps
-        and a manifest for a run that never happened. Stop what arming brought
-        up, release the queue logger, and mark the procedure finished.
-        """
-        self.logger.info("Aborting armed run (never started)")
-        try:
-            if self._duration_timer is not None:
-                self._duration_timer.cancel()
-                self._duration_timer = None
-        except Exception as e:
-            self.logger.warning(f"Error cancelling duration timer: {e}")
-        try:
-            self.hardware.stop_all()
-        except Exception as e:
-            self.logger.error(f"Error stopping hardware during abort: {e}")
-        if not self.playback:
-            try:
-                self.data.stop_queue_logger()
-            except Exception as e:
-                self.logger.error(f"Error stopping the queue logger during abort: {e}")
-        # Latch the teardown guard so a follow-up `cleanup()` can't then save
-        # and write a manifest. `run()` clears the latch on the next run.
-        self._cleanup_started = True
-        self._finished_event.set()
 
     def _arm_duration_timer(self) -> None:
         """Stop the run after the configured ``duration`` (seconds).
@@ -668,8 +622,51 @@ class Procedure:
         self.logger.info("Data saved successfully")
 
     def cleanup(self) -> None:
-        """Public cleanup entry-point (manual stop)."""
-        self._cleanup_procedure()
+        """End the run and release everything it brought up.
+
+        The single teardown path: manual stop, duration cap, the primary
+        device finishing, and a failure during ``run`` all land here, and it
+        runs at most once per run. Data is saved only for a run that actually
+        started -- an arm failure or a cancel at the gate has no acquisition,
+        and saving one would write timestamps and a manifest for a run that
+        never happened.
+        """
+        if self.state in (RunState.IDLE, RunState.DONE):
+            return
+        started = self.state is RunState.RUNNING
+        self.state = RunState.DONE
+        self.logger.info("Cleanup Procedure")
+        try:
+            if self._duration_timer is not None:
+                self._duration_timer.cancel()
+                self._duration_timer = None
+            with suppress(Exception):
+                self.hardware.primary.signals.finished.disconnect(self.cleanup)
+            # Detach procedure-authored FrameProcessors so their worker threads
+            # exit and the camera frame signal is released before shutdown.
+            for proc in list(self.processors):
+                try:
+                    proc.detach()
+                except Exception as exc:
+                    self.logger.warning(f"processor detach failed: {exc}")
+            self.processors.clear()
+            self.hardware.stop_all()
+            if not self.playback:
+                self.data.stop_queue_logger()
+            if started:
+                self.stopped_time = datetime.now(timezone.utc)
+                if not self.playback:
+                    self.save_data()
+                    self._write_acquisition_manifest()
+                self.on_finished()
+                self.events.procedure_finished.emit()
+        except Exception as e:
+            self.logger.error(f"Error during cleanup: {e}")
+            self.events.procedure_error.emit(str(e))
+        finally:
+            # `events` is Qt; its Python-side connections only deliver with a
+            # live QApplication, so set the event directly for headless callers.
+            self._finished_event.set()
 
     def launch(self, *, splash: bool = True) -> int:
         """Open the Mesofield GUI for this procedure and block until closed.
@@ -729,49 +726,6 @@ class Procedure:
             if not self._finished_event.is_set():
                 self.cleanup()
         return self._finished_event.is_set()
-
-    def _cleanup_procedure(self):
-        # The wall-clock duration timer and the primary's `finished` signal can
-        # both reach here; run the teardown exactly once.
-        if self._cleanup_started:
-            return
-        self._cleanup_started = True
-        self.logger.info("Cleanup Procedure")
-        try:
-            if self._duration_timer is not None:
-                self._duration_timer.cancel()
-                self._duration_timer = None
-            try:
-                self.hardware.primary.signals.finished.disconnect(self._cleanup_procedure)
-            except Exception:
-                pass
-            # Detach any procedure-authored FrameProcessors so their worker
-            # threads exit and the camera frame signal is released before
-            # the hardware itself shuts down.
-            for proc in list(getattr(self, "processors", [])):
-                try:
-                    proc.detach()
-                except Exception as exc:
-                    self.logger.warning(f"processor detach failed: {exc}")
-            self.processors.clear()
-            self.hardware.stop_all()
-            if not self.playback:
-                self.data.stop_queue_logger()
-            self.stopped_time = datetime.now(timezone.utc)
-            if not self.playback:
-                self.save_data()
-                self._write_acquisition_manifest()
-            self.on_finished()
-            self.events.procedure_finished.emit()
-        except Exception as e:
-            self.logger.error(f"Error during cleanup: {e}")
-            self.events.procedure_error.emit(str(e))
-        finally:
-            # `events.procedure_finished` is a pyqtSignal; its Python-side
-            # `.connect`s only run with a live QApplication. Setting the
-            # event directly here keeps `run_until_finished` working in
-            # headless contexts (tests, CLI smoke runs, batch scripts).
-            self._finished_event.set()
 
     # ------------------------------------------------------------------
     # Acquisition manifest (mesokit-schema contract)

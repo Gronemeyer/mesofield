@@ -80,14 +80,45 @@ def _isolate_device_registry():
 # --------------------------------------------------------------------------- #
 # Modal-dialog guard: keep a stray .exec() from hanging the suite.
 # --------------------------------------------------------------------------- #
+@pytest.fixture
+def fake_ui(monkeypatch):
+    """Install a scriptable :mod:`mesofield.ui` implementation.
+
+    ``answer`` is what :meth:`confirm` returns; ``confirmed`` and ``alerts``
+    record what the run asked the operator.
+    """
+    from mesofield import ui as ui_mod
+
+    class _FakeUI:
+        answer = True
+
+        def __init__(self):
+            self.confirmed: list = []
+            self.alerts: list = []
+
+        def confirm(self, title, text):
+            self.confirmed.append(title)
+            return self.answer
+
+        def alert(self, title, text, detail=""):
+            self.alerts.append((title, text, detail))
+
+        def busy(self, title, text):
+            return ui_mod._NullBusy()
+
+    impl = _FakeUI()
+    monkeypatch.setattr(ui_mod, "_ui", impl)
+    return impl
+
+
 @pytest.fixture(autouse=True)
 def _no_blocking_dialogs(monkeypatch):
     """Make modal dialogs non-blocking so an unexpected ``.exec()`` can't hang.
 
     Once a GUI test creates the session ``QApplication``, a ``QMessageBox`` /
-    ``QDialog`` ``.exec()`` opens a real modal and blocks on user input (e.g.
-    ``PsychoPyDevice.confirm_ready_to_record``). Default them to an *accepted*
-    result; tests that assert a specific dialog outcome re-patch as needed.
+    ``QDialog`` ``.exec()`` opens a real modal and blocks on user input.
+    Default them to an *accepted* result; tests that assert a specific dialog
+    outcome re-patch as needed.
     """
     try:
         from PyQt6.QtWidgets import QDialog, QMessageBox

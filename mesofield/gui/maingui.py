@@ -22,8 +22,10 @@ from mesofield.gui import theme
 from mesofield.gui.controller import ConfigController
 from mesofield.gui.speedplotter import SerialWidget
 from mesofield.gui.config_wizard import ConfigWizard
+from mesofield.gui.operator_ui import QtOperatorUI
 from mesofield.config import ExperimentConfig
 from mesofield.protocols import Procedure
+from mesofield.ui import set_ui
 
 class MainWindow(QMainWindow):
     def __init__(self, procedure: Procedure, *, force_wizard: bool = False):
@@ -810,6 +812,9 @@ def run_gui(procedure: Procedure, *, splash: bool = True,
         time.sleep(0.5)  # give the splash a moment to show
 
     window = MainWindow(procedure, force_wizard=force_wizard)
+    # Operator prompts raised by the run (which drives from a worker thread)
+    # become Qt dialogs from here on.
+    set_ui(QtOperatorUI(window))
     window.show()
     if splash_screen is not None:
         splash_screen.finish(window)

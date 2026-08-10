@@ -13,7 +13,7 @@ Four signals form the standard contract:
 ``finished()``
     Emitted when the device has stopped on its own (e.g. an MDA sequence
     completed) *or* in response to ``stop()``.  The ``primary`` device's
-    ``finished`` is what triggers :meth:`Procedure._cleanup_procedure`.
+    ``finished`` is what triggers :meth:`Procedure.cleanup`.
 ``data(payload, device_ts)``
     Emitted for every datum that should land on
     :class:`~mesofield.data.manager.DataQueue`.  ``payload`` is the raw

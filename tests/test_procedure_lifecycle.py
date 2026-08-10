@@ -16,7 +16,27 @@ import pytest
 
 # Register the mock device types used by the hardware_yaml fixture.
 import mesofield.devices.mocks  # noqa: F401
-from mesofield.base import Procedure
+from mesofield.base import Procedure, RunState
+
+
+class _FakeStim:
+    device_type = "stimulus"
+    launch_phase = "start"
+    enabled = True
+    device_id = "stim"
+    file_type = ""
+    bids_type = None
+
+    def __init__(self, ok: bool):
+        self._ok = ok
+        self.started = False
+
+    def start(self) -> bool:
+        self.started = True
+        return self._ok
+
+    def stop(self) -> bool:
+        return True
 
 
 # --------------------------------------------------------------------------- #
@@ -77,26 +97,68 @@ def test_cleanup_runs_only_once(hardware_yaml, experiment_json, tmp_path):
     proc = _build(_HookProc, hardware_yaml, experiment_json, tmp_path)
     proc.run()
     proc.cleanup()
-    proc.cleanup()  # second teardown is a no-op (the _cleanup_started guard)
+    proc.cleanup()  # second teardown is a no-op (the run is already DONE)
     assert proc.calls.count("on_finished") == 1
 
 
 # --------------------------------------------------------------------------- #
 # Start gate (await_trigger)
 # --------------------------------------------------------------------------- #
-def test_start_gate_cancel_raises(hardware_yaml, experiment_json, tmp_path):
+def test_start_gate_cancel_raises(hardware_yaml, experiment_json, tmp_path, fake_ui):
     proc = _build(
         Procedure, hardware_yaml, experiment_json, tmp_path, start_on_trigger=True
     )
-    proc.start_gate = lambda _p: False  # operator cancels
-    with pytest.raises(RuntimeError):
+    fake_ui.answer = False  # operator cancels
+    with pytest.raises(RuntimeError, match="cancelled at the start gate"):
         proc.run()
 
 
-def test_start_gate_cancel_tears_down_the_armed_run(
-    hardware_yaml, experiment_json, tmp_path
+def test_start_gate_proceeds_when_accepted(
+    hardware_yaml, experiment_json, tmp_path, fake_ui
 ):
-    """Cancelling at the gate must not leave the armed rig running.
+    proc = _build(
+        Procedure, hardware_yaml, experiment_json, tmp_path, start_on_trigger=True
+    )
+    proc.run()
+    try:
+        assert len(fake_ui.confirmed) == 1     # operator asked exactly once
+        assert proc.state is RunState.RUNNING  # run proceeded past the gate
+    finally:
+        proc.cleanup()
+
+
+def test_start_gate_defers_to_a_start_phase_stimulus(
+    hardware_yaml, experiment_json, tmp_path, fake_ui
+):
+    """With a start-phase stimulus, its own ready gate is the trigger."""
+    proc = _build(
+        Procedure, hardware_yaml, experiment_json, tmp_path, start_on_trigger=True
+    )
+    stim = _FakeStim(ok=True)
+    proc.hardware.devices["stim"] = stim
+    proc.run()
+    try:
+        assert stim.started
+        assert fake_ui.confirmed == []
+    finally:
+        proc.cleanup()
+
+
+def test_start_gate_cancels_when_the_stimulus_fails(
+    hardware_yaml, experiment_json, tmp_path, fake_ui
+):
+    proc = _build(
+        Procedure, hardware_yaml, experiment_json, tmp_path, start_on_trigger=True
+    )
+    proc.hardware.devices["stim"] = _FakeStim(ok=False)
+    with pytest.raises(RuntimeError, match="did not start"):
+        proc.run()
+
+
+def test_cancel_at_the_gate_tears_down_the_armed_run(
+    hardware_yaml, experiment_json, tmp_path, fake_ui
+):
+    """Cancelling must not leave the armed rig running.
 
     Devices and the queue logger are up by the time the gate is consulted and
     nothing below it is self-terminating. Equally, the run never started, so no
@@ -106,45 +168,30 @@ def test_start_gate_cancel_tears_down_the_armed_run(
     proc = _build(
         Procedure, hardware_yaml, experiment_json, tmp_path, start_on_trigger=True
     )
-    proc.start_gate = lambda _p: False
+    fake_ui.answer = False
     stopped: list = []
-    for dev in proc.config.hardware.devices.values():
+    for dev in proc.hardware.devices.values():
         original = dev.stop
         dev.stop = lambda *a, _d=dev, _o=original, **k: (
             stopped.append(_d.device_id) or _o(*a, **k)
         )
 
-    with pytest.raises(RuntimeError, match="cancelled at the start gate"):
+    with pytest.raises(RuntimeError):
         proc.run()
 
-    assert stopped == [
-        d.device_id for d in proc.config.hardware.devices.values()
-    ], "armed devices were left running"
+    assert stopped == [d.device_id for d in proc.hardware.devices.values()]
     logger_thread = proc.data._queue_thread
-    assert logger_thread is None or not logger_thread.is_alive(), "queue logger left running"
-    assert proc._finished_event.is_set(), "run never reported finished"
+    assert logger_thread is None or not logger_thread.is_alive()
+    assert proc.state is RunState.DONE
+    assert proc._finished_event.is_set()
     assert proc.start_time is None
     assert proc.stopped_time is None
-    assert not list(out.rglob("manifest.json")), "manifest written for a run that never started"
+    assert not list(out.rglob("manifest.json"))
 
     # A follow-up cleanup() must not then save against an unset start_time.
     proc.cleanup()
     assert not list(out.rglob("manifest.json"))
     assert proc.stopped_time is None
-
-
-def test_start_gate_proceeds_when_accepted(hardware_yaml, experiment_json, tmp_path):
-    gate_calls = []
-    proc = _build(
-        Procedure, hardware_yaml, experiment_json, tmp_path, start_on_trigger=True
-    )
-    proc.start_gate = lambda p: (gate_calls.append(p) or True)
-    proc.run()
-    try:
-        assert gate_calls == [proc]      # gate consulted exactly once
-        assert proc.start_time is not None  # run proceeded past the gate
-    finally:
-        proc.cleanup()
 
 
 # --------------------------------------------------------------------------- #

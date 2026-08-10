@@ -122,41 +122,24 @@ def test_rerun_relaunches_same_instance():
         assert d.start() and d.handshake_ok
 
 
-def test_operator_hooks_and_cancel():
-    calls = {"launching": 0, "dismiss": 0, "confirm": 0}
-
+def test_ready_gate_cancel_stops_the_subprocess(fake_ui):
     class _Interactive(_FakeStim):
-        def present_launching(self):
-            calls["launching"] += 1
+        confirm_on_ready = True
 
-        def dismiss_launching(self):
-            calls["dismiss"] += 1
-
-        def confirm_ready_to_record(self):
-            calls["confirm"] += 1
-            return False  # operator cancels at the ready gate
-
+    fake_ui.answer = False  # operator cancels at the ready gate
     with _run_device(_Interactive({"id": "fake", "ready_timeout": 8}, _ready_cmd("FAKE_READY"))) as d:
         d.arm(None)
-        assert d.start() is False  # cancelled at the ready gate
-        assert calls == {"launching": 1, "dismiss": 1, "confirm": 1}
-        # Cancelling stops the subprocess.
+        assert d.start() is False
+        assert len(fake_ui.confirmed) == 1
         assert d._process is None or not d._process.is_running()
 
 
-def test_present_failure_receives_output_tail():
-    captured = {}
-
-    class _Reporter(_FakeStim):
-        def present_failure(self, message, detail=""):
-            captured["message"] = message
-            captured["detail"] = detail
-
+def test_failure_alert_carries_the_output_tail(fake_ui):
     cmd = [sys.executable, "-c", "import sys; sys.stdout.write('boom-marker\\n'); sys.exit(2)"]
-    d = _Reporter({"id": "fake", "ready_timeout": 8}, cmd)
+    d = _FakeStim({"id": "fake", "ready_timeout": 8}, cmd)
     d.arm(None)
     assert d.start() is False
-    assert "boom-marker" in captured.get("detail", "")
+    assert "boom-marker" in fake_ui.alerts[-1][2]
 
 
 # ---------------------------------------------------------------------------

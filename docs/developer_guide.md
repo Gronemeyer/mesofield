@@ -41,13 +41,13 @@ The four backbone classes are:
 3. gate stimulus devices by task
 4. prerun                    — subclass hook (default: no-op)
 5. hardware.arm_all          — per-run prep on every device
-6. await_trigger             — subclass hook; hold for an external trigger
-7. connect primary.signals.finished -> _cleanup_procedure
+6. await_trigger             — hold for the operator, if configured
+7. connect primary.signals.finished -> cleanup
 8. hardware.start_all        — procedure_started emits just before
 9. on_started                — subclass hook
 10. arm the wall-clock duration cap
 11. on_finished              — subclass hook (primary finished, or cap fires)
-12. save_data + manifest write + cleanup
+12. cleanup: stop_all + save_data + manifest write
 ```
 
 Hooks `prerun`, `await_trigger`, `on_started`, `on_finished` are no-ops on

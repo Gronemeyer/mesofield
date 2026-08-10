@@ -149,10 +149,6 @@ class ConfigController(QWidget):
         self.procedure = procedure
         self._record_thread: threading.Thread | None = None
         self._stop_live_hook = None
-        # Own the "start on trigger" gate here (GUI layer) 
-        # base.Procedure.await_trigger() calls this after
-        # arming and before starting devices.
-        self.procedure.start_gate = self._start_gate
         if display_keys is None and hasattr(self.config, "display_keys"):
             display_keys = self.config.display_keys
         self.display_keys = list(display_keys) if display_keys is not None else None
@@ -404,75 +400,6 @@ class ConfigController(QWidget):
                 self._record_thread = None
                 QMessageBox.critical(self, "Procedure Error", f"Failed to run procedure: {str(e)}")
                 return
-
-    def _start_gate(self, procedure) -> bool:
-        """Hold the armed run until the operator triggers the start.
-
-        Injected onto the procedure as ``start_gate`` and called from
-        :meth:`mesofield.base.Procedure.await_trigger` when ``start_on_trigger``
-        is set (after arming, before any device starts).
-
-        Stimulus-device-agnostic: launch every *enabled* stimulus device that
-        defers its launch to start (``launch_phase == "start"`` -- the
-        operator-in-the-loop kind, e.g. PsychoPy). Each device's ``start`` owns
-        its own readiness handshake and foreground "press to start" gate (its
-        presentation hooks), and returns ``False`` on a failed handshake or an
-        operator cancel -- in which case we abort the run. Arm-phase stimuli
-        (e.g. MousePortal) are already up from ``arm`` and need no gate here.
-        When no start-phase stimulus is present (a spontaneous baseline), show a
-        focused manual start dialog. Returns ``True`` to proceed, ``False`` to
-        cancel.
-
-        ``dev.start()`` stays on the calling thread on purpose: it spawns a
-        subprocess and blocks on its readiness handshake, which would freeze the
-        window if it ran on the GUI thread. Only the operator dialogs it reaches
-        are marshaled there (see :mod:`mesofield.gui._mainthread`).
-        """
-        stimuli = [
-            d for d in procedure.hardware.devices.values()
-            if getattr(d, "device_type", None) == "stimulus"
-            and getattr(d, "launch_phase", "start") == "start"
-            and getattr(d, "enabled", True)
-        ]
-        if not stimuli:
-            return self._manual_start_gate()
-        for dev in stimuli:
-            # start() launches, waits on the readiness handshake, and runs the
-            # device's ready gate; it surfaces any failure via the device's
-            # present_failure hook, so we just honor the result.
-            if not dev.start():
-                procedure.logger.info(
-                    f"Start gate: {dev.device_id} did not start; aborting run."
-                )
-                return False
-        return True
-
-    def _manual_start_gate(self) -> bool:
-        """Focused modal "press to start" gate for runs with no stimulus.
-
-        The gate is reached from the run, which does not own the GUI thread, so
-        the dialog is built and executed there via ``run_on_main_thread``.
-        """
-        from mesofield.gui._mainthread import run_on_main_thread
-
-        def _ask() -> bool:
-            from mesofield.devices.subprocesses.psychopy import force_foreground
-
-            box = QMessageBox(self)
-            box.setWindowTitle("Start recording")
-            box.setText(
-                "Ready to record (no visual stimulus).\n"
-                "Press spacebar (or click OK) to start, Cancel to abort."
-            )
-            box.setStandardButtons(
-                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
-            )
-            box.setDefaultButton(QMessageBox.StandardButton.Ok)
-            box.setWindowModality(Qt.WindowModality.ApplicationModal)
-            force_foreground(box)
-            return box.exec() == QMessageBox.StandardButton.Ok
-
-        return run_on_main_thread(_ask)
 
     def _abort(self):
         """Safely stop the running Procedure (stops hardware, saves data)."""

@@ -1,20 +1,13 @@
 """GUI controller -- run-state transitions and ExperimentConfig mutation.
 
 Builds the real ``ConfigController`` headlessly (offscreen Qt via conftest +
-pytest-qt's session QApplication). Covers:
-
-* run-state: record() -> recordStarted, the run-lifecycle button toggles, and
-  the start gate (stimulus vs manual);
-* config mutation: adding subjects / parameters / notes goes through the
-  controller into the live ExperimentConfig.
-
-Dialogs (QInputDialog / QMessageBox / force_foreground) are monkeypatched so no
-modal ever blocks.
+pytest-qt's session QApplication). Covers run-state (record() -> recordStarted,
+the run-lifecycle button toggles) and config mutation (adding subjects /
+parameters / notes lands in the live ExperimentConfig). Dialogs are
+monkeypatched so no modal ever blocks.
 """
 
 from __future__ import annotations
-
-import threading
 
 import pytest
 
@@ -39,21 +32,6 @@ def controller(qtbot, hardware_yaml, experiment_json, tmp_path):
     return ctrl
 
 
-class _FakeStim:
-    device_type = "stimulus"
-    launch_phase = "start"
-    enabled = True
-    device_id = "stim"
-
-    def __init__(self, ok: bool):
-        self._ok = ok
-        self.started = False
-
-    def start(self) -> bool:
-        self.started = True
-        return self._ok
-
-
 # --------------------------------------------------------------------------- #
 # Run-state / threading
 # --------------------------------------------------------------------------- #
@@ -72,76 +50,6 @@ def test_record_emits_record_started(controller, qtbot, monkeypatch):
     monkeypatch.setattr(controller.procedure, "run", lambda: None)
     with qtbot.waitSignal(controller.recordStarted, timeout=1000):
         controller.record()
-
-
-def test_start_gate_no_stimulus_uses_manual(controller, monkeypatch):
-    monkeypatch.setattr(controller, "_manual_start_gate", lambda: True)
-    assert controller._start_gate(controller.procedure) is True
-
-
-def test_start_gate_with_stimulus_proceeds(controller):
-    controller.procedure.hardware.devices["stim"] = _FakeStim(ok=True)
-    assert controller._start_gate(controller.procedure) is True
-    assert controller.procedure.hardware.devices["stim"].started is True
-
-
-def test_start_gate_with_failed_stimulus_cancels(controller):
-    controller.procedure.hardware.devices["stim"] = _FakeStim(ok=False)
-    assert controller._start_gate(controller.procedure) is False
-
-
-def test_manual_start_gate_ok_proceeds(controller, monkeypatch):
-    from PyQt6.QtWidgets import QMessageBox
-
-    # _manual_start_gate imports force_foreground lazily from its source module.
-    monkeypatch.setattr(
-        "mesofield.devices.subprocesses.psychopy.force_foreground", lambda w: None
-    )
-    monkeypatch.setattr(QMessageBox, "exec", lambda self: QMessageBox.StandardButton.Ok)
-    assert controller._manual_start_gate() is True
-
-
-def test_manual_start_gate_from_record_thread_builds_dialog_on_gui_thread(
-    controller, qtbot, monkeypatch
-):
-    """Regression: the gate used to hang when reached off the GUI thread.
-
-    ``record()`` runs the procedure on a worker thread, so the gate builds its
-    dialog there; a QWidget created off the GUI thread can't be parented to one
-    and its ``exec()`` never returns. The other gate tests call it on the main
-    thread, which is why none of them caught it.
-    """
-    from PyQt6.QtCore import QThread
-    from PyQt6.QtWidgets import QApplication, QMessageBox
-
-    monkeypatch.setattr(
-        "mesofield.devices.subprocesses.psychopy.force_foreground", lambda w: None
-    )
-    seen: dict = {}
-
-    def _exec(box):
-        seen["thread"] = box.thread()
-        seen["exec_thread"] = QThread.currentThread()
-        return QMessageBox.StandardButton.Ok
-
-    monkeypatch.setattr(QMessageBox, "exec", _exec)
-
-    # No start-phase stimulus on the mock rig -> the manual gate.
-    controller.config.set("start_on_trigger", True)
-    result: dict = {}
-    thread = threading.Thread(
-        target=lambda: result.update(gate=controller._start_gate(controller.procedure)),
-        name="mesofield-record",
-        daemon=True,
-    )
-    thread.start()
-    qtbot.waitUntil(lambda: "gate" in result, timeout=5000)
-    thread.join(timeout=1)
-
-    assert result["gate"] is True
-    gui_thread = QApplication.instance().thread()
-    assert seen["thread"] is gui_thread, "dialog was created off the GUI thread"
-    assert seen["exec_thread"] is gui_thread, "dialog was executed off the GUI thread"
 
 
 # --------------------------------------------------------------------------- #

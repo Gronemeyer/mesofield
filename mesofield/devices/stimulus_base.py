@@ -30,11 +30,11 @@ Optional hooks
   failure even if the child is still alive (PsychoPy); default False.
 - ``enabled`` (instance attr) -- per-run gate; a Procedure may set it False to
   record a stimulus-free task.
+- ``confirm_on_ready`` (class attr) -- gate recording behind an operator
+  confirmation once the handshake fires (operator-in-the-loop stimuli).
 
-Operator presentation hooks (no-op/log by default, so automatic stimuli are
-unaffected; a GUI subclass overrides them to drive modal dialogs):
-:meth:`present_launching` / :meth:`dismiss_launching`, :meth:`present_failure`,
-and :meth:`confirm_ready_to_record` (the post-readiness "press to record" gate).
+Anything the operator sees goes through :mod:`mesofield.ui`, so this layer
+stays free of any UI toolkit.
 """
 
 from __future__ import annotations
@@ -44,6 +44,7 @@ from datetime import datetime
 from typing import Any, ClassVar, Dict, List, Optional
 
 from mesofield.signals import DeviceSignals
+from mesofield.ui import ui
 from mesofield.utils._logger import get_logger
 from mesofield.devices.subprocesses.base import SubprocessSupervisor
 
@@ -64,6 +65,8 @@ class SubprocessStimulusDevice:
     # False (default), a still-running-but-not-ready child is accepted and the
     # run continues, since some apps are slow to print their token (MousePortal).
     require_ready: ClassVar[bool] = False
+    # Operator-in-the-loop: confirm before recording starts (PsychoPy).
+    confirm_on_ready: ClassVar[bool] = False
 
     def __init__(self, cfg: Dict[str, Any]):
         from psygnal import SignalInstance
@@ -144,44 +147,6 @@ class SubprocessStimulusDevice:
         """Teardown for anything opened in :meth:`prepare`. No-op by default."""
         return None
 
-    # -- operator presentation hooks (override in a GUI-facing subclass) -
-    # These let an operator-in-the-loop stimulus (PsychoPy) surface modal
-    # dialogs without dragging Qt into this framework-agnostic base: the
-    # defaults are silent / log-only, so automatic stimuli (MousePortal) are
-    # unaffected. A subclass that overrides them imports its GUI toolkit only
-    # in its own module.
-    def present_launching(self) -> None:
-        """Show a non-blocking 'launching, waiting for readiness' indicator.
-
-        Called right after the subprocess is spawned and before the readiness
-        wait (which pumps Qt events, so a shown-but-not-``exec``'d dialog stays
-        responsive). Pair with :meth:`dismiss_launching`. No-op by default.
-        """
-        return None
-
-    def dismiss_launching(self) -> None:
-        """Dismiss the indicator shown by :meth:`present_launching`. No-op default."""
-        return None
-
-    def present_failure(self, message: str, detail: str = "") -> None:
-        """Surface a launch/handshake failure to the operator.
-
-        ``detail`` carries the child's last output (see
-        :attr:`SubprocessSupervisor.output_tail`). Logs by default; a GUI
-        subclass shows a dialog.
-        """
-        self.logger.error(message + (f"\n{detail}" if detail else ""))
-
-    def confirm_ready_to_record(self) -> bool:
-        """Operator gate after the stimulus reports ready; ``False`` cancels.
-
-        Runs inside :meth:`start` for ``launch_phase == "start"`` devices once
-        the readiness handshake has fired. Default proceeds immediately
-        (automatic stimuli); PsychoPy shows a focused "press to start
-        recording" dialog over its full-screen window.
-        """
-        return True
-
     # -- handshake state ------------------------------------------------
     @property
     def handshake_ok(self) -> bool:
@@ -236,10 +201,16 @@ class SubprocessStimulusDevice:
         if not self._launch_and_wait():
             return False
         # Operator gate: only after a clean readiness handshake.
-        if self._gui_status == "ready" and not self.confirm_ready_to_record():
-            self.logger.info(f"{self.device_id}: operator cancelled at the ready gate.")
-            self.stop()
-            return False
+        if self.confirm_on_ready and self.handshake_ok:
+            proceed = ui().confirm(
+                f"{self.device_id} ready",
+                f"{self.device_id} is ready.\n"
+                "Press spacebar (or click OK) to start recording.",
+            )
+            if not proceed:
+                self.logger.info(f"{self.device_id}: operator cancelled at the ready gate.")
+                self.stop()
+                return False
         return True
 
     def stop(self) -> bool:
@@ -260,7 +231,7 @@ class SubprocessStimulusDevice:
 
     # -- launch helpers -------------------------------------------------
     def _launch_and_wait(self) -> bool:
-        """Spawn the subprocess and block (pumping Qt) on its readiness.
+        """Spawn the subprocess and block on its readiness.
 
         Returns ``True`` if the child reached ``ready`` (or, when
         ``require_ready`` is False, is still running after the timeout) and
@@ -268,9 +239,7 @@ class SubprocessStimulusDevice:
         """
         problem = self.preflight()
         if problem is not None:
-            self.logger.error(problem)
-            self._set_status("failed")
-            self.present_failure(problem)
+            self._fail(problem)
             return False
 
         self._process = SubprocessSupervisor(
@@ -288,9 +257,12 @@ class SubprocessStimulusDevice:
             f"Launching {self.device_id}; waiting for '{self.ready_token}'..."
         )
         self._process.start()
-        self.present_launching()
+        busy = ui().busy(
+            f"Launching {self.device_id}",
+            f"Waiting for {self.device_id} to report '{self.ready_token}'...",
+        )
         try:
-            if self._wait_ready_pumping(self.ready_timeout):
+            if self._wait_ready(self.ready_timeout):
                 self.logger.info(f"{self.device_id} is ready.")
                 self._set_status("ready")
             elif self._process.is_running() and not self.require_ready:
@@ -306,7 +278,7 @@ class SubprocessStimulusDevice:
                 )
                 self._set_status("failed")
         finally:
-            self.dismiss_launching()
+            busy.close()
 
         if self._gui_status == "failed":
             tail = getattr(self._process, "output_tail", "") if self._process else ""
@@ -318,44 +290,32 @@ class SubprocessStimulusDevice:
             # whole process tree now and is a no-op on an already-dead parent.
             if self._process is not None:
                 self._process.terminate()
-            self.present_failure(
-                f"{self.device_id} did not report ready ('{self.ready_token}').",
-                tail,
+            self._fail(
+                f"{self.device_id} did not report ready ('{self.ready_token}').", tail
             )
             return False
         return True
 
-    def _wait_ready_pumping(self, timeout: float) -> bool:
-        """Wait for the readiness handshake, pumping Qt events if a GUI is up.
+    def _fail(self, message: str, detail: str = "") -> None:
+        self._set_status("failed")
+        self.logger.error(message + (f"\n{detail}" if detail else ""))
+        ui().alert(f"{self.device_id} error", message, detail)
 
-        A caller that *is* the Qt main thread would freeze the window on a plain
-        blocking wait, so pump ``processEvents`` there to keep it responsive
-        during the brief boot. Off that thread there is nothing to pump -- the
-        GUI thread pumps itself -- so this just polls, as headless callers do.
+    def _wait_ready(self, timeout: float) -> bool:
+        """Poll for the readiness handshake.
 
-        Polls in short slices so it can **fail fast**: if the child exits before
-        the handshake (a stimulus script that errors on startup), this returns
+        Short slices so it can **fail fast**: if the child exits before the
+        handshake (a stimulus script that errors on startup), this returns
         immediately instead of waiting out the full ``timeout``.
         """
         if self._process is None:
             return False
-        try:
-            from mesofield.gui._mainthread import on_main_thread
-            from PyQt6.QtWidgets import QApplication
-
-            app = QApplication.instance() if on_main_thread() else None
-        except Exception:
-            app = None
-
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             if self._process.wait_ready(timeout=0.05):
                 return True
             if not self._process.is_running():
-                # Child exited before the handshake -- don't wait out the timeout.
                 return self._process.wait_ready(timeout=0.0)
-            if app is not None:
-                app.processEvents()
         return self._process.wait_ready(timeout=0.0)
 
     def _on_finished(self, _code: int = 0) -> None:

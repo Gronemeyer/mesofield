@@ -765,7 +765,7 @@ class OpenCVCamera(BaseCamera, QThread):
                 return
         # Any recording OpenCV camera with a known length self-terminates after
         # its expected frame count, so a camera never depends solely on the
-        # primary -> _cleanup_procedure -> stop_all chain to stop (which would
+        # primary -> Procedure.cleanup -> stop_all chain to stop (which would
         # strand its capture thread + open writer if cleanup misfires). Only the
         # *primary* emits `signals.finished` on natural stop (see the finally
         # block) to drive Procedure cleanup; non-primary cameras just stop

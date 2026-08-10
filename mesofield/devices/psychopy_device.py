@@ -7,10 +7,8 @@ Launches a PsychoPy experiment script as a subprocess on the shared
 MousePortal and any other external-app stimulus device.
 
 PsychoPy is *operator-in-the-loop*: unlike MousePortal (which launches silently
-at ``arm``), it launches at ``start`` and overrides the base's presentation
-hooks to show a "launching" dialog, surface a startup failure with the script's
-output, and gate recording behind a focused "press to start" dialog forced over
-PsychoPy's full-screen window. The readiness handshake is mandatory
+at ``arm``), it launches at ``start`` and gates recording behind an operator
+confirmation (``confirm_on_ready``). The readiness handshake is mandatory
 (``require_ready = True``): if ``PSYCHOPY_READY`` never arrives, the run fails
 rather than recording against a stimulus that never started.
 
@@ -43,10 +41,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 
 from mesofield import DeviceRegistry
 from mesofield.devices.stimulus_base import SubprocessStimulusDevice
-from mesofield.devices.subprocesses.psychopy import (
-    force_foreground,
-    get_psychopy_python_exe,
-)
+from mesofield.devices.subprocesses.psychopy import get_psychopy_python_exe
 
 
 @DeviceRegistry.register("psychopy")
@@ -58,6 +53,7 @@ class PsychoPyDevice(SubprocessStimulusDevice):
     default_device_id: ClassVar[str] = "psychopy"
     # The PSYCHOPY_READY handshake is mandatory (see module docstring).
     require_ready: ClassVar[bool] = True
+    confirm_on_ready: ClassVar[bool] = True
 
     def __init__(self, cfg: Dict[str, Any]):
         super().__init__(cfg)
@@ -67,7 +63,6 @@ class PsychoPyDevice(SubprocessStimulusDevice):
         self.ready_timeout = float(cfg.get("ready_timeout", 60.0))
         self._script: Optional[str] = None
         self._params_b64: Optional[str] = None
-        self._launching_box = None  # QMessageBox shown while waiting for ready
 
     # -- SubprocessStimulusDevice hooks ---------------------------------
     def serves_task(self, task, config) -> bool:
@@ -112,106 +107,6 @@ class PsychoPyDevice(SubprocessStimulusDevice):
         from the Windows registry.
         """
         return self.python_exe or get_psychopy_python_exe()
-
-    # -- operator presentation hooks ------------------------------------
-    # These run wherever the device lifecycle runs, which is not the GUI thread,
-    # so every widget below is built and shown through `run_on_main_thread`.
-    # PyQt6 stays lazily imported so the device is importable headless.
-    def present_launching(self) -> None:
-        """Show a non-blocking 'waiting for PSYCHOPY_READY' indicator."""
-        if self._qapp() is None:
-            return
-        from mesofield.gui._mainthread import run_on_main_thread
-
-        def _show():
-            from PyQt6.QtCore import Qt
-            from PyQt6.QtWidgets import QMessageBox
-
-            box = QMessageBox()
-            box.setWindowTitle("Launching PsychoPy")
-            box.setText("Waiting for the PsychoPy script to print PSYCHOPY_READY...")
-            box.setStandardButtons(QMessageBox.StandardButton.NoButton)
-            box.setWindowModality(Qt.WindowModality.ApplicationModal)
-            box.show()
-            box.raise_()
-            box.activateWindow()
-            return box
-
-        self._launching_box = run_on_main_thread(_show)
-
-    def dismiss_launching(self) -> None:
-        box = self._launching_box
-        if box is None:
-            return
-        self._launching_box = None
-        if self._qapp() is None:
-            box.close()
-            return
-        from mesofield.gui._mainthread import run_on_main_thread
-
-        run_on_main_thread(box.close)
-
-    def present_failure(self, message: str, detail: str = "") -> None:
-        super().present_failure(message, detail)  # always log
-        if self._qapp() is None:
-            return
-        from mesofield.gui._mainthread import run_on_main_thread
-
-        def _show():
-            from PyQt6.QtWidgets import QMessageBox
-
-            box = QMessageBox()
-            box.setIcon(QMessageBox.Icon.Critical)
-            box.setWindowTitle("PsychoPy Error")
-            box.setText(message)
-            if detail.strip():
-                box.setDetailedText(detail.strip())
-            box.exec()
-
-        run_on_main_thread(_show)
-
-    def confirm_ready_to_record(self) -> bool:
-        """Focused 'PsychoPy ready -- press to start recording' gate.
-
-        Forced to the foreground over PsychoPy's full-screen window so a
-        spacebar press lands on this dialog (OK is the default button), not on
-        PsychoPy. Dismissing it returns control to the Procedure, which then
-        starts the recording devices; the operator then presses spacebar in the
-        PsychoPy window to begin the stimulus (cameras lead; timelines are
-        aligned post-hoc). Returns ``False`` (Cancel) to abort the run.
-        """
-        if self._qapp() is None:
-            return True
-        from mesofield.gui._mainthread import run_on_main_thread
-
-        def _ask() -> bool:
-            from PyQt6.QtCore import Qt
-            from PyQt6.QtWidgets import QMessageBox
-
-            box = QMessageBox()
-            box.setWindowTitle("PsychoPy Ready")
-            box.setText(
-                "PsychoPy is ready.\nPress spacebar (or click OK) to start recording."
-            )
-            box.setStandardButtons(
-                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
-            )
-            box.setDefaultButton(QMessageBox.StandardButton.Ok)
-            box.setWindowModality(Qt.WindowModality.ApplicationModal)
-            force_foreground(box)
-            return box.exec() == QMessageBox.StandardButton.Ok
-
-        return run_on_main_thread(_ask)
-
-    @staticmethod
-    def _qapp():
-        """Return the live QApplication, or None when running headless."""
-        try:
-            from PyQt6.QtWidgets import QApplication
-
-            return QApplication.instance()
-        except Exception:
-            return None
 
 
 # Manifest-driven dispatch: SOURCE_REGISTRY["psychopy"] resolves to the parser
