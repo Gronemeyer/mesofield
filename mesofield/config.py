@@ -310,7 +310,9 @@ class ExperimentConfig(ConfigRegister):
     @property
     def _cores(self):# -> tuple[CMMCorePlus, ...]:
         """Return the tuple of CMMCorePlus instances from the hardware cameras."""
-        return tuple(cam.core for cam in self.hardware.cameras if hasattr(cam, 'core'))
+        # Every BaseCamera exposes ``core``; it is None for non-mmcore backends
+        # (OpenCV, playback, mocks), so filter on the value rather than hasattr.
+        return tuple(cam.core for cam in self.hardware.cameras if getattr(cam, 'core', None) is not None)
 
     @property
     def experiment_dir(self) -> str:
