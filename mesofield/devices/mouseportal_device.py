@@ -46,6 +46,15 @@ from mesofield.devices.stimulus_base import SubprocessStimulusDevice
 # that still carry these sections are honored as a fallback.
 _PORTAL_SECTIONS = ("window", "corridor", "camera", "fog", "experiment")
 
+# MousePortal's own WindowConfig defaults ``origin_x``/``origin_y`` to None,
+# which its ShowBase setup then hands to Panda3D's ``WindowProperties.setOrigin``
+_DEFAULT_WINDOW: Dict[str, Any] = {
+    "width": 1920,
+    "height": 1080,
+    "origin_x": 0,
+    "origin_y": 0,
+}
+
 
 @DeviceRegistry.register("mouseportal")
 class MousePortalDevice(SubprocessStimulusDevice):
@@ -291,6 +300,9 @@ class MousePortalDevice(SubprocessStimulusDevice):
             for section in _PORTAL_SECTIONS
             if section in params
         }
+        window = dict(_DEFAULT_WINDOW)
+        window.update(portal.get("window") or {})
+        portal["window"] = window
         portal["input"] = {
             "mode": "network",
             "host": self.host,
