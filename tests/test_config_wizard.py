@@ -67,7 +67,8 @@ def test_console_replays_records_logged_before_it_existed(qtbot, wizard):
     win.close()
 
 
-def test_tiff_viewer_moved_to_the_wizard_window(qtbot, wizard):
+def test_tiff_viewer_reachable_from_wizard_and_main_toolbar(qtbot, wizard):
+    """Both entry points exist: the wizard button and the main window toolbar."""
     from mesofield.gui.wizard_window import WizardWindow
     from mesofield.gui.maingui import MainWindow
 
@@ -77,7 +78,7 @@ def test_tiff_viewer_moved_to_the_wizard_window(qtbot, wizard):
     qtbot.addWidget(win)
     labels = [b.text() for b in win.findChildren(QPushButton)]
     assert any("TIFF Viewer" in t for t in labels)
-    assert not hasattr(MainWindow, "_open_tiff_viewer")
+    assert hasattr(MainWindow, "_open_tiff_viewer")
     win.close()
 
 

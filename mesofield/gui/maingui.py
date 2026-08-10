@@ -63,15 +63,21 @@ class MainWindow(QMainWindow):
         #--------------------------------------------------------------------#
 
         #=========================== Toolbar action ==========================#
-        # Place frequently used tools on the main hardware toolbar. (The TIFF
-        # viewer lives on the Mesofield Wizard instead -- that's the window a
-        # user sits in between runs, which is when they browse data.)
+        # Place frequently used tools on the main hardware toolbar.
 
         self._act_wizard = QAction("⚙ Setup…", self)
         self._act_wizard.setToolTip("Open the Mesofield Wizard to load a rig or experiment.")
         self._act_wizard.triggered.connect(self.open_wizard)
         self._toolbar.addAction(self._act_wizard)
         self._wizard_window = None  # keep a reference so the dialog isn't GC'd
+
+        self._act_tiff_viewer = QAction("TIFF Viewer…", self)
+        self._act_tiff_viewer.setToolTip(
+            "Open the TIFF ROI viewer (read-only; refuses files in the active recording)."
+        )
+        self._act_tiff_viewer.triggered.connect(self._open_tiff_viewer)
+        self._toolbar.addAction(self._act_tiff_viewer)
+        self._tiff_viewer = None  # keep a reference so the window isn't GC'd
         #--------------------------------------------------------------------#
 
         #============================== Layout ==============================#
@@ -167,6 +173,34 @@ class MainWindow(QMainWindow):
 
         self._wizard_window = WizardWindow(self.config_wizard, parent=self)
         self._wizard_window.show()
+
+    def _open_tiff_viewer(self):
+        """Launch the TIFF ROI viewer pre-pointed at the current experiment dir.
+
+        The viewer is given a reference to the running ``Procedure`` so it can
+        refuse to open any file inside the active recording's output directory
+        while a camera is acquiring.
+        """
+        from mesofield.gui.tiff_viewer import TiffViewer
+
+        cfg = self.procedure.config
+        initial_dir = (
+            getattr(cfg, "bids_dir", None)
+            or getattr(cfg, "save_dir", None)
+            or ""
+        )
+
+        # Re-use existing window if still open; otherwise create a new one.
+        if self._tiff_viewer is not None and self._tiff_viewer.isVisible():
+            self._tiff_viewer.raise_()
+            self._tiff_viewer.activateWindow()
+            return
+
+        viewer = TiffViewer(initial_dir=initial_dir, procedure=self.procedure)
+        viewer.setWindowFlag(Qt.WindowType.Window, True)
+        viewer.resize(1100, 800)
+        viewer.show()
+        self._tiff_viewer = viewer
 
     def toggle_console(self):
         """Switch to the Terminal tab."""
