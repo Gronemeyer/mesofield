@@ -19,8 +19,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from PyQt6.QtCore import QEvent, QObject
 from PyQt6.QtGui import QColor, QPalette
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QAbstractScrollArea, QAbstractSpinBox, QApplication, QWidget
 
 
 # ---------------------------------------------------------------------------
@@ -406,6 +407,51 @@ def terminal_qss() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Scroll-wheel guard
+# ---------------------------------------------------------------------------
+class _SpinBoxWheelGuard(QObject):
+    """Stop the scroll wheel from changing spin-box values.
+
+    Scrolling a tab that contains spin boxes (the MousePortal and Setup tabs
+    are mostly spin boxes) otherwise silently edits whichever field happens to
+    pass under the cursor -- on this rig that means altering acquisition
+    parameters by accident. The wheel is not swallowed: it is handed to the
+    enclosing scroll area so the spin box doesn't become a dead zone in the
+    middle of a scrolling page. Values are still adjustable by typing, by the
+    arrow keys, and by the increment buttons.
+
+    Implemented as an application event filter rather than QSS on purpose:
+    styling ``::up-button``/``::down-button`` takes the spin box out of the
+    native painter and loses the arrow glyphs (see the note in the Inputs
+    section of the stylesheet).
+    """
+
+    def eventFilter(self, obj, event):  # noqa: N802 - Qt naming
+        if event.type() != QEvent.Type.Wheel or not isinstance(obj, QAbstractSpinBox):
+            return False
+        area = _enclosing_scroll_area(obj)
+        if area is not None:
+            QApplication.sendEvent(area.viewport(), event)
+        return True
+
+
+def _enclosing_scroll_area(widget: QWidget) -> QAbstractScrollArea | None:
+    """Nearest ancestor scroll area of *widget*, or ``None``."""
+    parent = widget.parentWidget()
+    while parent is not None:
+        if isinstance(parent, QAbstractScrollArea):
+            return parent
+        parent = parent.parentWidget()
+    return None
+
+
+# Kept alive for the lifetime of the process: an event filter installed on the
+# QApplication is not owned by it, so a local would be garbage collected and
+# the filter silently stop working.
+_WHEEL_GUARD = _SpinBoxWheelGuard()
+
+
+# ---------------------------------------------------------------------------
 # Application entry point
 # ---------------------------------------------------------------------------
 def _build_palette() -> QPalette:
@@ -445,3 +491,6 @@ def apply_theme(app: QApplication) -> None:
     """Apply the Mesofield dark theme to *app* (palette first, then QSS)."""
     app.setPalette(_build_palette())
     app.setStyleSheet(STYLESHEET)
+    # Idempotent: apply_theme() runs again on every MainWindow rebuild, and Qt
+    # ignores a re-install of a filter object that is already registered.
+    app.installEventFilter(_WHEEL_GUARD)
