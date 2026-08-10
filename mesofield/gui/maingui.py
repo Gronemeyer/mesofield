@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 )
 
 from PyQt6.QtGui import QAction
-from PyQt6.QtCore import QCoreApplication, Qt
+from PyQt6.QtCore import QCoreApplication, Qt, QTimer
 
 from mesofield.gui.mdagui import MDA
 from mesofield.gui import theme
@@ -28,7 +28,14 @@ from mesofield.protocols import Procedure
 from mesofield.ui import set_ui
 
 class MainWindow(QMainWindow):
-    def __init__(self, procedure: Procedure, *, force_wizard: bool = False):
+    def __init__(self, procedure: Procedure, *, config_wizard=None):
+        """Build the acquisition window for an already-configured *procedure*.
+
+        Configuration happens beforehand, in the Mesofield Wizard (see
+        :func:`run_gui`). Pass that window's ``ConfigWizard`` as *config_wizard*
+        so reopening Setup from the toolbar reuses the same instance -- and its
+        remembered rig/experiment paths -- rather than starting from scratch.
+        """
         super().__init__()
         app = QApplication.instance()
         if app is not None:
@@ -39,7 +46,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Mesofield")
 
         #============================== Always-available widgets =============================#
-        self.config_wizard = ConfigWizard(self.procedure)
+        self.config_wizard = config_wizard or ConfigWizard(self.procedure)
         self.initialize_console(self.procedure)
         #--------------------------------------------------------------------#
 
@@ -56,14 +63,15 @@ class MainWindow(QMainWindow):
         #--------------------------------------------------------------------#
 
         #=========================== Toolbar action ==========================#
-        # Place frequently used tools on the main hardware toolbar.
-        self._act_tiff_viewer = QAction("TIFF Viewer\u2026", self)
-        self._act_tiff_viewer.setToolTip(
-            "Open the TIFF ROI viewer (read-only; refuses files in the active recording)."
-        )
-        self._act_tiff_viewer.triggered.connect(self._open_tiff_viewer)
-        self._toolbar.addAction(self._act_tiff_viewer)
-        self._tiff_viewer = None  # keep a reference so the window isn't GC'd
+        # Place frequently used tools on the main hardware toolbar. (The TIFF
+        # viewer lives on the Mesofield Wizard instead -- that's the window a
+        # user sits in between runs, which is when they browse data.)
+
+        self._act_wizard = QAction("⚙ Setup…", self)
+        self._act_wizard.setToolTip("Open the Mesofield Wizard to load a rig or experiment.")
+        self._act_wizard.triggered.connect(self.open_wizard)
+        self._toolbar.addAction(self._act_wizard)
+        self._wizard_window = None  # keep a reference so the dialog isn't GC'd
         #--------------------------------------------------------------------#
 
         #============================== Layout ==============================#
@@ -76,8 +84,10 @@ class MainWindow(QMainWindow):
         # ConfigController tab (fixed width) doesn't get stretched when the
         # main window is enlarged — extra horizontal space goes to the MDA
         # acquisition view on the left instead.
+        # The ConfigWizard is deliberately NOT a tab: configuration is a
+        # pre-flight step with its own window (see `open_wizard`), which also
+        # hosts the live console the user watches while hardware comes up.
         self.right_tabs = QTabWidget()
-        self.right_tabs.addTab(self.config_wizard, "⚙ Setup")
         self.right_tabs.addTab(self.console_widget, "Terminal")
         self.right_tabs.setSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
@@ -120,48 +130,49 @@ class MainWindow(QMainWindow):
         # A configured rig boots straight into acquisition; otherwise the
         # Setup tab is the entry point. ``--wizard`` forces it to the front
         # even when already configured.
-        configured = self.procedure.config.hardware.is_configured
-        if configured:
+        if self.procedure.config.hardware.is_configured:
             self._build_acquisition_ui()
             self._on_config_applied()
-        if force_wizard or not configured:
-            self.right_tabs.setCurrentWidget(self.config_wizard)
 
-    #============================== Methods =================================#    
+        # Devices that failed to come up are skipped with only a log line;
+        # say so out loud. Deferred so the dialog lands after the window shows.
+        self.config_wizard.hardwareReady.connect(self._report_init_errors)
+        QTimer.singleShot(0, self._report_init_errors)
+
+    #============================== Methods =================================#
+    def _report_init_errors(self):
+        """Pop up any devices skipped during hardware initialization."""
+        from mesofield.gui.errors import show_init_warnings
+
+        errors = getattr(self.procedure.config.hardware, "init_errors", None)
+        if not errors:
+            return
+        # Report each failure once, even though a hot-reload re-runs this.
+        self.procedure.config.hardware.init_errors = []
+        show_init_warnings(self, errors)
+
+    def open_wizard(self):
+        """Show the standalone Mesofield Wizard.
+
+        The wizard widget is a long-lived member (its hot-load signals are wired
+        once in ``__init__``); the window only borrows it, so reopening Setup
+        later reuses the same instance and its remembered paths.
+        """
+        from mesofield.gui.wizard_window import WizardWindow
+
+        if self._wizard_window is not None and self._wizard_window.isVisible():
+            self._wizard_window.raise_()
+            self._wizard_window.activateWindow()
+            return
+
+        self._wizard_window = WizardWindow(self.config_wizard, parent=self)
+        self._wizard_window.show()
+
     def toggle_console(self):
         """Switch to the Terminal tab."""
         terminal_index = self.right_tabs.indexOf(self.console_widget)
         self.right_tabs.setCurrentIndex(terminal_index)
 
-    def _open_tiff_viewer(self):
-        """Launch the TIFF ROI viewer pre-pointed at the current experiment dir.
-
-        The viewer is given a reference to the running ``Procedure`` so it can
-        refuse to open any file inside the active recording's output directory
-        while a camera is acquiring.
-        """
-        from mesofield.gui.tiff_viewer import TiffViewer
-
-        cfg = self.procedure.config
-        initial_dir = (
-            getattr(cfg, "bids_dir", None)
-            or getattr(cfg, "save_dir", None)
-            or ""
-        )
-
-        # Re-use existing window if still open; otherwise create a new one.
-        if self._tiff_viewer is not None and self._tiff_viewer.isVisible():
-            self._tiff_viewer.raise_()
-            self._tiff_viewer.activateWindow()
-            return
-
-        viewer = TiffViewer(initial_dir=initial_dir, procedure=self.procedure)
-        viewer.setWindowFlag(Qt.WindowType.Window, True)
-        viewer.resize(1100, 800)
-        viewer.show()
-        self._tiff_viewer = viewer
-    
-                
     def initialize_console(self, procedure):
         """Initialize the IPython console and embed it into the application."""
         import mesofield.data as data
@@ -289,9 +300,9 @@ class MainWindow(QMainWindow):
             if self._acquisition_gui is not None
             else None
         )
-        # Insert after the Setup tab (index 1) so ordering is:
-        # [Setup] [ExperimentConfig] [Terminal]
-        self.right_tabs.insertTab(1, self._config_controller, "ExperimentConfig")
+        # Ordering is [ExperimentConfig] … [Terminal]; Setup lives in its own
+        # window now, so ExperimentConfig leads.
+        self.right_tabs.insertTab(0, self._config_controller, "ExperimentConfig")
         self.right_tabs.setCurrentWidget(self._config_controller)
 
         # MousePortal tab (only when a mouseportal device is loaded). Editable
@@ -318,8 +329,8 @@ class MainWindow(QMainWindow):
                     self.procedure.config.display_keys
                 )
             )
-            # Insert right after ExperimentConfig: [Setup][ExperimentConfig][MousePortal][Terminal]
-            self.right_tabs.insertTab(2, self._mouseportal_controller, "MousePortal")
+            # Insert right after ExperimentConfig: [ExperimentConfig][MousePortal][Terminal]
+            self.right_tabs.insertTab(1, self._mouseportal_controller, "MousePortal")
 
         # PsychoPy tab (only when a psychopy device is loaded). Editable
         # task->script map persisted via update_psychopy(); saving re-derives the
@@ -348,7 +359,7 @@ class MainWindow(QMainWindow):
                 )
             )
             # Insert right after ExperimentConfig (before any MousePortal tab).
-            self.right_tabs.insertTab(2, self._psychopy_controller, "PsychoPy")
+            self.right_tabs.insertTab(1, self._psychopy_controller, "PsychoPy")
 
         # Pin the right column width to the ConfigController's fixed width
         # (plus a small allowance for tab frame/margins) so the tab area is
@@ -777,8 +788,15 @@ def run_gui(procedure: Procedure, *, splash: bool = True,
     """Open the Mesofield GUI for an already-built ``procedure`` and block.
 
     Creates (or reuses) the :class:`QApplication`, applies the theme, optionally
-    shows the splash screen, builds a :class:`MainWindow`, and runs the Qt event
-    loop until the window closes. Returns the app exit code.
+    shows the splash screen, and runs the Qt event loop until the window closes.
+    Returns the app exit code.
+
+    Launch is two-phase. An unconfigured procedure (or ``force_wizard``) opens
+    the Mesofield Wizard *alone* -- there is no half-built acquisition window
+    sitting behind it -- and the wizard's console carries the hardware
+    initialisation log. Only once Apply succeeds is the :class:`MainWindow`
+    built, from a procedure that is already live. Dismissing the wizard without
+    applying exits cleanly.
 
     This is the shared entry point behind both the ``mesofield launch`` CLI
     command and :meth:`mesofield.base.Procedure.launch`, so a user can either
@@ -807,7 +825,24 @@ def run_gui(procedure: Procedure, *, splash: bool = True,
         app.processEvents()
         time.sleep(0.5)  # give the splash a moment to show
 
-    window = MainWindow(procedure, force_wizard=force_wizard)
+    wizard = None
+    if force_wizard or not procedure.config.hardware.is_configured:
+        from mesofield.gui.wizard_window import WizardWindow
+
+        wizard = ConfigWizard(procedure)
+        launcher = WizardWindow(wizard)
+        launcher.show()
+        if splash_screen is not None:
+            splash_screen.finish(launcher)
+            splash_screen = None
+        launcher.exec()
+        # Ask the procedure, not the dialog's result code: what matters is
+        # whether hardware actually came up, however the window was dismissed.
+        procedure = wizard.procedure
+        if not procedure.config.hardware.is_configured:
+            return 0  # closed without applying a configuration
+
+    window = MainWindow(procedure, config_wizard=wizard)
     # Operator prompts raised by the run (which drives from a worker thread)
     # become Qt dialogs from here on.
     set_ui(QtOperatorUI(window))

@@ -39,8 +39,42 @@ def summarize_experiment(block: Dict[str, Any]) -> str:
         line += f" {exp['trial_duration']}s"
     elif end == "distance" and exp.get("trial_distance") is not None:
         line += f" {exp['trial_distance']}"
+    # Same number the MousePortal tab shows as "total", so the indicator and
+    # the editor never disagree.
+    line += f"  ·  total: {total_duration(exp):.0f}s"
     labels = ", ".join(str(c.get("label", "?")) for c in exp.get("conditions", []) or [])
     return f"{line}\nconditions: {labels or '—'}"
+
+
+def total_duration(experiment: Dict[str, Any]) -> float:
+    """Estimated length of a MousePortal experiment block, in seconds.
+
+    Mirrors MousePortal's per-trial resolution (condition override → global)
+    and sums each trial's duration plus the inter-trial interval that follows
+    it. DURATION-ended trials are exact; DISTANCE/MANUAL trials are
+    non-deterministic, so their per-trial ``trial_duration`` (or the global
+    default) is used as an estimate.
+    """
+    exp = experiment or {}
+    num_blocks = int(exp.get("num_blocks", 1))
+    trials_per_block = int(exp.get("trials_per_block", 1))
+    iti = float(exp.get("iti_duration", 0.0))
+    global_dur = float(exp.get("trial_duration", 60.0))
+    conditions = {
+        c.get("label"): c for c in exp.get("conditions", []) or [] if isinstance(c, dict)
+    }
+    block_conditions = exp.get("block_conditions", []) or []
+
+    total = 0.0
+    for b in range(num_blocks):
+        seq = []
+        if b < len(block_conditions) and isinstance(block_conditions[b], dict):
+            seq = block_conditions[b].get("condition_sequence", [])
+        for t in range(trials_per_block):
+            cond = (conditions.get(seq[t]) if t < len(seq) else None) or {}
+            dur = cond.get("trial_duration")
+            total += (float(dur) if dur is not None else global_dur) + iti
+    return total
 
 
 def parse_block_sequences(text: str) -> List[Dict[str, List[str]]]:

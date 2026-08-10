@@ -323,35 +323,14 @@ class MousePortalDevice(SubprocessStimulusDevice):
     def expected_experiment_duration(self) -> float:
         """Estimate the MousePortal experiment length in seconds.
 
-        Mirrors MousePortal's per-trial resolution (condition override → global)
-        and sums each trial's duration plus the inter-trial interval that
-        follows it.  DURATION-ended trials are exact; DISTANCE/MANUAL trials are
-        non-deterministic, so their per-trial ``trial_duration`` (or the global
-        default) is used as an estimate -- pair this coupling with
-        duration-based trials for a precise camera preallocation.
+        Shares one implementation with the MousePortal tab, which shows this
+        number live and (optionally) writes it to ``ExperimentConfig.duration``.
+        Pair the coupling with duration-based trials for a precise camera
+        preallocation -- DISTANCE/MANUAL trials can only be estimated.
         """
-        exp = self._mouseportal_params().get("experiment") or {}
-        num_blocks = int(exp.get("num_blocks", 1))
-        trials_per_block = int(exp.get("trials_per_block", 1))
-        iti = float(exp.get("iti_duration", 0.0))
-        global_dur = float(exp.get("trial_duration", 60.0))
-        conditions = {
-            c.get("label"): c for c in exp.get("conditions", []) if isinstance(c, dict)
-        }
-        block_conditions = exp.get("block_conditions", [])
+        from mesofield.gui.mouseportal_config import total_duration
 
-        total = 0.0
-        for b in range(num_blocks):
-            seq = []
-            if b < len(block_conditions) and isinstance(block_conditions[b], dict):
-                seq = block_conditions[b].get("condition_sequence", [])
-            for t in range(trials_per_block):
-                cond = conditions.get(seq[t]) if t < len(seq) else None
-                cond = cond or {}
-                dur = cond.get("trial_duration")
-                trial_seconds = float(dur) if dur is not None else global_dur
-                total += trial_seconds + iti
-        return total
+        return total_duration(self._mouseportal_params().get("experiment") or {})
 
     # -- introspection (extend base) -----------------------------------
     def status(self) -> Dict[str, Any]:

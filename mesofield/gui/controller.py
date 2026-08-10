@@ -161,26 +161,77 @@ class ConfigController(QWidget):
         self.setFixedWidth(500)
 
         # ==================================== GUI Widgets ===================================== #
-        # Button to open the BIDS directory in the system file explorer
-        self.open_bids_button = QPushButton("Open BIDS Directory")
-        layout.addWidget(self.open_bids_button)
+        # Buttons to reach the two things people hunt for on disk: the output
+        # tree and the experiment.json that produced it.
+        # Icons match the Setup tab's Open/Reveal pairing.
+        self.open_bids_button = QPushButton(" Open BIDS Directory")
+        self.open_bids_button.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
+        )
         self.open_bids_button.setToolTip("Open the procedure.config.bids_dir in your file explorer")
+        self.open_json_button = QPushButton(" Edit experiment.json")
+        self.open_json_button.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
+        )
+        self.open_json_button.setToolTip(
+            "Edit the loaded experiment.json in the guided builder (same dialog as the wizard)"
+        )
+        self.open_json_button.clicked.connect(self._open_experiment_json)
+        paths_row = QHBoxLayout()
+        paths_row.addWidget(self.open_bids_button)
+        paths_row.addWidget(self.open_json_button)
+        layout.addLayout(paths_row)
 
-        # subject selection dropdown
-        self.subject_dropdown_label = QLabel('Select Subject:')
+        # Where data is being written -- the wizard's output dir is easy to
+        # lose track of once the acquisition UI is up.
+        from mesofield.gui import theme as _theme
+        self.outdir_label = QLabel()
+        self.outdir_label.setWordWrap(True)
+        self.outdir_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.outdir_label.setStyleSheet(
+            f"color: {_theme.TEXT_DIM}; font-family: {_theme.MONO_FONT};"
+        )
+        layout.addWidget(self.outdir_label)
+        self._update_outdir_label()
+
+        # The three keys that compose every BIDS filename get their own picker
+        # row: a dropdown plus an "add" button whose meaning differs per key.
+        # They are deliberately removed from the form below (see _form_keys) so
+        # there is exactly one editor per key -- two would silently drift, since
+        # form editors don't listen for external changes.
         self.subject_dropdown = QComboBox()
-        self.add_subject_button = QPushButton("+ Subject")
+        self.add_subject_button = QPushButton("+")
         self.add_subject_button.setToolTip("Add a new subject to experiment.json")
+
+        self.session_dropdown = QComboBox()
+        self.session_dropdown.setEditable(True)
+        self.add_session_button = QPushButton("+")
+        self.add_session_button.setToolTip("Increment the session number and persist it")
+
+        self.task_dropdown = QComboBox()
+        self.add_task_button = QPushButton("+")
+        self.add_task_button.setToolTip("Add a new task to experiment.json")
+
+        picker_row = QHBoxLayout()
+        for title, combo, button in (
+            ("Subject", self.subject_dropdown, self.add_subject_button),
+            ("Session", self.session_dropdown, self.add_session_button),
+            ("Task", self.task_dropdown, self.add_task_button),
+        ):
+            button.setFixedWidth(28)
+            column = QVBoxLayout()
+            column.addWidget(QLabel(title))
+            row = QHBoxLayout()
+            row.addWidget(combo, 1)
+            row.addWidget(button)
+            column.addLayout(row)
+            picker_row.addLayout(column, 1)
+        layout.addLayout(picker_row)
+
         self.add_parameter_button = QPushButton("+ Parameter")
         self.add_parameter_button.setToolTip(
             "Add a new parameter applied to every subject and made editable in DisplayKeys"
         )
-        sub_layout = QHBoxLayout()
-        sub_layout.addWidget(self.subject_dropdown_label)
-        sub_layout.addWidget(self.subject_dropdown)
-        sub_layout.addWidget(self.add_subject_button)
-        sub_layout.addWidget(self.add_parameter_button)
-        layout.addLayout(sub_layout)
 
         # BIDS filename preview — updates live as subject/session/task change
         self.filename_preview_label = QLabel()
@@ -192,9 +243,11 @@ class ConfigController(QWidget):
         )
         layout.addWidget(self.filename_preview_label)
 
-        self.config_model = ConfigFormWidget(self.procedure.config, keys=self.display_keys)
+        self.config_model = ConfigFormWidget(self.procedure.config, keys=self._form_keys())
 
         self._populate_subjects()
+        self._populate_sessions()
+        self._populate_tasks()
         self._change_subject(0)
 
         # Register live updates for the filename preview. Callbacks fire from
@@ -245,6 +298,7 @@ class ConfigController(QWidget):
         self._action_buttons_layout.addWidget(self.record_button)
         self._action_buttons_layout.addWidget(self.abort_button)
         self._action_buttons_layout.addWidget(self.add_note_button)
+        self._action_buttons_layout.addWidget(self.add_parameter_button)
         self._action_buttons_layout.addWidget(self.save_button)
         layout.addLayout(self._action_buttons_layout)
 
@@ -265,6 +319,10 @@ class ConfigController(QWidget):
         # ============ Callback connections between widget values and functions ================ #
 
         self.subject_dropdown.currentIndexChanged.connect(self._change_subject) # When the subject is changed, update the config form
+        self.session_dropdown.currentTextChanged.connect(self._change_session)
+        self.task_dropdown.currentTextChanged.connect(self._change_task)
+        self.add_session_button.clicked.connect(self._increment_session)
+        self.add_task_button.clicked.connect(self._add_task)
         self.record_button.clicked.connect(self.record)
         self.abort_button.clicked.connect(self._abort)
         self.add_note_button.clicked.connect(self._add_note)
@@ -336,7 +394,7 @@ class ConfigController(QWidget):
         self.display_keys = list(keys) if keys is not None else None
         old_form = getattr(self, 'config_model', None)
         if old_form:
-            new_form = ConfigFormWidget(self.config, keys=self.display_keys)
+            new_form = ConfigFormWidget(self.config, keys=self._form_keys())
             self.config_model = new_form
             layout = self.layout()
             idx = layout.indexOf(old_form)
@@ -411,10 +469,120 @@ class ConfigController(QWidget):
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
+    def _open_experiment_json(self):
+        """Edit the loaded experiment.json in the wizard's guided builder."""
+        from mesofield.gui.config_builder import ExperimentBuilderDialog
+
+        path = getattr(self.config, "_json_file_path", "")
+        if not path or not os.path.isfile(path):
+            QMessageBox.warning(
+                self, "No experiment.json",
+                "No experiment.json is loaded. Load or create one in the Setup tab.",
+            )
+            return
+        dialog = ExperimentBuilderDialog(
+            default_dir=os.path.dirname(path), parent=self, json_path=path
+        )
+        if not (dialog.exec() and dialog.json_path):
+            return
+        # Reload so the pickers and form reflect what was just written.
+        self.config.load_json(dialog.json_path)
+        self._populate_subjects()
+        self._populate_sessions()
+        self._populate_tasks()
+        self._change_subject(0)
+        self.set_display_keys(self.config.display_keys)
+        self.configUpdated.emit(self.config)
+
+    def _update_outdir_label(self):
+        """Show the directory data is written into."""
+        if not hasattr(self, "outdir_label"):
+            return
+        path = self.config.experiment_dir or "(not set)"
+        self.outdir_label.setText(f"Output directory: {path}")
+        self.outdir_label.setToolTip(path)
+
+    # -- subject / session / task pickers -------------------------------------
+    # These three keys are edited here, not in the form below, so `_form_keys`
+    # strips them from whatever DisplayKeys asks for.
+    _PICKER_KEYS = ("subject", "session", "task")
+
+    def _form_keys(self):
+        """DisplayKeys minus the keys owned by the picker row."""
+        if self.display_keys is None:
+            return None
+        return [k for k in self.display_keys if k not in self._PICKER_KEYS]
+
     def _populate_subjects(self):
         self.subject_dropdown.clear()
         for sub in self.config.subjects.keys():
             self.subject_dropdown.addItem(sub)
+
+    def _populate_sessions(self):
+        """Fill the session picker from registered choices, plus the current value.
+
+        Playback mode registers the sessions found on disk; a live experiment
+        has none, so the current session is the only entry (the combo is
+        editable, so a session can still be typed in).
+        """
+        current = self.config.session
+        choices = [str(c) for c in (self.config.get_choices("session") or [])]
+        if current and current not in choices:
+            choices.append(current)
+        self.session_dropdown.blockSignals(True)
+        self.session_dropdown.clear()
+        self.session_dropdown.addItems(choices)
+        self.session_dropdown.setCurrentText(current)
+        self.session_dropdown.blockSignals(False)
+
+    def _populate_tasks(self):
+        current = self.config.get("task")
+        choices = [str(c) for c in (self.config.get_choices("task") or [])]
+        if current and current not in choices:
+            choices.append(str(current))
+        self.task_dropdown.blockSignals(True)
+        self.task_dropdown.clear()
+        self.task_dropdown.addItems(choices)
+        if current:
+            self.task_dropdown.setCurrentText(str(current))
+        self.task_dropdown.blockSignals(False)
+
+    def _change_session(self, text: str):
+        text = (text or "").strip()
+        if not text:
+            return
+        # Keep the zero-padded BIDS form regardless of how it was typed.
+        try:
+            text = f"{int(text):02d}"
+        except ValueError:
+            pass
+        self.config.set("session", text)
+
+    def _change_task(self, text: str):
+        if text:
+            self.config.set("task", text)
+
+    def _increment_session(self):
+        """Bump the session number and persist it to experiment.json."""
+        try:
+            self.config._auto_increment_session()
+        except Exception as e:
+            QMessageBox.warning(self, "Session", f"Could not increment session: {e}")
+            return
+        self._populate_sessions()
+        self._update_filename_preview()
+
+    def _add_task(self):
+        task, ok = QInputDialog.getText(self, "Add Task", "Task name:")
+        if not ok or not task.strip():
+            return
+        try:
+            self.config.add_task(task.strip())
+        except ValueError as e:
+            QMessageBox.warning(self, "Add Task", str(e))
+            return
+        self._populate_tasks()
+        self._update_filename_preview()
 
     def _change_subject(self, index):
         subject_id = self.subject_dropdown.currentText()
@@ -427,7 +595,7 @@ class ConfigController(QWidget):
             return
 
         old_form = getattr(self, 'config_model', None)
-        new_form = ConfigFormWidget(self.config, keys=self.display_keys)
+        new_form = ConfigFormWidget(self.config, keys=self._form_keys())
         self.config_model = new_form
         if old_form:
             layout = self.layout()
@@ -435,6 +603,8 @@ class ConfigController(QWidget):
             layout.insertWidget(idx, new_form)
             layout.removeWidget(old_form)
             old_form.deleteLater()
+        # A new subject carries its own session; the picker must follow it.
+        self._populate_sessions()
         self._update_filename_preview()
 
     def _update_filename_preview(self):
@@ -451,6 +621,7 @@ class ConfigController(QWidget):
             f"YYYYMMDD_HHMMSS_sub-{subject}_ses-{session}_task-{task}_<suffix>.<ext>"
         )
         self.filename_preview_label.setText(template)
+        self._update_outdir_label()
 
     def _add_subject(self):
         """Prompt for a new subject ID, add it to the config, and select it."""

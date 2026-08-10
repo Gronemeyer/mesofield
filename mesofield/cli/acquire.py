@@ -34,7 +34,15 @@ def launch(config, wizard):
     from mesofield.gui.maingui import run_gui
     from mesofield.base import load_procedure
 
-    procedure = load_procedure(config)
+    try:
+        procedure = load_procedure(config)
+    except Exception as exc:
+        # A bad rig would otherwise dump a traceback into a terminal the
+        # operator may not be looking at, with no window ever appearing.
+        from mesofield.gui.errors import show_startup_error
+
+        show_startup_error("Failed to load configuration", exc)
+        raise SystemExit(1)
     run_gui(procedure, force_wizard=wizard)
 
 

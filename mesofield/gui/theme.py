@@ -226,10 +226,12 @@ QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabl
     color: {TEXT_DIM};
     background-color: {PANEL};
 }}
-QComboBox::drop-down {{
-    border: none;
-    width: 18px;
-}}
+/* Deliberately NOT styling QComboBox::drop-down or the spin-box buttons.
+   Setting any property on those subcontrols takes the whole complex control
+   out of the native (Fusion) painter, and Qt then draws no arrow at all
+   unless one is supplied as ``image: url(...)`` -- QSS border-triangles do
+   not work on subcontrols. Leaving them alone keeps a visible drop-down
+   arrow; the surrounding frame is still themed by the rules above. */
 QComboBox QAbstractItemView {{
     background-color: {PANEL};
     color: {TEXT};

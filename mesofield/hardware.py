@@ -36,6 +36,10 @@ class HardwareManager():
         self.config_file = None if spec is not None else config_file
         self.devices: Dict[str, DataProducer] = {}
         self._configured: bool = False
+        # Devices skipped during ``initialize`` (construction or bring-up
+        # failed). Logged as before, but also collected so the GUI can tell the
+        # operator why a device is missing instead of leaving it to the log.
+        self.init_errors: List[str] = []
         # Devices constructed programmatically (scripted procedures). When set,
         # ``initialize`` registers these directly instead of parsing YAML.
         self._prebuilt_devices: Optional[List[Any]] = (
@@ -167,6 +171,7 @@ class HardwareManager():
         Does nothing if the manager has no loaded YAML configuration.
         Validates that exactly one device is flagged ``primary: true``.
         """
+        self.init_errors = []
         if not self._configured:
             self.logger.warning("Cannot initialize hardware: no YAML config loaded.")
             return
@@ -214,17 +219,21 @@ class HardwareManager():
                 continue
             Cls = DeviceRegistry.get_class(type_key)
             if Cls is None:
-                self.logger.warning(
+                msg = (
                     f"YAML stanza '{key}' has type='{type_key}' but no class "
                     f"is registered for it; skipping."
                 )
+                self.logger.warning(msg)
+                self.init_errors.append(msg)
                 continue
             cfg = dict(params)
             cfg.setdefault("id", key)
             try:
                 device = Cls(cfg)
             except Exception as exc:
-                self.logger.error(f"Failed to construct '{key}' ({type_key}): {exc}")
+                msg = f"Failed to construct '{key}' ({type_key}): {exc}"
+                self.logger.error(msg)
+                self.init_errors.append(msg)
                 continue
             self._apply_output_args(device, params.get("output", {}), key)
             device.is_primary = bool(params.get("primary", False))
@@ -232,7 +241,9 @@ class HardwareManager():
                 if hasattr(device, "initialize"):
                     device.initialize()
             except Exception as exc:
-                self.logger.error(f"initialize() failed for '{key}': {exc}")
+                msg = f"initialize() failed for '{key}': {exc}"
+                self.logger.error(msg)
+                self.init_errors.append(msg)
                 continue
             dev_id = getattr(device, "device_id", key)
             self.devices[dev_id] = device
@@ -505,10 +516,12 @@ class HardwareManager():
             registry_key = "opencv_camera" if backend == "opencv" else "camera"
             CameraClass = DeviceRegistry.get_class(registry_key)
             if CameraClass is None:
-                self.logger.error(
+                msg = (
                     f"No camera class registered under '{registry_key}' "
                     f"(backend='{backend}')"
                 )
+                self.logger.error(msg)
+                self.init_errors.append(msg)
                 continue
             cam = CameraClass(cfg)
             cam.is_primary = bool(cfg.get("primary", False))
@@ -545,10 +558,14 @@ class HardwareManager():
                     raise RuntimeError(f"Failed to initialize EncoderSerialInterface: {e}") from e
 
             else:
-                self.logger.warning(f"Unknown encoder type: {enc_type}")
+                msg = f"Unknown encoder type: {enc_type}"
+                self.logger.warning(msg)
+                self.init_errors.append(msg)
                 return
         except Exception as e:
-            self.logger.warning(f"Could not open encoder on {params.get('port')}: {e}")
+            msg = f"Could not open encoder on {params.get('port')}: {e}"
+            self.logger.warning(msg)
+            self.init_errors.append(msg)
             self.encoder = None
             return
 

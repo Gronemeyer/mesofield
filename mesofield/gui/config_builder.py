@@ -240,6 +240,11 @@ class DeviceSpec:
     output: List[FieldSpec] = field(default_factory=list)
     fixed: dict = field(default_factory=dict)  # keys forced into the stanza
     stimulus: bool = False            # subprocess stimulus app: no output, never primary
+    # Some top-level YAML keys have a dedicated loader in HardwareManager that
+    # expects a different ``type`` value than the DeviceRegistry one. When a
+    # card is named ``reserved_key`` it must serialise as ``reserved_type``.
+    reserved_key: Optional[str] = None
+    reserved_type: Optional[str] = None
 
 
 # Subprocess plumbing shared by every stimulus app (SubprocessStimulusDevice).
@@ -326,6 +331,11 @@ DEVICE_SPECS: dict[str, DeviceSpec] = {
         label="Treadmill encoder (Teensy serial)",
         default_name="treadmill",
         category="Encoder",
+        # Under the reserved ``encoder:`` key, HardwareManager._init_encoder
+        # dispatches on type == "treadmill"; under any other key _init_extras
+        # dispatches on the registered type == "encoder".
+        reserved_key="encoder",
+        reserved_type="treadmill",
         fields=[
             FieldSpec("port", "port", str, "COM5", help="e.g. COM5 (Win) or /dev/ttyACM0"),
             FieldSpec("baudrate", "baudrate", int, 192000),
@@ -412,6 +422,22 @@ DEVICE_SPECS: dict[str, DeviceSpec] = {
 }
 
 
+# A DeviceSpec's dict key and its ``type`` are not always the same string --
+# the Teensy treadmill is keyed "treadmill" but registers (and serialises) as
+# type "encoder". Look stanzas up by both, or a rig the builder wrote cannot be
+# reloaded by the builder.
+_SPEC_TYPE_ALIASES = {spec.type: key for key, spec in DEVICE_SPECS.items()}
+
+
+def _spec_key(type_key: str | None) -> str | None:
+    """DEVICE_SPECS key for a YAML ``type:`` value, or None if not modelled."""
+    if not type_key:
+        return None
+    if type_key in DEVICE_SPECS:
+        return type_key
+    return _SPEC_TYPE_ALIASES.get(type_key)
+
+
 # ---------------------------------------------------------------------------
 # Hardware (rig) builder
 # ---------------------------------------------------------------------------
@@ -480,7 +506,10 @@ class _DeviceCard(QFrame):
 
     def stanza(self) -> dict:
         """Assemble this card's ``hardware.yaml`` stanza."""
-        out: dict[str, Any] = {"type": self.spec.type}
+        type_value = self.spec.type
+        if self.spec.reserved_key and self.name() == self.spec.reserved_key:
+            type_value = self.spec.reserved_type or type_value
+        out: dict[str, Any] = {"type": type_value}
         out.update(self.spec.fixed)
         if self._field_form is not None:
             for key, val in self._field_form.values().items():
@@ -547,6 +576,23 @@ class HardwareBuilderDialog(QDialog):
         scroll.setWidget(self._cards_container)
         layout.addWidget(scroll, 1)
 
+        # Everything the builder doesn't model, shown so the rig's full device
+        # list is visible even though these entries aren't editable here.
+        self._passthrough_box = QGroupBox("Other stanzas (preserved — edit the YAML directly)")
+        pt_layout = QVBoxLayout(self._passthrough_box)
+        self._passthrough_label = QLabel()
+        self._passthrough_label.setWordWrap(True)
+        self._passthrough_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        from mesofield.gui import theme as _theme
+        self._passthrough_label.setStyleSheet(
+            f"color: {_theme.TEXT_DIM}; font-family: {_theme.MONO_FONT};"
+        )
+        pt_layout.addWidget(self._passthrough_label)
+        self._passthrough_box.setVisible(False)
+        layout.addWidget(self._passthrough_box)
+
         buttons = QDialogButtonBox()
         self._save_btn = buttons.addButton("Save as rig…", QDialogButtonBox.ButtonRole.AcceptRole)
         buttons.addButton(QDialogButtonBox.StandardButton.Cancel)
@@ -584,7 +630,8 @@ class HardwareBuilderDialog(QDialog):
             self._add_combo.addItem(f"—  {cat}  —")
             self._add_combo.model().item(self._add_combo.count() - 1).setEnabled(False)
             for type_key, spec in items:
-                registered = DeviceRegistry.get_class(type_key) is not None
+                # The registry is keyed by the runtime type, not the spec key.
+                registered = DeviceRegistry.get_class(spec.type) is not None
                 label = spec.label if registered else f"{spec.label}  (not installed)"
                 self._add_combo.addItem(label, userData=type_key)
                 if not registered:
@@ -602,8 +649,8 @@ class HardwareBuilderDialog(QDialog):
         for key, val in doc.items():
             if key == "memory_buffer_size":
                 continue
-            type_key = val.get("type") if isinstance(val, dict) else None
-            if type_key in DEVICE_SPECS:
+            type_key = _spec_key(val.get("type") if isinstance(val, dict) else None)
+            if type_key is not None:
                 card = self._make_card(type_key)
                 card.set_values(key, val)
             else:
@@ -612,6 +659,33 @@ class HardwareBuilderDialog(QDialog):
         cameras = [c for c in self._cards if c.spec.type.endswith("camera")]
         if cameras and not any(c.is_primary() for c in cameras):
             cameras[0].set_primary(True)
+        self._refresh_passthrough_view()
+
+    def _refresh_passthrough_view(self) -> None:
+        """List the stanzas this dialog can't edit, so nothing looks missing.
+
+        The builder models a fixed catalogue of device types; anything else
+        (custom registered devices, and the ``cameras:`` list, which is a YAML
+        sequence rather than a typed stanza) is round-tripped untouched by
+        :meth:`_save`. Showing it here is the difference between "preserved"
+        and "silently vanished".
+        """
+        lines: list[str] = []
+        for key, val in self._passthrough.items():
+            if key == "cameras" and isinstance(val, list):
+                for entry in val:
+                    if not isinstance(entry, dict):
+                        continue
+                    name = entry.get("name") or entry.get("id") or "?"
+                    backend = entry.get("backend", "?")
+                    primary = "  (primary)" if entry.get("primary") else ""
+                    lines.append(f"cameras[] · {name}  —  backend: {backend}{primary}")
+            elif isinstance(val, dict) and val.get("type"):
+                lines.append(f"{key}  —  type: {val['type']}")
+            else:
+                lines.append(f"{key}")
+        self._passthrough_label.setText("\n".join(lines))
+        self._passthrough_box.setVisible(bool(lines))
 
     def _make_card(self, type_key: str) -> _DeviceCard:
         card = _DeviceCard(DEVICE_SPECS[type_key])
@@ -812,11 +886,30 @@ class ExperimentBuilderDialog(QDialog):
 
     _COL_LABELS = {"subject": "Subject ID", "session": "session", "task": "task"}
 
-    def __init__(self, default_dir: str = "", parent: QWidget | None = None):
+    def __init__(
+        self,
+        default_dir: str = "",
+        parent: QWidget | None = None,
+        *,
+        json_path: Optional[str] = None,
+    ):
+        """Author a new experiment.json, or edit an existing one.
+
+        Passing *json_path* loads that file back into the form so the same
+        guided UI serves both "new" and "edit" -- the Save dialog then defaults
+        to overwriting the file that was opened.
+        """
         super().__init__(parent)
-        self.setWindowTitle("New experiment.json")
+        self._edit_path = os.path.abspath(json_path) if json_path else None
+        self.setWindowTitle(
+            "Edit experiment.json" if self._edit_path else "New experiment.json"
+        )
         self.resize(640, 720)
-        self._default_dir = default_dir or os.getcwd()
+        self._default_dir = (
+            default_dir
+            or (os.path.dirname(self._edit_path) if self._edit_path else "")
+            or os.getcwd()
+        )
         self.json_path: Optional[str] = None
 
         self._tasks: List[str] = []                # defined by the user (no confusing default)
@@ -851,8 +944,81 @@ class ExperimentBuilderDialog(QDialog):
         buttons.rejected.connect(self.reject)
         outer.addWidget(buttons)
 
-        self._add_subject_row()  # start with one subject
+        if self._edit_path:
+            self._load_doc(self._edit_path)
+        else:
+            self._add_subject_row()  # start with one subject
         self._refresh_summary()
+
+    # -- loading an existing document ----------------------------------------
+
+    def _load_doc(self, path: str) -> None:
+        """Populate every section from an existing ``experiment.json``.
+
+        The on-disk shape is lossy relative to the form: subject *variables*
+        are not declared anywhere, they are just the per-subject keys beyond
+        the fixed columns, and their type is only visible in the JSON value.
+        Both are re-derived here so a round-trip through this dialog preserves
+        what the user originally entered.
+        """
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                doc = json.load(fh)
+        except Exception as exc:
+            QMessageBox.warning(self, "Could not read experiment.json", str(exc))
+            self._add_subject_row()
+            return
+
+        cfg = doc.get("Configuration") or {}
+        subjects = doc.get("Subjects") or {}
+        display = set(doc.get("DisplayKeys") or ())
+
+        self._session_form.set_values(cfg)
+
+        # -- tasks: Configuration.task is a str or a list; subjects may also
+        # reference a task the Configuration never listed.
+        raw_task = cfg.get("task")
+        tasks = list(raw_task) if isinstance(raw_task, list) else ([raw_task] if raw_task else [])
+        tasks = [str(t) for t in tasks if t]
+        for entry in subjects.values():
+            t = str((entry or {}).get("task", "")).strip()
+            if t and t not in tasks:
+                tasks.append(t)
+        self._tasks = tasks
+        self._task_list.clear()
+        self._task_list.addItems(self._tasks)
+
+        # -- variables: every per-subject key that isn't a fixed column. Typed
+        # `number` only when every value present is a real int.
+        var_names: List[str] = []
+        for entry in subjects.values():
+            for key in (entry or {}):
+                if key not in _FIXED_COLUMNS and key not in var_names:
+                    var_names.append(key)
+        self._variables = []
+        for name in var_names:
+            vals = [
+                e[name] for e in subjects.values()
+                if isinstance(e, dict) and name in e
+            ]
+            numeric = bool(vals) and all(
+                isinstance(v, int) and not isinstance(v, bool) for v in vals
+            )
+            self._variables.append((name, int if numeric else str, name in display))
+        self._var_list.clear()
+        for name, typ, show in self._variables:
+            self._var_list.addItem(self._var_label(name, typ, show))
+
+        # -- subjects
+        self._subjects = [
+            {"subject": str(sid), **{k: v for k, v in (entry or {}).items()}}
+            for sid, entry in subjects.items()
+        ]
+        if not self._subjects:
+            self._add_subject_row()
+            return
+        self._render_table()
+        self._sync_count_spin()
 
     # -- section builders ----------------------------------------------------
 
@@ -1150,8 +1316,9 @@ class ExperimentBuilderDialog(QDialog):
             return
 
         path, _ = QFileDialog.getSaveFileName(
-            self, "New experiment.json",
-            os.path.join(self._default_dir, "experiment.json"),
+            self,
+            "Save experiment.json" if self._edit_path else "New experiment.json",
+            self._edit_path or os.path.join(self._default_dir, "experiment.json"),
             "JSON Config (*.json)",
         )
         if not path:

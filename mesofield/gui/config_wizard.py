@@ -10,6 +10,7 @@ Provides a unified widget for selecting and applying:
 
 from __future__ import annotations
 
+import json
 import os
 from typing import TYPE_CHECKING, Optional, List
 
@@ -40,25 +41,75 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
+# Front-facing text and icons
+# ---------------------------------------------------------------------------
+# Every label, glyph and tooltip the wizard renders lives here, so the wording
+# and iconography can be tuned without touching the widget-construction code.
+#
+# Icon-button specs are ``(standard_pixmap_name, text, tooltip)``.  The first
+# item names an attribute of :class:`QStyle.StandardPixmap`, or is ``None`` to
+# render the ``text`` label alone.  Text-only buttons size to their label; only
+# icon buttons are square.
+
+
+class UI:
+    WINDOW_TITLE = "Mesofield Wizard"
+
+    # -- ① Rig ---------------------------------------------------------------
+    RIG_GROUP = "①   Rig  ·  configured hardware connected or software installed to this machine"
+    RIG_COMBO_TIP = "Bring up a canonical rig from this machine's rig store"
+    RIG_COMBO_EMPTY = "— select rig —"
+    RIG_COMBO_DEV = "dev (mock devices)"
+    RIG_STATUS_EMPTY = "• no rig selected"
+
+    RIG_BROWSE = (
+        "SP_DirOpenIcon", "",
+        "Browse for a hardware.yaml — opens at the last-used rig folder",
+    )
+    RIG_NEW = (
+        "SP_FileDialogNewFolder", "",
+        "New rig — build a hardware.yaml from a guided device list",
+    )
+    RIG_EDIT = (
+        None, "Edit",
+        "Edit the selected rig's devices (e.g. fix a camera backend)",
+    )
+
+    # -- ② Experiment --------------------------------------------------------
+    EXP_GROUP = "②   Experiment  ·  sequencing and design details of scientific procedure"
+    EXP_HINT_TIP = "Experiment / output directory (where data is written)"
+    EXP_DIR_PLACEHOLDER = "experiment / output directory"
+    EXP_STATUS_NONE = "• no experiment.json here — create one, or run hardware-only"
+    EXP_STATUS_SCRIPTED = "• running from a scripted procedure (no experiment.json)"
+
+    EXP_BROWSE = (
+        "SP_DirOpenIcon", "",
+        "Load an experiment.json — opens at the last-used experiment folder",
+    )
+    EXP_NEW = (
+        "SP_FileDialogNewFolder", "",
+        "Create a new experiment.json (subjects, tasks, variables)",
+    )
+    EXP_NEW_REPLACE_TIP = "Replace the experiment.json in this folder"
+    EXP_EDIT = (
+        None, "Edit",
+        "Edit the selected experiment.json (subjects, tasks, variables)",
+    )
+
+    # -- Apply ---------------------------------------------------------------
+    APPLY = "  Apply Configuration"
+    APPLY_APPLIED = "✔  Configuration Applied"
+
+    ICON_BUTTON_SIZE = 34
+
+
+# ---------------------------------------------------------------------------
 # Open / reveal the actual config files on disk
 # ---------------------------------------------------------------------------
 
 def _open_in_default_app(path: str) -> None:
     """Open *path* in the OS default editor/application."""
     QDesktopServices.openUrl(QUrl.fromLocalFile(path))
-
-
-def _reveal_in_file_manager(path: str) -> None:
-    """Select *path* in the OS file manager (Finder/Explorer), else open its folder."""
-    import subprocess
-    import sys
-
-    if sys.platform == "darwin":
-        subprocess.run(["open", "-R", path], check=False)
-    elif os.name == "nt":
-        subprocess.run(["explorer", f"/select,{os.path.normpath(path)}"], check=False)
-    else:
-        QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
 
 
 # ---------------------------------------------------------------------------
@@ -476,9 +527,7 @@ class ConfigWizard(QWidget):
             # so the Setup tab can't advertise an experiment.json the running
             # config never loaded.
             self._experiment_json = ""
-            self._json_status.setText(
-                "• running from a scripted procedure (no experiment.json)"
-            )
+            self._json_status.setText(UI.EXP_STATUS_SCRIPTED)
             self._json_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
             self._json_status.setToolTip("")
 
@@ -506,33 +555,19 @@ class ConfigWizard(QWidget):
         """Return a themed standard icon for buttons."""
         return self.style().standardIcon(sp)
 
-    def _file_action_row(self, get_path) -> QHBoxLayout:
-        """Open / Reveal buttons acting on the path returned by *get_path*."""
-        row = QHBoxLayout()
-        open_btn = QPushButton(" Open")
-        open_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_FileIcon))
-        open_btn.setToolTip("Open this file in your default editor")
-        open_btn.clicked.connect(lambda: self._open_file(get_path()))
-        reveal_btn = QPushButton(" Reveal")
-        reveal_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_DirOpenIcon))
-        reveal_btn.setToolTip("Show this file in your file manager")
-        reveal_btn.clicked.connect(lambda: self._reveal_file(get_path()))
-        row.addWidget(open_btn)
-        row.addWidget(reveal_btn)
-        row.addStretch()
-        return row
-
-    def _open_file(self, path: str) -> None:
-        if not path or not os.path.isfile(path):
-            QMessageBox.information(self, "No file", "Select a file first.")
-            return
-        _open_in_default_app(path)
-
-    def _reveal_file(self, path: str) -> None:
-        if not path or not os.path.isfile(path):
-            QMessageBox.information(self, "No file", "Select a file first.")
-            return
-        _reveal_in_file_manager(path)
+    def _icon_button(self, spec, slot) -> QPushButton:
+        """Build a compact square button from a :class:`UI` icon spec."""
+        icon, text, tooltip = spec
+        btn = QPushButton(text)
+        btn.setToolTip(tooltip)
+        if icon:
+            btn.setIcon(self._icon(getattr(QStyle.StandardPixmap, icon)))
+            btn.setFixedSize(UI.ICON_BUTTON_SIZE, UI.ICON_BUTTON_SIZE)
+        else:
+            # Text-only buttons keep the row height but size to their label.
+            btn.setFixedHeight(UI.ICON_BUTTON_SIZE)
+        btn.clicked.connect(slot)
+        return btn
 
     def _build_ui(self) -> None:
         # Pending selections (no raw path fields in the UI — kept here and shown
@@ -543,94 +578,56 @@ class ConfigWizard(QWidget):
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
 
-        # -- Title -----------------------------------------------------------
-        title = QLabel("<h3>⚙ &nbsp;Configuration Wizard</h3>")
-        layout.addWidget(title)
-        subtitle = QLabel("Pick a rig to launch. An experiment is optional.")
-        subtitle.setStyleSheet(f"color: {theme.TEXT_DIM};")
-        layout.addWidget(subtitle)
-
         # === ① Rig (required) ==============================================
-        rig_group = QGroupBox("①   Rig  ·  required")
+        # One row: [browse] [rig picker] [new rig] [edit rig], status beneath.
+        rig_group = QGroupBox(UI.RIG_GROUP)
         rig_layout = QVBoxLayout(rig_group)
         rig_layout.setSpacing(6)
+
         rig_row = QHBoxLayout()
-        rig_lbl = QLabel("🔧")
-        rig_lbl.setToolTip("Hardware rig (hardware.yaml)")
-        rig_row.addWidget(rig_lbl)
+        rig_row.addWidget(self._icon_button(UI.RIG_BROWSE, self._browse_yaml))
         self._rig_combo = QComboBox()
-        self._rig_combo.setToolTip("Bring up a canonical rig from this machine's rig store")
+        self._rig_combo.setToolTip(UI.RIG_COMBO_TIP)
         self._populate_rig_combo()
         self._rig_combo.currentIndexChanged.connect(self._on_rig_selected)
         rig_row.addWidget(self._rig_combo, 1)
+        rig_row.addWidget(self._icon_button(UI.RIG_NEW, self._new_rig))
+        rig_row.addWidget(self._icon_button(UI.RIG_EDIT, self._edit_rig))
         rig_layout.addLayout(rig_row)
 
-        rig_btn_row = QHBoxLayout()
-        browse_yaml_btn = QPushButton(" Browse hardware.yaml…")
-        browse_yaml_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_DialogOpenButton))
-        browse_yaml_btn.clicked.connect(self._browse_yaml)
-        rig_btn_row.addWidget(browse_yaml_btn)
-        new_rig_btn = QPushButton(" New rig…")
-        new_rig_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_FileDialogNewFolder))
-        new_rig_btn.setToolTip("Build a new hardware.yaml from a guided device list")
-        new_rig_btn.clicked.connect(self._new_rig)
-        rig_btn_row.addWidget(new_rig_btn)
-        edit_rig_btn = QPushButton(" Edit rig…")
-        edit_rig_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_FileDialogDetailedView))
-        edit_rig_btn.setToolTip("Edit the selected rig's devices (e.g. fix a camera backend)")
-        edit_rig_btn.clicked.connect(self._edit_rig)
-        rig_btn_row.addWidget(edit_rig_btn)
-        rig_layout.addLayout(rig_btn_row)
-
-        self._yaml_status = QLabel("• no rig selected")
+        self._yaml_status = QLabel(UI.RIG_STATUS_EMPTY)
         self._yaml_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
         rig_layout.addWidget(self._yaml_status)
-        rig_layout.addLayout(self._file_action_row(lambda: self._hardware_path))
         layout.addWidget(rig_group)
 
         # === ② Experiment (optional) =======================================
-        exp_group = QGroupBox("②   Experiment  ·  optional")
+        # Same shape: [load .json] [output dir] [create .json] [open .json].
+        exp_group = QGroupBox(UI.EXP_GROUP)
         exp_layout = QVBoxLayout(exp_group)
         exp_layout.setSpacing(6)
+
         out_row = QHBoxLayout()
-        dir_lbl = QLabel("📁")
-        dir_lbl.setToolTip("Experiment / output directory (where data is written)")
-        out_row.addWidget(dir_lbl)
+        out_row.addWidget(self._icon_button(UI.EXP_BROWSE, self._browse_json))
         self._outdir_edit = QLineEdit()
-        self._outdir_edit.setPlaceholderText("experiment / output directory")
+        self._outdir_edit.setPlaceholderText(UI.EXP_DIR_PLACEHOLDER)
+        self._outdir_edit.setToolTip(UI.EXP_HINT_TIP)
         self._outdir_edit.setText(self.procedure.config.experiment_dir)
         out_row.addWidget(self._outdir_edit, 1)
-        outdir_browse = QPushButton()
-        outdir_browse.setIcon(self._icon(QStyle.StandardPixmap.SP_DirOpenIcon))
-        outdir_browse.setToolTip("Choose the experiment / output directory")
-        outdir_browse.setFixedWidth(40)
-        outdir_browse.clicked.connect(self._browse_outdir)
-        out_row.addWidget(outdir_browse)
+        self._create_json_btn = self._icon_button(UI.EXP_NEW, self._create_experiment_json)
+        out_row.addWidget(self._create_json_btn)
+        out_row.addWidget(self._icon_button(UI.EXP_EDIT, self._edit_experiment_json))
         exp_layout.addLayout(out_row)
 
         self._json_status = QLabel("")
         self._json_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
         exp_layout.addWidget(self._json_status)
-        exp_layout.addLayout(self._file_action_row(lambda: self._experiment_json))
-
-        json_btn_row = QHBoxLayout()
-        self._create_json_btn = QPushButton(" Create experiment.json…")
-        self._create_json_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_FileDialogNewFolder))
-        self._create_json_btn.setToolTip("Author a new experiment.json (subjects, tasks, variables)")
-        self._create_json_btn.clicked.connect(self._create_experiment_json)
-        json_btn_row.addWidget(self._create_json_btn)
-        browse_json_btn = QPushButton(" Load .json…")
-        browse_json_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_DialogOpenButton))
-        browse_json_btn.clicked.connect(self._browse_json)
-        json_btn_row.addWidget(browse_json_btn)
-        exp_layout.addLayout(json_btn_row)
         layout.addWidget(exp_group)
 
         self._outdir_edit.textChanged.connect(self._on_outdir_changed)
         self._on_outdir_changed(self._outdir_edit.text())
 
         # === Apply (primary CTA) ===========================================
-        self._apply_btn = QPushButton("  Apply Configuration")
+        self._apply_btn = QPushButton(UI.APPLY)
         self._apply_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_MediaPlay))
         self._apply_btn.setStyleSheet(
             f"QPushButton {{ padding: 10px 16px; font-weight: bold; "
@@ -643,9 +640,13 @@ class ConfigWizard(QWidget):
         # -- Spacer ----------------------------------------------------------
         layout.addStretch()
 
-        # === MicroManager .cfg (secondary; populated once MM cameras exist) =
+        # === MicroManager .cfg ==============================================
+        # Hidden: the .cfg a rig needs is declared in hardware.yaml, so this
+        # section only added noise to the Setup tab. The widget is still built
+        # (un-parented) so `set_cameras`/`refresh_mm_section` stay live for
+        # anything that wants to surface it again.
         self._mm_section = _MMConfigSection()
-        layout.addWidget(self._mm_section)
+        self._mm_section.hide()
 
     # -- Recent paths persistence ---------------------------------------------
 
@@ -729,10 +730,10 @@ class ConfigWizard(QWidget):
 
         self._rig_combo.blockSignals(True)
         self._rig_combo.clear()
-        self._rig_combo.addItem("— select rig —")
+        self._rig_combo.addItem(UI.RIG_COMBO_EMPTY)
         for name in rigs.list_rigs():
             self._rig_combo.addItem(name)
-        self._rig_combo.addItem("dev (mock devices)")
+        self._rig_combo.addItem(UI.RIG_COMBO_DEV)
         self._rig_combo.blockSignals(False)
 
     def _on_rig_selected(self, index: int) -> None:
@@ -823,19 +824,13 @@ class ConfigWizard(QWidget):
                 self._rig_combo.blockSignals(False)
                 self._on_rig_selected(idx)  # re-resolve path + refresh status
 
-    def _browse_outdir(self) -> None:
-        """Pick the directory data will be written into."""
-        path = QFileDialog.getExistingDirectory(self, "Select experiment directory")
-        if path:
-            self._outdir_edit.setText(path)
-
     def _on_outdir_changed(self, text: str) -> None:
         """Auto-detect an experiment.json in the chosen directory."""
         text = text.strip()
         candidate = os.path.join(text, "experiment.json") if text else ""
         if candidate and os.path.isfile(candidate):
             self._set_experiment_json(candidate, "experiment.json found — will load")
-            self._create_json_btn.setText(" Replace experiment.json…")
+            self._create_json_btn.setToolTip(UI.EXP_NEW_REPLACE_TIP)
         else:
             # Drop an auto-detected JSON if we navigated away from its dir;
             # keep one the user explicitly browsed from elsewhere.
@@ -843,12 +838,10 @@ class ConfigWizard(QWidget):
                     os.path.dirname(self._experiment_json) == os.path.abspath(text):
                 self._experiment_json = ""
             if not self._experiment_json:
-                self._json_status.setText(
-                    "• no experiment.json here — create one, or run hardware-only"
-                )
+                self._json_status.setText(UI.EXP_STATUS_NONE)
                 self._json_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
                 self._json_status.setToolTip("")
-            self._create_json_btn.setText(" Create experiment.json…")
+            self._create_json_btn.setToolTip(UI.EXP_NEW[2])
 
     def _create_experiment_json(self) -> None:
         """Author a fresh experiment.json via the guided experiment builder."""
@@ -857,9 +850,30 @@ class ConfigWizard(QWidget):
         start = self._outdir_edit.text().strip() or self.procedure.config.experiment_dir
         dialog = ExperimentBuilderDialog(default_dir=start, parent=self)
         if dialog.exec() and dialog.json_path:
-            if not self._outdir_edit.text().strip():
-                self._outdir_edit.setText(os.path.dirname(dialog.json_path))
+            # Follow the file we just wrote. The builder stamps the new JSON's
+            # own directory into Configuration.experiment_dir, so leaving the
+            # pre-seeded (cwd) value here would make Apply overwrite it.
+            self._outdir_edit.setText(os.path.dirname(dialog.json_path))
             self._set_experiment_json(dialog.json_path, "experiment.json created — will load")
+
+    def _edit_experiment_json(self) -> None:
+        """Re-open the guided builder on the selected experiment.json."""
+        from mesofield.gui.config_builder import ExperimentBuilderDialog
+
+        path = self._experiment_json
+        if not path or not os.path.isfile(path):
+            QMessageBox.information(
+                self, "Nothing to edit",
+                "Select or create an experiment.json first.",
+            )
+            return
+
+        dialog = ExperimentBuilderDialog(
+            default_dir=os.path.dirname(path), parent=self, json_path=path
+        )
+        if dialog.exec() and dialog.json_path:
+            self._outdir_edit.setText(os.path.dirname(dialog.json_path))
+            self._set_experiment_json(dialog.json_path, "experiment.json edited — will load")
 
     def _browse_json(self) -> None:
         """Select an experiment.json from anywhere on disk."""
@@ -901,6 +915,11 @@ class ConfigWizard(QWidget):
         # deinitializes them, so no in-flight frame lands on a doomed widget.
         self.hardwareAboutToChange.emit()
 
+        # load_config blocks the GUI thread while hardware comes up, and the
+        # host window pumps the event loop to keep its log console painting --
+        # so the button has to be latched off, or a second click could land
+        # mid-initialisation.
+        self._apply_btn.setEnabled(False)
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             self.procedure.load_config(hardware=yaml_path, experiment=json_path)
@@ -911,14 +930,13 @@ class ConfigWizard(QWidget):
                     self.procedure.config.hardware.rig_spec()
                 )
         except Exception as exc:
-            QMessageBox.critical(
-                self,
-                "Configuration Error",
-                f"Failed to apply configuration:\n\n{exc}",
-            )
+            from mesofield.gui.errors import show_error
+
+            show_error(self, "Configuration Error", exc)
             return
         finally:
             QApplication.restoreOverrideCursor()
+            self._apply_btn.setEnabled(True)
 
         # An explicit output directory overrides the JSON/cwd default.
         out_dir = self._outdir_edit.text().strip()
@@ -944,7 +962,7 @@ class ConfigWizard(QWidget):
 
     def _mark_applied(self) -> None:
         """Show the Apply button in its applied (green) state."""
-        self._apply_btn.setText("✔  Configuration Applied")
+        self._apply_btn.setText(UI.APPLY_APPLIED)
         self._apply_btn.setStyleSheet(
             "QPushButton { padding: 8px 16px; font-weight: bold; color: green; }"
         )

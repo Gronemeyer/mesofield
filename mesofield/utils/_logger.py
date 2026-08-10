@@ -10,6 +10,7 @@ Usage:
 import functools
 import logging
 import sys
+from collections import deque
 from os import PathLike
 from pathlib import Path
 from typing import Optional
@@ -28,6 +29,21 @@ _CONSOLE_FORMAT = (
     "[{extra[logger_name]}] <cyan>{file.name}:{line}</cyan> --> {message}"
 )
 _FILE_FORMAT = "{time:HH:mm:ss} | {level: <8} | [{extra[logger_name]}] {file.name}:{line} --> {message}"
+
+# Format shared by the in-GUI console and the replay buffer below, so a record
+# reads the same whether it was captured before or after the console existed.
+GUI_FORMAT = "{time:HH:mm:ss} | {level: <8} | [{extra[logger_name]}] {message}"
+
+# Records logged before any GUI console exists -- everything from interpreter
+# start through Procedure construction -- are kept here so the console can show
+# them retroactively. Bounded: a crash loop must not grow this without limit.
+_REPLAY_MAX = 500
+_replay: deque = deque(maxlen=_REPLAY_MAX)
+
+
+def buffered_records() -> list[str]:
+    """Formatted records logged so far, for replay into a late-opening console."""
+    return list(_replay)
 
 
 class InterceptHandler(logging.Handler):
@@ -99,6 +115,13 @@ def setup_logging(log_dir: Optional[str] = None, level: str = "INFO") -> None:
         backtrace=True,
     )
 
+    logger.add(
+        lambda message: _replay.append(str(message).rstrip("\n")),
+        format=GUI_FORMAT,
+        level=level.upper(),
+        colorize=False,
+    )
+
     # Route all stdlib logging through loguru
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
 
@@ -133,6 +156,15 @@ def get_logger(name: str):
     if not _configured:
         setup_logging()
     return logger.bind(logger_name=name)
+
+
+def log_file() -> Optional[Path]:
+    """Path of the file sink, or ``None`` before :func:`setup_logging` runs.
+
+    Note this is the *current* file: the sink rotates at midnight, so a session
+    running across midnight ends up writing to a successor of this path.
+    """
+    return None if _log_dir is None else _log_dir / "mesofield.log"
 
 
 def hyperlink(path: str | PathLike[str], text: str) -> str:

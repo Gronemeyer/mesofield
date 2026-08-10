@@ -987,6 +987,36 @@ class ExperimentConfig(ConfigRegister):
             data["Subjects"][subject_id] = new_params
             self._write_json_file(data)
 
+    def add_task(self, task: str) -> None:
+        """Add a task to the ``task`` choices, select it, and persist it.
+
+        A list under ``Configuration`` is how this JSON format expresses a
+        choice list (see :meth:`load_json`), so the whole task list is written
+        back to ``Configuration.task``. Stimulus-declared tasks are folded in
+        separately by :meth:`_register_stimulus_tasks` on every reload.
+        """
+        task = (task or "").strip()
+        if not task:
+            raise ValueError("Task must not be empty")
+        tasks = list(self.get_choices("task") or [])
+        current = self.get("task")
+        if current and current not in tasks:
+            tasks.append(current)
+        if task in tasks:
+            raise ValueError(f"Task '{task}' already exists")
+        tasks.append(task)
+
+        self.register_choices("task", tasks)
+        self.set("task", task)
+
+        data = self._read_json_file()
+        if data is not None:
+            if "Configuration" in data:
+                data["Configuration"]["task"] = tasks
+            else:
+                data["task"] = tasks
+            self._write_json_file(data)
+
     def add_parameter(self, name: str, default: Any, type_hint: Type) -> None:
         """Add a subject-scoped parameter to every subject and DisplayKeys.
 
