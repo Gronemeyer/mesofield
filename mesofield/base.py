@@ -482,6 +482,10 @@ class Procedure:
         owns its own readiness handshake and ready gate); with none, asks the
         operator directly. Devices are armed but nothing has started yet, so
         blocking here holds the whole run. Raises to cancel.
+
+        An arm-phase stimulus (MousePortal) is already up and holding at its
+        own trigger gate, watching for the same spacebar press that dismisses
+        this dialog -- so one press releases both.
         """
         if not self.config.start_on_trigger:
             return
@@ -490,9 +494,15 @@ class Procedure:
             if d.enabled and d.launch_phase == "start"
         ]
         if not stimuli:
+            waiting = [d.device_id for d in self._stimuli() if d.enabled]
+            what = (
+                f"{', '.join(waiting)} is armed and waiting for the same press."
+                if waiting else
+                "No visual stimulus for this task."
+            )
             if not ui().confirm(
                 "Start recording",
-                "Ready to record (no visual stimulus).\n"
+                f"Ready to record. {what}\n"
                 "Press spacebar (or click OK) to start, Cancel to abort.",
             ):
                 raise RuntimeError("Run cancelled at the start gate")

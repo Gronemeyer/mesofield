@@ -127,8 +127,26 @@ class MousePortalDevice(SubprocessStimulusDevice):
         self._open_forwarder()
 
     def build_command(self) -> List[str]:
+        """Launch argv, with the start mode keyed to ``start_on_trigger``.
+
+        MousePortal launches during arm, so it is already up when the procedure
+        reaches its start gate. With ``start_on_trigger`` it holds frozen in
+        ``WAITING_FOR_TRIGGER`` and releases on the operator's spacebar --
+        the *same* press that dismisses mesofield's start dialog, which
+        MousePortal detects globally rather than through window focus (that
+        dialog is deliberately forced to the foreground). MousePortal logs the
+        press time to its CSV, so corridor onset is on the record.
+
+        Without ``start_on_trigger`` nobody would ever press the key, so the
+        corridor begins as soon as it is up, as before.
+        """
         python_exe = self.python_exe or sys.executable
-        return [python_exe, "-m", "mouseportal", "-c", self._cfg_path, "--autostart"]
+        gate = (
+            "--wait-trigger"
+            if getattr(self._config, "start_on_trigger", False)
+            else "--autostart"
+        )
+        return [python_exe, "-m", "mouseportal", "-c", self._cfg_path, gate]
 
     def launch_env(self) -> Optional[Dict[str, str]]:
         """Environment for the MousePortal subprocess.
