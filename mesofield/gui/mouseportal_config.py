@@ -58,16 +58,13 @@ def total_duration(experiment: Dict[str, Any]) -> float:
     it. DURATION-ended trials are exact; DISTANCE/MANUAL trials are
     non-deterministic, so their per-trial ``trial_duration`` (or the global
     default) is used as an estimate. A randomised ITI (``iti_range``) counts as
-    its mean, so the total is the expected length, not an exact one.
+    its mean, so the total is the expected length, not an exact one. Conditions
+    with ``iti_after`` false contribute no interval.
     """
     exp = experiment or {}
     num_blocks = int(exp.get("num_blocks", 1))
     trials_per_block = int(exp.get("trials_per_block", 1))
-    iti_range = exp.get("iti_range")
-    if iti_range:
-        iti = (float(iti_range[0]) + float(iti_range[1])) / 2.0
-    else:
-        iti = float(exp.get("iti_duration", 0.0))
+    iti = _mean_iti(exp.get("iti_range"), float(exp.get("iti_duration", 0.0)))
     global_dur = float(exp.get("trial_duration", 60.0))
     conditions = {
         c.get("label"): c for c in exp.get("conditions", []) or [] if isinstance(c, dict)
@@ -82,8 +79,17 @@ def total_duration(experiment: Dict[str, Any]) -> float:
         for t in range(trials_per_block):
             cond = (conditions.get(seq[t]) if t < len(seq) else None) or {}
             dur = cond.get("trial_duration")
-            total += (float(dur) if dur is not None else global_dur) + iti
+            total += float(dur) if dur is not None else global_dur
+            if cond.get("iti_after", True):
+                total += _mean_iti(cond.get("iti_range"), iti)
     return total
+
+
+def _mean_iti(iti_range: Any, fallback: float) -> float:
+    """Mean of an ``[min, max]`` ITI range, or ``fallback`` when unset."""
+    if not iti_range:
+        return fallback
+    return (float(iti_range[0]) + float(iti_range[1])) / 2.0
 
 
 def parse_block_sequences(text: str) -> List[Dict[str, List[str]]]:
@@ -105,6 +111,17 @@ def format_block_sequences(block_conditions: List[Dict[str, Any]]) -> str:
         seq = blk.get("condition_sequence", []) if isinstance(blk, dict) else []
         lines.append(", ".join(str(s) for s in seq))
     return "\n".join(lines)
+
+
+def _iti_range_errors(iti_range: Any, where: str) -> List[str]:
+    """Validate an ``[min, max]`` ITI range; empty list when unset or valid."""
+    if iti_range is None:
+        return []
+    try:
+        lo, hi = (float(v) for v in iti_range)
+    except (TypeError, ValueError):
+        return [f"{where} must be [min, max] seconds."]
+    return [f"{where} must satisfy 0 ≤ min ≤ max."] if lo < 0 or hi < lo else []
 
 
 def validate_block(block: Dict[str, Any]) -> List[str]:
@@ -131,14 +148,7 @@ def validate_block(block: Dict[str, Any]) -> List[str]:
     except (TypeError, ValueError):
         errors.append("iti_duration must be a number.")
 
-    iti_range = exp.get("iti_range")
-    if iti_range is not None:
-        try:
-            lo, hi = (float(v) for v in iti_range)
-            if lo < 0 or hi < lo:
-                errors.append("iti_range must satisfy 0 ≤ min ≤ max.")
-        except (TypeError, ValueError):
-            errors.append("iti_range must be [min, max] seconds.")
+    errors.extend(_iti_range_errors(exp.get("iti_range"), "iti_range"))
 
     seed = exp.get("random_seed")
     if seed is not None and not (isinstance(seed, int) and seed >= 0):
@@ -162,6 +172,9 @@ def validate_block(block: Dict[str, Any]) -> List[str]:
         ttype = cond.get("transform_type", "identity")
         if ttype not in KNOWN_TRANSFORMS:
             errors.append(f"condition '{label}': unknown transform_type '{ttype}'.")
+        errors.extend(
+            _iti_range_errors(cond.get("iti_range"), f"condition '{label}': iti_range")
+        )
         params = cond.get("transform_params", {}) or {}
         if ttype == "gain":
             gain = params.get("gain", 1.0)

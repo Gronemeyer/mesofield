@@ -224,8 +224,10 @@ class MousePortalController(QWidget):
         cond_content = QWidget()
         cond_layout = QVBoxLayout(cond_content)
         cond_layout.setContentsMargins(0, 0, 0, 0)
-        self.cond_table = QTableWidget(0, 4)
-        self.cond_table.setHorizontalHeaderLabels(["Label", "Transform", "Value", "Dur (s)"])
+        self.cond_table = QTableWidget(0, 5)
+        self.cond_table.setHorizontalHeaderLabels(
+            ["Label", "Transform", "Value", "Dur (s)", "ITI"]
+        )
         header = self.cond_table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -237,7 +239,9 @@ class MousePortalController(QWidget):
             "Value is the single transform parameter (gain/offset/sigma/delay).\n"
             "identity/invert/freeze ignore it; multi-param transforms (clamp) "
             "must be edited in the JSON directly.\n"
-            "Duration 0 = use the global trial_duration."
+            "Duration 0 = use the global trial_duration.\n"
+            "ITI unchecked = the next condition starts immediately, chaining "
+            "both into one trial."
         )
         cond_layout.addWidget(self.cond_table)
         btn_row = QHBoxLayout()
@@ -351,7 +355,8 @@ class MousePortalController(QWidget):
 
     # ---- conditions table helpers ------------------------------------
     def _add_condition_row(
-        self, label: str, ttype: str, value: float, duration: float = 0.0, row: int | None = None
+        self, label: str, ttype: str, value: float, duration: float = 0.0,
+        iti_after: bool = True, row: int | None = None,
     ) -> None:
         if row is None:
             row = self.cond_table.rowCount()
@@ -370,17 +375,23 @@ class MousePortalController(QWidget):
         dur.setSpecialValueText("global")
         dur.setValue(float(duration))
         self.cond_table.setCellWidget(row, 3, dur)
+        # Unchecked suppresses the interval after this condition, so the next
+        # one in the sequence starts on the same frame.
+        iti = QCheckBox(); iti.setChecked(bool(iti_after))
+        self.cond_table.setCellWidget(row, 4, iti)
         # Connect last: setValue() on a half-built row would recompute the
         # total against a cell widget that isn't in the table yet.
         dur.valueChanged.connect(self._update_total_label)
+        iti.toggled.connect(self._update_total_label)
 
-    def _row_values(self, row: int) -> tuple[str, str, float, float]:
+    def _row_values(self, row: int) -> tuple[str, str, float, float, bool]:
         item = self.cond_table.item(row, 0)
         return (
             item.text() if item else "",
             self.cond_table.cellWidget(row, 1).currentText(),
             self.cond_table.cellWidget(row, 2).value(),
             self.cond_table.cellWidget(row, 3).value(),
+            self.cond_table.cellWidget(row, 4).isChecked(),
         )
 
     def _remove_selected_conditions(self) -> None:
@@ -408,14 +419,29 @@ class MousePortalController(QWidget):
         self.cond_table.selectRow(target)
 
     def _collect_conditions(self) -> List[Dict[str, Any]]:
+        # Keys the table has no column for (iti_range, trial_end_condition,
+        # trial_distance) are carried over from the saved config by label so a
+        # round-trip through the tab doesn't drop them.
+        saved = {
+            c.get("label"): c
+            for c in (self.config.mouseportal.get("experiment") or {}).get("conditions") or []
+            if isinstance(c, dict)
+        }
         conditions: List[Dict[str, Any]] = []
         for row in range(self.cond_table.rowCount()):
-            label, ttype, value, duration = self._row_values(row)
-            cond: Dict[str, Any] = {"label": label.strip(), "transform_type": ttype}
+            label, ttype, value, duration, iti_after = self._row_values(row)
+            label = label.strip()
+            cond: Dict[str, Any] = dict(saved.get(label, {}))
+            cond.update({"label": label, "transform_type": ttype})
+            cond.pop("transform_params", None)
             if ttype in TRANSFORM_PARAM:
                 cond["transform_params"] = {TRANSFORM_PARAM[ttype]: value}
+            cond.pop("trial_duration", None)
             if duration > 0:
                 cond["trial_duration"] = duration
+            cond.pop("iti_after", None)
+            if not iti_after:
+                cond["iti_after"] = False
             conditions.append(cond)
         return conditions
 
@@ -510,6 +536,7 @@ class MousePortalController(QWidget):
             self._add_condition_row(
                 cond.get("label", ""), ttype, float(value),
                 float(cond.get("trial_duration") or 0.0),
+                bool(cond.get("iti_after", True)),
             )
 
         self.block_edit.setPlainText(format_block_sequences(exp.get("block_conditions", [])))
