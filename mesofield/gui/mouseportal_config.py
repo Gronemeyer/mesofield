@@ -7,8 +7,9 @@ over these functions; persistence goes through
 
 The block shape mirrors MousePortal's own config (see
 ``mouseportal.config``): ``{window, fog, experiment}`` where ``experiment`` is
-``{num_blocks, trials_per_block, iti_duration, trial_end_condition,
-trial_duration, trial_distance, conditions[], block_conditions[]}``.
+``{num_blocks, trials_per_block, iti_duration, iti_range, random_seed,
+trial_end_condition, trial_duration, trial_distance, conditions[],
+block_conditions[]}``.
 """
 
 from __future__ import annotations
@@ -17,11 +18,14 @@ from typing import Any, Dict, List
 
 # Velocity transforms MousePortal knows (mouseportal.transforms._REGISTRY).
 KNOWN_TRANSFORMS = (
-    "identity", "gain", "invert", "freeze", "offset", "clamp", "noisy", "delay",
+    "identity", "gain", "invert", "reverse", "freeze", "offset", "clamp", "noisy", "delay",
 )
 # Single-parameter transforms editable via one value column in the GUI table.
 # (``clamp`` takes two params; edit it in the raw block if needed.)
-TRANSFORM_PARAM = {"gain": "gain", "offset": "offset", "noisy": "sigma", "delay": "delay_sec"}
+TRANSFORM_PARAM = {
+    "gain": "gain", "offset": "offset", "noisy": "sigma", "delay": "delay_sec",
+    "reverse": "speed",
+}
 ZERO_PARAM = {"identity", "invert", "freeze"}
 TRIAL_END_CONDITIONS = ("duration", "distance", "manual")
 
@@ -53,12 +57,17 @@ def total_duration(experiment: Dict[str, Any]) -> float:
     and sums each trial's duration plus the inter-trial interval that follows
     it. DURATION-ended trials are exact; DISTANCE/MANUAL trials are
     non-deterministic, so their per-trial ``trial_duration`` (or the global
-    default) is used as an estimate.
+    default) is used as an estimate. A randomised ITI (``iti_range``) counts as
+    its mean, so the total is the expected length, not an exact one.
     """
     exp = experiment or {}
     num_blocks = int(exp.get("num_blocks", 1))
     trials_per_block = int(exp.get("trials_per_block", 1))
-    iti = float(exp.get("iti_duration", 0.0))
+    iti_range = exp.get("iti_range")
+    if iti_range:
+        iti = (float(iti_range[0]) + float(iti_range[1])) / 2.0
+    else:
+        iti = float(exp.get("iti_duration", 0.0))
     global_dur = float(exp.get("trial_duration", 60.0))
     conditions = {
         c.get("label"): c for c in exp.get("conditions", []) or [] if isinstance(c, dict)
@@ -121,6 +130,19 @@ def validate_block(block: Dict[str, Any]) -> List[str]:
             errors.append("iti_duration must be ≥ 0.")
     except (TypeError, ValueError):
         errors.append("iti_duration must be a number.")
+
+    iti_range = exp.get("iti_range")
+    if iti_range is not None:
+        try:
+            lo, hi = (float(v) for v in iti_range)
+            if lo < 0 or hi < lo:
+                errors.append("iti_range must satisfy 0 ≤ min ≤ max.")
+        except (TypeError, ValueError):
+            errors.append("iti_range must be [min, max] seconds.")
+
+    seed = exp.get("random_seed")
+    if seed is not None and not (isinstance(seed, int) and seed >= 0):
+        errors.append("random_seed must be a non-negative integer (or absent for auto).")
 
     end = exp.get("trial_end_condition", "duration")
     if end not in TRIAL_END_CONDITIONS:

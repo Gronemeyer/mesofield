@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import socket
 import subprocess
 import sys
@@ -81,6 +82,7 @@ class MousePortalDevice(SubprocessStimulusDevice):
         self.tail_seconds: float = float(cfg.get("tail_seconds", 5.0))
 
         self._cfg_path: Optional[str] = None
+        self.random_seed: Optional[int] = None   # resolved per run in prepare()
         self.output_path: Optional[str] = None
         self.metadata_path: Optional[str] = None
         self._sock: Optional[socket.socket] = None
@@ -321,6 +323,15 @@ class MousePortalDevice(SubprocessStimulusDevice):
         window = dict(_DEFAULT_WINDOW)
         window.update(portal.get("window") or {})
         portal["window"] = window
+        # Resolve the random seed here rather than leaving it to MousePortal, so
+        # the config written beside the session data replays this run exactly.
+        experiment = dict(portal.get("experiment") or {})
+        if experiment:
+            if experiment.get("random_seed") is None:
+                experiment["random_seed"] = random.randrange(2 ** 31)
+            self.random_seed = int(experiment["random_seed"])
+            portal["experiment"] = experiment
+            self.logger.info(f"MousePortal random seed: {self.random_seed}")
         portal["input"] = {
             "mode": "network",
             "host": self.host,
@@ -369,4 +380,6 @@ class MousePortalDevice(SubprocessStimulusDevice):
         params = self._mouseportal_params()
         if params:
             out.update(params)
+        if self.random_seed is not None:
+            out["random_seed"] = self.random_seed
         return out

@@ -139,12 +139,35 @@ class MousePortalController(QWidget):
         self.num_blocks = QSpinBox(); self.num_blocks.setRange(1, 999)
         self.trials_per_block = QSpinBox(); self.trials_per_block.setRange(1, 999)
         self.iti_duration = QDoubleSpinBox(); self.iti_duration.setRange(0, 3600); self.iti_duration.setSuffix(" s")
+        # Randomised ITI: when checked, each interval is drawn uniformly from
+        # [min, max] using random_seed instead of the fixed iti_duration.
+        self.iti_random = QCheckBox("randomize")
+        self.iti_min = QDoubleSpinBox(); self.iti_min.setRange(0, 3600); self.iti_min.setSuffix(" s")
+        self.iti_max = QDoubleSpinBox(); self.iti_max.setRange(0, 3600); self.iti_max.setSuffix(" s")
+        iti_row = QHBoxLayout(); iti_row.setContentsMargins(0, 0, 0, 0)
+        iti_row.addWidget(self.iti_random)
+        iti_row.addWidget(self.iti_min, 1); iti_row.addWidget(QLabel("–"))
+        iti_row.addWidget(self.iti_max, 1)
+        iti_holder = QWidget(); iti_holder.setLayout(iti_row)
+        iti_holder.setToolTip(
+            "Draw each inter-trial interval uniformly from [min, max] with the "
+            "session's random_seed. Unchecked, every ITI is iti_duration."
+        )
+        self.random_seed = QSpinBox(); self.random_seed.setRange(0, 2_147_483_647)
+        self.random_seed.setSpecialValueText("auto")
+        self.random_seed.setToolTip(
+            "Seed for the ITI draws. 'auto' lets MousePortal draw one at startup "
+            "and record it in the run's mouseportal_cfg.json and timing sidecar — "
+            "paste it back here to repeat that session's intervals."
+        )
         self.trial_end = QComboBox(); self.trial_end.addItems(list(TRIAL_END_CONDITIONS))
         self.trial_duration = QDoubleSpinBox(); self.trial_duration.setRange(0, 86400); self.trial_duration.setSuffix(" s")
         self.trial_distance = QDoubleSpinBox(); self.trial_distance.setRange(0, 1_000_000)
         form.addRow("num_blocks", self.num_blocks)
         form.addRow("trials_per_block", self.trials_per_block)
         form.addRow("iti_duration", self.iti_duration)
+        form.addRow("iti_range", iti_holder)
+        form.addRow("random_seed", self.random_seed)
         form.addRow("trial_end_condition", self.trial_end)
         form.addRow("trial_duration", self.trial_duration)
         form.addRow("trial_distance", self.trial_distance)
@@ -193,8 +216,9 @@ class MousePortalController(QWidget):
 
         for w in (self.num_blocks, self.trials_per_block):
             w.valueChanged.connect(self._update_total_label)
-        for w in (self.iti_duration, self.trial_duration):
+        for w in (self.iti_duration, self.trial_duration, self.iti_min, self.iti_max):
             w.valueChanged.connect(self._update_total_label)
+        self.iti_random.toggled.connect(self._on_iti_random)
 
         # --- Conditions table ---------------------------------------------
         cond_content = QWidget()
@@ -396,6 +420,12 @@ class MousePortalController(QWidget):
         return conditions
 
     # ---- misc actions -------------------------------------------------
+    def _on_iti_random(self, on: bool) -> None:
+        self.iti_min.setEnabled(on)
+        self.iti_max.setEnabled(on)
+        self.iti_duration.setEnabled(not on)
+        self._update_total_label()
+
     def _browse_model_path(self) -> None:
         path = QFileDialog.getExistingDirectory(
             self, "Select MousePortal model/asset directory",
@@ -452,6 +482,12 @@ class MousePortalController(QWidget):
         self.num_blocks.setValue(int(exp.get("num_blocks", 1)))
         self.trials_per_block.setValue(int(exp.get("trials_per_block", 1)))
         self.iti_duration.setValue(float(exp.get("iti_duration", 0.0)))
+        iti_range = exp.get("iti_range") or []
+        self.iti_min.setValue(float(iti_range[0]) if iti_range else 0.0)
+        self.iti_max.setValue(float(iti_range[1]) if iti_range else 0.0)
+        self.iti_random.setChecked(bool(iti_range))
+        self._on_iti_random(bool(iti_range))
+        self.random_seed.setValue(int(exp.get("random_seed") or 0))
         end = exp.get("trial_end_condition", "duration")
         i = self.trial_end.findText(end); self.trial_end.setCurrentIndex(i if i >= 0 else 0)
         self.trial_duration.setValue(float(exp.get("trial_duration", 0.0) or 0.0))
@@ -500,6 +536,16 @@ class MousePortalController(QWidget):
         else:
             block.pop("task", None)
         experiment = dict(block.get("experiment", {}))
+        if self.iti_random.isChecked():
+            experiment["iti_range"] = [self.iti_min.value(), self.iti_max.value()]
+        else:
+            experiment.pop("iti_range", None)
+        # 0 is the "auto" sentinel: leave the seed out and let MousePortal draw
+        # (and record) one for the run.
+        if self.random_seed.value():
+            experiment["random_seed"] = self.random_seed.value()
+        else:
+            experiment.pop("random_seed", None)
         experiment.update({
             "num_blocks": self.num_blocks.value(),
             "trials_per_block": self.trials_per_block.value(),
