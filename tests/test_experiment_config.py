@@ -271,7 +271,13 @@ def test_stimulus_task_choices_are_unioned(tmp_path, cfg):
                 "Configuration": {"duration": 5, "task": ["baseline"]},
                 "Subjects": {"S1": {"session": "01"}},
                 "PsychoPy": {"grat": "task-grat.py"},
-                "MousePortal": {"task": "corridor", "experiment": {"num_blocks": 1}},
+                "MousePortal": {
+                    "task": "corridor",
+                    "experiment": {
+                        "conditions": [{"label": "normal", "transform_type": "identity"}],
+                        "blocks": [{"sequence": ["normal"]}],
+                    },
+                },
                 "DisplayKeys": ["task"],
             }
         )

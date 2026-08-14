@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import json
 import os
-import random
 import socket
 import subprocess
 import sys
@@ -43,9 +42,8 @@ from mesofield.devices.stimulus_base import SubprocessStimulusDevice
 # MousePortal application config sections (the experiment design + corridor
 # appearance). These live in the ExperimentConfig under the ``mouseportal`` key
 # (experiment.json), NOT in hardware.yaml -- the YAML stanza keeps only the
-# subprocess plumbing (type/app_dir/python_exe/udp_port/...). Legacy stanzas
-# that still carry these sections are honored as a fallback.
-_PORTAL_SECTIONS = ("window", "corridor", "camera", "fog", "experiment")
+# subprocess plumbing (type/app_dir/python_exe/udp_port/...).
+_PORTAL_SECTIONS = ("window", "corridor", "camera", "fog", "assets", "experiment")
 
 # MousePortal's own WindowConfig defaults ``origin_x``/``origin_y`` to None,
 # which its ShowBase setup then hands to Panda3D's ``WindowProperties.setOrigin``
@@ -88,6 +86,7 @@ class MousePortalDevice(SubprocessStimulusDevice):
         self._sock: Optional[socket.socket] = None
         self._treadmill = None
         self._forward: Optional[Callable[..., None]] = None
+        self._forward_errors: int = 0
 
     # -- SubprocessStimulusDevice hooks ---------------------------------
     def serves_task(self, task, config) -> bool:
@@ -253,6 +252,7 @@ class MousePortalDevice(SubprocessStimulusDevice):
 
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         addr = (self.host, self.udp_port)
+        self._forward_errors = 0
 
         def _forward(payload: Any, device_ts: Any = None) -> None:
             try:
@@ -265,8 +265,20 @@ class MousePortalDevice(SubprocessStimulusDevice):
                     device_us, distance, speed = "", 0.0, float(payload)
                 msg = f"{device_us},{distance},{speed}".encode("ascii", "replace")
                 self._sock.sendto(msg, addr)
-            except Exception as exc:  # never let the queue thread die
-                self.logger.debug(f"treadmill forward failed: {exc}")
+            except Exception as exc:  # never let the producer thread die
+                # A corridor that does not move is the visible symptom of this,
+                # and it looks like an animal that will not run. Report the
+                # first failure at warning level so the cause is on the record,
+                # then fall back to debug rather than flooding at sample rate.
+                self._forward_errors += 1
+                if self._forward_errors == 1:
+                    self.logger.warning(
+                        f"Forwarding treadmill velocity to MousePortal failed "
+                        f"({exc}). The corridor will not move. Further failures "
+                        f"log at debug level."
+                    )
+                else:
+                    self.logger.debug(f"treadmill forward failed: {exc}")
 
         treadmill.signals.data.connect(_forward)
         self._treadmill = treadmill
@@ -293,45 +305,59 @@ class MousePortalDevice(SubprocessStimulusDevice):
 
     # -- config generation ---------------------------------------------
     def _mouseportal_params(self, config=None) -> Dict[str, Any]:
-        """MousePortal application parameters (corridor + gain-trial design).
+        """MousePortal application parameters (corridor + trial design).
 
         Sourced from the ExperimentConfig ``mouseportal`` key (experiment.json)
         so the experiment design lives in the ExperimentConfig, not
-        hardware.yaml. Falls back to per-section keys on the hardware.yaml
-        stanza for backward compatibility with older configs.
+        hardware.yaml. Returns an empty mapping when nothing is configured --
+        callers that need a design decide how loudly to complain.
         """
         config = config or self._config or getattr(self, "config", None)
         if config is not None and hasattr(config, "get"):
             params = config.get("mouseportal")
-            if isinstance(params, dict) and params:
+            if isinstance(params, dict):
                 return params
-        # Legacy fallback: sections authored directly on the hardware stanza.
-        return {
-            section: self.cfg[section]
-            for section in _PORTAL_SECTIONS
-            if section in self.cfg
-        }
+        return {}
 
     def _build_portal_config(self, config) -> Dict[str, Any]:
-        """Assemble the JSON config handed to the MousePortal subprocess."""
+        """Assemble the JSON config handed to the MousePortal subprocess.
+
+        Raises when there is no experiment design. Launching without one would
+        hand MousePortal a config it rejects, and the failure would surface as
+        a dead subprocess rather than as the missing configuration it is.
+        """
         params = self._mouseportal_params(config)
         portal: Dict[str, Any] = {
             section: params[section]
             for section in _PORTAL_SECTIONS
             if section in params
         }
+        if not portal.get("experiment"):
+            raise RuntimeError(
+                "No MousePortal experiment is configured. Define conditions and "
+                "blocks in the MousePortal tab (they are stored under the "
+                "'MousePortal' key of experiment.json) before running."
+            )
         window = dict(_DEFAULT_WINDOW)
         window.update(portal.get("window") or {})
         portal["window"] = window
         # Resolve the random seed here rather than leaving it to MousePortal, so
-        # the config written beside the session data replays this run exactly.
-        experiment = dict(portal.get("experiment") or {})
-        if experiment:
-            if experiment.get("random_seed") is None:
-                experiment["random_seed"] = random.randrange(2 ** 31)
-            self.random_seed = int(experiment["random_seed"])
-            portal["experiment"] = experiment
-            self.logger.info(f"MousePortal random seed: {self.random_seed}")
+        # the config written beside the session data replays this run exactly --
+        # both the ITI draws and any block with order='shuffle'. An unset seed
+        # becomes today's date (YYYYMMDD), matching MousePortal's own fallback:
+        # a date is legible in the sidecar and in a notebook where a random
+        # 31-bit integer is not. Sessions run on the same day therefore share a
+        # seed; set random_seed explicitly to randomise per subject.
+        # Imported here, not at module scope: mesofield.gui.__init__ pulls in
+        # PyQt6, and this device must stay constructible headlessly.
+        from mesofield.gui.mouseportal_config import default_seed
+
+        experiment = dict(portal["experiment"])
+        if experiment.get("random_seed") is None:
+            experiment["random_seed"] = default_seed()
+        self.random_seed = int(experiment["random_seed"])
+        portal["experiment"] = experiment
+        self.logger.info(f"MousePortal random seed: {self.random_seed}")
         portal["input"] = {
             "mode": "network",
             "host": self.host,
@@ -354,12 +380,28 @@ class MousePortalDevice(SubprocessStimulusDevice):
 
         Shares one implementation with the MousePortal tab, which shows this
         number live and (optionally) writes it to ``ExperimentConfig.duration``.
-        Pair the coupling with duration-based trials for a precise camera
-        preallocation -- DISTANCE/MANUAL trials can only be estimated.
+
+        Trials that end on distance or on a keypress have no length until they
+        happen, so they contribute only what their condition's
+        ``expected_duration`` states. Any that state nothing are left out and
+        warned about: the figure is then a lower bound, and a recording sized
+        from it would stop early -- which costs the tail of the session, so it
+        needs to be on the record rather than inferred later from short files.
         """
         from mesofield.gui.mouseportal_config import total_duration
 
-        return total_duration(self._mouseportal_params().get("experiment") or {})
+        seconds, untimed = total_duration(
+            self._mouseportal_params().get("experiment") or {}
+        )
+        if untimed:
+            self.logger.warning(
+                f"{untimed} MousePortal trial(s) have no set length (they end on "
+                f"distance or a keypress with no expected_duration), so the "
+                f"estimated experiment length of {seconds:.0f}s is a lower bound. "
+                f"Set 'typically' on those conditions, or set the recording "
+                f"duration by hand."
+            )
+        return seconds
 
     # -- introspection (extend base) -----------------------------------
     def status(self) -> Dict[str, Any]:

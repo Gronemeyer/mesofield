@@ -93,9 +93,18 @@ class MousePortalPanel(QGroupBox):
         self._status_label.setText(f"<b>{label}</b>")
         self.setToolTip(f"MousePortal status: {status}")
 
-    def refresh_summary(self) -> None:
-        """Re-render the experiment summary from the current config block."""
+    def refresh_summary(self, block: Optional[Dict[str, Any]] = None) -> None:
+        """Re-render the experiment summary.
+
+        Reads the saved config by default. The MousePortal tab passes its
+        in-progress edits instead, so the length shown here tracks the editor
+        rather than lagging a Save behind it -- this is the one place the
+        session length is reported.
+        """
         from mesofield.gui.mouseportal_config import summarize_experiment
-        getter = getattr(self._config, "get", None)
-        block = getter("mouseportal") if callable(getter) else None
-        self._summary_label.setText(summarize_experiment(block if isinstance(block, dict) else {}))
+        if block is None:
+            getter = getattr(self._config, "get", None)
+            block = getter("mouseportal") if callable(getter) else None
+        self._summary_label.setText(
+            summarize_experiment(block if isinstance(block, dict) else {})
+        )
