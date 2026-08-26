@@ -926,8 +926,9 @@ class ExperimentConfig(ConfigRegister):
         selecting that task is what launches the matching stimulus at run time
         (see ``Procedure._gate_stimuli_by_task``). The dropdown is the union of
         those stimulus tasks with any plain tasks already declared in
-        ``Configuration`` (a stimulus-free baseline keeps its entry). Keeps the
-        current task selected when still valid; otherwise defaults to the first.
+        ``Configuration`` (a stimulus-free baseline keeps its entry) and the
+        tasks the subjects were last run with. Keeps the current task selected
+        when still valid; otherwise defaults to the first.
         """
         stimulus_tasks = set(self.psychopy.keys())
         mp_task = self.mouseportal.get("task")
@@ -935,10 +936,23 @@ class ExperimentConfig(ConfigRegister):
             stimulus_tasks.update(str(t) for t in mp_task if t)
         elif isinstance(mp_task, str) and mp_task:
             stimulus_tasks.add(mp_task)
-        if not stimulus_tasks:
+        # A subject's own ``task`` is applied verbatim by `select_subject`, so
+        # it has to be a registered choice -- otherwise selecting that subject
+        # drives the live task off the dropdown and the two disagree. Such a
+        # task needs no stimulus binding: one bound to no device simply records
+        # stimulus-free (see ``Procedure._gate_stimuli_by_task``).
+        subject_tasks = {
+            str(params["task"])
+            for params in self.subjects.values()
+            if isinstance(params, dict) and params.get("task")
+        }
+        # Declared order wins: `Configuration` lists the tasks in the order the
+        # dropdown should offer them (and its first entry is the fallback), so
+        # newly discovered ones are appended rather than merged alphabetically.
+        existing = [str(c) for c in (self.get_choices("task") or [])]
+        tasks = existing + sorted((stimulus_tasks | subject_tasks) - set(existing))
+        if not tasks:
             return
-        existing = self.get_choices("task") or []
-        tasks = sorted(set(existing) | stimulus_tasks)
         self.register_choices("task", tasks)
         if self.get("task") not in tasks:
             self.set("task", tasks[0])

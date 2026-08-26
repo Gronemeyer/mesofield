@@ -184,13 +184,9 @@ class ConfigController(QWidget):
 
         # Where data is being written -- the wizard's output dir is easy to
         # lose track of once the acquisition UI is up.
-        from mesofield.gui import theme as _theme
         self.outdir_label = QLabel()
         self.outdir_label.setWordWrap(True)
         self.outdir_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.outdir_label.setStyleSheet(
-            f"color: {_theme.TEXT_DIM}; font-family: {_theme.MONO_FONT};"
-        )
         layout.addWidget(self.outdir_label)
         self._update_outdir_label()
 
@@ -237,10 +233,6 @@ class ConfigController(QWidget):
         self.filename_preview_label = QLabel()
         self.filename_preview_label.setWordWrap(True)
         self.filename_preview_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        from mesofield.gui import theme
-        self.filename_preview_label.setStyleSheet(
-            f"color: {theme.TEXT_DIM}; font-family: {theme.MONO_FONT};"
-        )
         layout.addWidget(self.filename_preview_label)
 
         self.config_model = ConfigFormWidget(self.procedure.config, keys=self._form_keys())
@@ -250,13 +242,14 @@ class ConfigController(QWidget):
         self._populate_tasks()
         self._change_subject(0)
 
-        # Register live updates for the filename preview. Callbacks fire from
-        # ConfigRegister.set() — which is what ConfigFormWidget editors call.
-        # The config object outlives this widget (it's owned by the procedure
-        # and survives a config reload), so we keep references to the exact
-        # callbacks registered here and unregister them in `cleanup()`
+        # Register live updates for the picker row and the filename preview.
+        # Callbacks fire from ConfigRegister.set() — which is what
+        # ConfigFormWidget editors call. The config object outlives this widget
+        # (it's owned by the procedure and survives a config reload), so we keep
+        # references to the exact callbacks registered here and unregister them
+        # in `cleanup()`
         self._preview_keys = ("subject", "session", "task")
-        self._preview_callback = lambda _k, _v: self._update_filename_preview()
+        self._preview_callback = self._on_bids_key_changed
         for key in self._preview_keys:
             self.config.register_callback(key, self._preview_callback)
         self._update_filename_preview()
@@ -272,8 +265,9 @@ class ConfigController(QWidget):
         pix.setMask(mask)
         self.record_button.setIcon(QIcon(pix))
 
-        from mesofield.gui import theme
-        self.record_button.setStyleSheet(theme.record_button_qss())
+        # Inline QSS for the labels above and the record button: rebuilt from
+        # the active palette here and again whenever the theme mode changes.
+        self.refresh_theme()
         self.record_button.setToolTip("Start Recording (MDA Sequence)")
         self.record_button.setShortcut("Ctrl+R")  # Set shortcut for recording
 
@@ -352,6 +346,21 @@ class ConfigController(QWidget):
                 getattr(self.dynamic_controller, btn_attr).clicked.connect(handler)
 
         # ------------------------------------------------------------------------------------- #
+    # ------------------------------- Theme ------------------------------------------ #
+    def refresh_theme(self) -> None:
+        """Rebuild the inline stylesheets this widget owns from the active theme.
+
+        Called once while building and again by ``theme.refresh_widgets()`` on
+        every light/dark switch: the application stylesheet cannot reach these,
+        because a per-widget ``setStyleSheet`` outranks it.
+        """
+        from mesofield.gui import theme
+
+        mono_dim = f"color: {theme.TEXT_DIM}; font-family: {theme.MONO_FONT};"
+        self.outdir_label.setStyleSheet(mono_dim)
+        self.filename_preview_label.setStyleSheet(mono_dim)
+        self.record_button.setStyleSheet(theme.record_button_qss())
+
     # ------------------------------- Lifecycle / teardown --------------------------- #
     def _build_nidaq_indicators(self, layout) -> None:
         """Add a :class:`NidaqIndicator` for every NI-DAQ device on the rig."""
@@ -603,8 +612,24 @@ class ConfigController(QWidget):
             layout.insertWidget(idx, new_form)
             layout.removeWidget(old_form)
             old_form.deleteLater()
-        # A new subject carries its own session; the picker must follow it.
+        # A new subject carries its own session and task; the pickers must
+        # follow. (`select_subject` writes those keys straight into the config,
+        # which the dropdowns would otherwise never hear about.)
         self._populate_sessions()
+        self._populate_tasks()
+        self._update_filename_preview()
+
+    def _on_bids_key_changed(self, key: str, _value) -> None:
+        """Re-sync the picker row and preview after a config-side write.
+
+        The three BIDS keys are also set from outside this widget —
+        `select_subject` applies the subject's stored session/task, and
+        stimulus registration can re-derive the task choices — so the
+        dropdowns follow the config rather than assuming they are its only
+        writer. `_populate_tasks` blocks signals, so this cannot loop back.
+        """
+        if key == "task":
+            self._populate_tasks()
         self._update_filename_preview()
 
     def _update_filename_preview(self):

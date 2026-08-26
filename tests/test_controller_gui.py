@@ -86,3 +86,65 @@ def test_add_parameter_applies_to_config(controller, monkeypatch):
 
     controller._add_parameter()
     assert controller.config.get("trials") == 5
+
+
+# --------------------------------------------------------------------------- #
+# BIDS picker row <-> config state
+# --------------------------------------------------------------------------- #
+@pytest.fixture
+def multi_subject_controller(qtbot, hardware_yaml, tmp_path):
+    """Controller over two subjects whose stored ``task`` values differ.
+
+    One task is served by a PsychoPy script, the other is stimulus-free -- the
+    shape that used to leave the picker and the config disagreeing.
+    """
+    import json
+
+    from mesofield.gui.controller import ConfigController
+
+    doc = {
+        "Configuration": {"duration": 1},
+        "Subjects": {
+            "JG01": {"session": "01", "task": "VECr"},
+            "JG04": {"session": "01", "task": "405nm"},
+        },
+        "PsychoPy": {"VECr": "vis_stim_task-VECr.py"},
+        "DisplayKeys": ["duration", "task", "session"],
+    }
+    path = tmp_path / "multi_subject.json"
+    path.write_text(json.dumps(doc))
+
+    proc = Procedure(
+        hardware=str(hardware_yaml()),
+        config=str(path),
+        experiment_directory=str(tmp_path / "out"),
+    )
+    ctrl = ConfigController(proc)
+    qtbot.addWidget(ctrl)
+    return ctrl
+
+
+def test_task_picker_matches_config_on_build(multi_subject_controller):
+    ctrl = multi_subject_controller
+    assert ctrl.task_dropdown.currentText() == ctrl.config.get("task")
+    assert f"task-{ctrl.config.get('task')}_" in ctrl.filename_preview_label.text()
+
+
+def test_task_picker_follows_subject_switch(multi_subject_controller):
+    """Selecting a subject applies its stored task -- picker and preview follow."""
+    ctrl = multi_subject_controller
+    idx = ctrl.subject_dropdown.findText("JG04")
+    assert idx >= 0
+    ctrl.subject_dropdown.setCurrentIndex(idx)
+
+    assert ctrl.config.get("task") == "405nm"
+    assert ctrl.task_dropdown.currentText() == "405nm"
+    assert "task-405nm_" in ctrl.filename_preview_label.text()
+
+
+def test_task_picker_follows_external_config_write(multi_subject_controller):
+    """A config-side ``task`` write re-syncs the dropdown, not just the preview."""
+    ctrl = multi_subject_controller
+    ctrl.config.set("task", "VECr")
+    assert ctrl.task_dropdown.currentText() == "VECr"
+    assert "task-VECr_" in ctrl.filename_preview_label.text()
