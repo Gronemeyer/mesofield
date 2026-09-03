@@ -24,6 +24,16 @@ from mesofield.utils._logger import get_logger
 _logger = get_logger(__name__)
 
 
+def _full_scale_clims(cam, fallback: tuple[int, int] = (0, 255)) -> tuple[int, int]:
+    """Contrast range spanning the camera's whole output scale.
+
+    ``cam.white_level`` is the same number ``frame_to_uint8`` scales against on
+    the way to disk, so auto-contrast-off shows the frame that gets recorded
+    rather than a differently-levelled one.
+    """
+    return (0, cam.white_level) if getattr(cam, "white_level", None) else fallback
+
+
 class CameraButtons(QWidget):
     """Snap + Live toggle wired through the BaseCamera contract.
 
@@ -68,11 +78,11 @@ class CameraButtons(QWidget):
         self.live_btn.toggled.connect(self._on_live_toggled)
         layout.addWidget(self.live_btn)
 
-        # Runtime auto-contrast toggle for the live viewer. The "off" state
-        # restores a viewer-appropriate manual range (8-bit static preview
-        # vs 16-bit interactive preview).
-        self._manual_clims = (
-            (0, 65535) if isinstance(preview, InteractivePreview) else (0, 255)
+        # Runtime auto-contrast toggle for the live viewer. Auto-contrast is
+        # display-only: the "off" state must show exactly what the writer
+        # records, so it pins the range to the camera's full sensor scale.
+        self._manual_clims = _full_scale_clims(
+            cam, (0, 65535) if isinstance(preview, InteractivePreview) else (0, 255)
         )
         self.auto_contrast_cb = QCheckBox("Auto-contrast")
         self.auto_contrast_cb.setChecked(bool(getattr(cam, "auto_contrast", True)))
@@ -227,7 +237,7 @@ class MDA(QWidget):
         buttons = QGroupBox()
         buttons.setLayout(QHBoxLayout())
 
-        cores_groupbox = QGroupBox(f"{self.__module__}.{self.__class__.__name__}: Live Viewer")
+        cores_groupbox = QGroupBox(f"Live Viewer")
         camera_columns = self._preview_columns(len(self.cameras))
         cores_groupbox.setLayout(QGridLayout())
         cores_groupbox.layout().setContentsMargins(6, 6, 6, 6)
@@ -254,6 +264,7 @@ class MDA(QWidget):
             core_box.setLayout(QVBoxLayout())
             core_box.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             auto_contrast = getattr(cam, "auto_contrast", True)
+            manual_clims = _full_scale_clims(cam)
 
             # Preview widget: ImagePreview drives display.
             # - mmcore-backed cameras wire the preview to mmcore events;
@@ -263,7 +274,7 @@ class MDA(QWidget):
                 if isinstance(cam.core, CMMCorePlus):
                     preview = ImagePreview(
                         mmcore=cam.core,
-                        _clims='auto' if auto_contrast else (0, 255),
+                        _clims='auto' if auto_contrast else manual_clims,
                         min_size=preview_min,
                     )
                 else:
@@ -274,7 +285,7 @@ class MDA(QWidget):
                         mmcore=None,
                         image_payload=image_signal,
                         progress_payload=getattr(cam, "progress", None),
-                        _clims='auto' if auto_contrast else (0, 255),
+                        _clims='auto' if auto_contrast else manual_clims,
                         min_size=preview_min,
                     )
             else:

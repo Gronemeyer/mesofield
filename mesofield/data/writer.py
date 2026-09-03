@@ -22,6 +22,7 @@ from useq import MDAEvent
 
 import numpy as np
 from pathlib import Path
+from functools import lru_cache
 import json
 
 FRAME_MD_FILENAME = "_frame_metadata.json"
@@ -43,6 +44,33 @@ class CustomJSONEncoder(json.JSONEncoder):
 
 
 _OME_SUFFIXES = (".ome.tiff", ".ome.tif", ".tiff", ".tif")
+
+
+@lru_cache(maxsize=8)
+def _uint16_lut(white_level: int) -> np.ndarray:
+    """Cached 65536-entry uint8 LUT mapping ``0..white_level`` onto ``0..255``."""
+    x = np.arange(65536, dtype=np.float32)
+    return np.clip(x * (255.0 / white_level), 0, 255).astype(np.uint8)
+
+
+def frame_to_uint8(frame: np.ndarray, white_level: int | None = None) -> np.ndarray:
+    """Scale ``frame`` to 8-bit against the FIXED range ``0..white_level``.
+
+    ``white_level`` is the sensor value that should come out as 255 -- see
+    :attr:`mesofield.devices.base_camera.BaseCamera.white_level`
+    """
+    if frame.dtype == np.uint8:
+        return frame
+    if not white_level:
+        white_level = (
+            int(np.iinfo(frame.dtype).max)
+            if np.issubdtype(frame.dtype, np.integer)
+            else 1  # float frames are assumed normalised to 0..1
+        )
+    if frame.dtype == np.uint16:
+        return _uint16_lut(white_level)[frame]
+    scaled = frame.astype(np.float32) * (255.0 / white_level)
+    return np.clip(scaled, 0, 255).astype(np.uint8)
 
 
 def _stringify_meta(meta: Any) -> dict[str, str]:
@@ -219,10 +247,18 @@ class CV2Writer:
     Both modes emit the same ``<filename>_frame_metadata.json`` sidecar.
     """
 
-    def __init__(self, filename: Path | str, fps: int = 30, fourcc: str | None = None) -> None:
+    def __init__(
+        self,
+        filename: Path | str,
+        fps: int = 30,
+        fourcc: str | None = None,
+        white_level: int | None = None,
+    ) -> None:
         configure_opencv_codec()
 
         self._filename = str(filename)
+        # Sensor value that maps to 255
+        self._white_level = int(white_level) if white_level else None
         if not self._filename.endswith((".mp4", ".avi")):
             raise ValueError("filename must end with '.mp4' or '.avi'")
         self._fps = fps
@@ -252,8 +288,6 @@ class CV2Writer:
         self._writers.clear()
 
     def frameReady(self, frame: np.ndarray, event: MDAEvent, meta: Any) -> None:
-        import cv2
-
         key = self._position_key(event)
         writer = self._writers.get(key)
         if writer is None:
@@ -265,8 +299,7 @@ class CV2Writer:
             )
             self._writers[key] = writer
 
-        if frame.dtype != np.uint8:
-            frame = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        frame = frame_to_uint8(frame, self._white_level)
         writer.write(frame)
         self.frame_metadatas[key].append(meta or {})
 
@@ -312,11 +345,7 @@ class CV2Writer:
         """Write one frame to the direct-mode video (uint8 frames pass through)."""
         if self._direct_writer is None:
             raise RuntimeError("CV2Writer.add_frame called before begin()")
-        if frame.dtype != np.uint8:
-            import cv2
-
-            frame = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-        self._direct_writer.write(frame)
+        self._direct_writer.write(frame_to_uint8(frame, self._white_level))
 
     def finish(self, extra_metadata: dict | None = None) -> None:
         """Release the direct-mode writer and write the metadata sidecar."""

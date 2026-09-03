@@ -79,6 +79,11 @@ class BaseCamera:
         self.is_primary: bool = bool(self.cfg.get("primary", False))
         self.is_active: bool = False
         self.auto_contrast: Any = self.cfg.get("auto_contrast", True)
+        # Sensor value that renders as pure white. `None` means unknown
+        # -> consumers fall back to the frame's dtype range. Backends that can
+        # ask the driver (see MMCamera.initialize) fill this
+        depth = self.cfg.get("bit_depth")
+        self.white_level: Optional[int] = (1 << int(depth)) - 1 if depth else None
         self.viewer = self.cfg.get("viewer_type", self.viewer)
         # `sampling_rate` is the canonical fps for the camera. Subclasses
         # may overwrite from cfg["fps"] or driver introspection.
@@ -181,9 +186,14 @@ class BaseCamera:
             if isinstance(getattr(self, "cfg", None), dict):
                 fourcc = self.cfg.get("fourcc")
             fourcc = getattr(self, "fourcc", fourcc)
+            # `white_level` keeps the recorded video on the same fixed
+            # intensity scale as the live viewer, not a per-frame stretch.
             if fourcc:
-                return CV2Writer(filename=filename, fps=fps, fourcc=str(fourcc))
-            return CV2Writer(filename=filename, fps=fps)
+                return CV2Writer(
+                    filename=filename, fps=fps, fourcc=str(fourcc),
+                    white_level=self.white_level,
+                )
+            return CV2Writer(filename=filename, fps=fps, white_level=self.white_level)
         raise ValueError(f"Unknown writer class name {name!r}")
 
     def set_writer(self, make_path: Callable[[str, str, str, bool], str]) -> None:
@@ -238,15 +248,15 @@ class BaseCamera:
             import numpy as np
             from PIL import Image
 
+            from mesofield.data.writer import frame_to_uint8
+
             path = make_path(f"{self.name}_snap", "png", self.bids_type, True)
             arr = np.asarray(frame)
             if arr.ndim == 3 and arr.shape[2] == 3:
                 arr = arr[..., ::-1]  # OpenCV BGR -> RGB
             if arr.dtype != np.uint8:
-                # Scale to 8-bit so the snapshot PNG is viewable.
-                lo, hi = float(arr.min()), float(arr.max())
-                scale = 255.0 / (hi - lo) if hi > lo else 1.0
-                arr = np.clip((arr.astype(np.float32) - lo) * scale, 0, 255).astype(np.uint8)
+                # Fixed-range 8-bit scaling
+                arr = frame_to_uint8(arr, self.white_level)
             Image.fromarray(arr).save(path)
             self.logger.info(f"Snapshot saved to {path}")
             return path

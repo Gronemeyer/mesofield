@@ -167,6 +167,15 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
                     if setter:
                         setter(dev_id, prop, val)
 
+        # Ask the driver how many bits it actually fills when YAML didn't say.
+        # A ThorCam Zelux answers 10 even though its frames arrive as uint16,
+        # so its white level is 1023, not 65535.
+        if self.white_level is None and self.backend == "micromanager":
+            with suppress(Exception):
+                if depth := int(self.core.getImageBitDepth()):
+                    self.white_level = (1 << depth) - 1
+        self.logger.debug(f"White level for {self.name}: {self.white_level}")
+
     # `arm()` is inherited from BaseCamera: it calls set_writer + set_sequence.
 
     # ------------------------------------------------------------------
