@@ -351,6 +351,9 @@ class BaseSerialDevice(BaseDataProducer):
     default_timeout: ClassVar[float] = 0.1
     poll_interval: float = 0.0
     join_timeout: float = 2.0
+    # See _flush_stale_input; set flush_on_start False to keep the backlog.
+    flush_on_start: bool = True
+    flush_settle: float = 0.05
 
     def __init__(self, cfg: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
         super().__init__(cfg, **kwargs)
@@ -457,12 +460,44 @@ class BaseSerialDevice(BaseDataProducer):
                 self.logger.debug(f"serial close failed: {exc}")
             self._serial = None
 
+    def _flush_stale_input(self) -> None:
+        """Drop input buffered while the read thread was not running.
+
+        The port stays open across :meth:`stop`/:meth:`start`, so a device that
+        transmits unprompted keeps filling an unbounded input buffer whenever
+        nothing is draining it. :meth:`record` timestamps at read time, so
+        replaying that backlog dates minutes of history to the start of the run.
+
+        The first reset empties the host buffer; draining it lets the device
+        send whatever it had queued of its own, which the second reset drops.
+        """
+        if self._serial is None or not self.flush_on_start:
+            return
+        try:
+            with self._serial_lock:
+                stale = self._serial.in_waiting
+                if not stale:
+                    return          # reader was keeping up; nothing to drop
+                self._serial.reset_input_buffer()
+                time.sleep(self.flush_settle)
+                self._serial.reset_input_buffer()
+        except Exception as exc:
+            self.logger.debug(f"could not flush stale serial input: {exc}")
+            return
+        self.logger.info(
+            f"Discarded {stale}+ stale byte(s) buffered on {self.port} while "
+            f"the read thread was not running."
+        )
+
     def start(self) -> bool:
         if self._serial is None and not self.development_mode:
             self.initialize()
         if self._thread is not None and self._thread.is_alive():
             self.logger.debug("start() called but thread already running")
             return False
+        # Drop the backlog before the reader can see it, so the run's first
+        # sample is the run's first sample.
+        self._flush_stale_input()
         self._stop_event.clear()
         self._thread = threading.Thread(
             target=self._run_loop,
