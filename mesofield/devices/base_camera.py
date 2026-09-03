@@ -97,6 +97,8 @@ class BaseCamera:
         # Injected once by HardwareManager.initialize() so the camera can
         # resolve paths (`config.make_path`) outside the per-run `arm()`.
         self.config: Optional["ExperimentConfig"] = None
+        # Whether `initialize()` has already run.
+        self._hw_initialized: bool = False
         # MDA gui reads `cam.core` (None for non-mmcore cameras). MMCamera
         # overrides during backend setup; others leave it None.
         self.core: Any = None

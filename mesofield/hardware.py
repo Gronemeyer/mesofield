@@ -237,14 +237,8 @@ class HardwareManager():
                 continue
             self._apply_output_args(device, params.get("output", {}), key)
             device.is_primary = bool(params.get("primary", False))
-            try:
-                if hasattr(device, "initialize"):
-                    device.initialize()
-            except Exception as exc:
-                msg = f"initialize() failed for '{key}': {exc}"
-                self.logger.error(msg)
-                self.init_errors.append(msg)
-                continue
+            # if not self._initialize_device(device, key):
+            #     continue
             dev_id = getattr(device, "device_id", key)
             self.devices[dev_id] = device
             setattr(self, dev_id, device)
@@ -507,6 +501,26 @@ class HardwareManager():
         device.file_type = device.path_args['extension']
         device.bids_type = device.path_args['bids_type']
 
+    def _initialize_device(self, device, key: str) -> bool:
+        """Run a device's ``initialize()`` once, recording any failure.
+
+        Returns False if it raised (the caller skips the device). Devices that
+        already initialised themselves in their constructor set
+        ``_hw_initialized`` and are left alone, so this is safe to call from
+        every init path.
+        """
+        if device._hw_initialized:
+            return True
+        try:
+            device.initialize()
+        except Exception as exc:
+            msg = f"initialize() failed for '{key}': {exc}"
+            self.logger.error(msg)
+            self.init_errors.append(msg)
+            return False
+        device._hw_initialized = True
+        return True
+
     # ---- Device init -------------------------------------------------------
 
     def _init_cameras(self):
@@ -525,6 +539,7 @@ class HardwareManager():
                 continue
             cam = CameraClass(cfg)
             cam.is_primary = bool(cfg.get("primary", False))
+            self._initialize_device(cam, cam.id)
             self._apply_output_args(cam, cfg.get('output', {}), cam.name)
             setattr(self, cam.id, cam)
             self.devices[cam.id] = cam

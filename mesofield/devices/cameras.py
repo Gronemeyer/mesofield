@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from contextlib import suppress
 from typing import Optional, Callable, Any, ClassVar, Dict
 from datetime import datetime
 from pathlib import Path
@@ -64,6 +65,7 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
 
         # automatically apply all YAML properties
         self.initialize()
+        self._hw_initialized = True
         self._wire_signals()
 
     def _wire_signals(self) -> None:
