@@ -1,0 +1,6 @@
+batch
+=====
+
+.. automodule:: mesofield.data.batch
+   :members:
+   :show-inheritance:

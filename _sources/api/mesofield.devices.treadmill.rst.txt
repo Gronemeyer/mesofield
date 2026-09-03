@@ -1,0 +1,6 @@
+treadmill
+=========
+
+.. automodule:: mesofield.devices.treadmill
+   :members:
+   :show-inheritance:

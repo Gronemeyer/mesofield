@@ -1,0 +1,876 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mesofield.devices.mouseportal_device &#8212; Mesofield</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=f0c42745" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=cb8930eaaf36d9849b67"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67" />
+
+    <script src="../../../_static/documentation_options.js?v=b1cdc2ba"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/mesofield/devices/mouseportal_device';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.5" />
+  
+    
+    <script src="../../../_static/searchtools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script src="../../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/logo.png" class="logo__image only-light" alt=""/>
+    <img src="../../../_static/logo.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">MESOFIELD</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">mesofield.devices.mouseportal_device</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for mesofield.devices.mouseportal_device</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""MousePortal stimulus device.</span>
+
+<span class="sd">Launches the MousePortal infinite-corridor stimulus (a separate Panda3D app)</span>
+<span class="sd">as a subprocess and drives it with live treadmill velocity forwarded from</span>
+<span class="sd">mesofield over a localhost UDP socket.  A</span>
+<span class="sd">:class:`~mesofield.protocols.StimulusDevice` built on</span>
+<span class="sd">:class:`~mesofield.devices.stimulus_base.SubprocessStimulusDevice`, which</span>
+<span class="sd">provides the launch / readiness-handshake / terminate lifecycle shared with</span>
+<span class="sd">other external-app stimulus devices.  It is *not* a</span>
+<span class="sd">:class:`~mesofield.protocols.DataProducer` (MousePortal writes its own per-frame</span>
+<span class="sd">CSV; this device never emits on ``signals.data``).</span>
+
+<span class="sd">Synchronisation</span>
+<span class="sd">---------------</span>
+<span class="sd">mesofield owns the treadmill serial port.  During ``arm`` (so the corridor is up</span>
+<span class="sd">before any camera acquires) this device subscribes to the treadmill's</span>
+<span class="sd">``signals.data`` and forwards each ``{distance, speed, device_us}`` sample as a</span>
+<span class="sd">UDP datagram (``device_us,distance,speed``) to the MousePortal process, which</span>
+<span class="sd">runs in ``network`` input mode.  MousePortal logs the ``device_us`` of the</span>
+<span class="sd">latest sample on every frame, so its corridor data aligns offline to the camera</span>
+<span class="sd">timeline through the dataqueue affine fit (see</span>
+<span class="sd">``mesofield.datakit.sources.behavior.mouseportal``).</span>
+
+<span class="sd">The matching offline parser is registered separately under the ``mouseportal``</span>
+<span class="sd">tag in :mod:`mesofield.datakit.sources`; this module intentionally does **not**</span>
+<span class="sd">import datakit so device construction stays light.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">socket</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceRegistry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.devices.stimulus_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">SubprocessStimulusDevice</span>
+
+
+<span class="c1"># MousePortal application config sections (the experiment design + corridor</span>
+<span class="c1"># appearance). These live in the ExperimentConfig under the ``mouseportal`` key</span>
+<span class="c1"># (experiment.json), NOT in hardware.yaml -- the YAML stanza keeps only the</span>
+<span class="c1"># subprocess plumbing (type/app_dir/python_exe/udp_port/...). Legacy stanzas</span>
+<span class="c1"># that still carry these sections are honored as a fallback.</span>
+<span class="n">_PORTAL_SECTIONS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"window"</span><span class="p">,</span> <span class="s2">"corridor"</span><span class="p">,</span> <span class="s2">"camera"</span><span class="p">,</span> <span class="s2">"fog"</span><span class="p">,</span> <span class="s2">"experiment"</span><span class="p">)</span>
+
+<span class="c1"># MousePortal's own WindowConfig defaults ``origin_x``/``origin_y`` to None,</span>
+<span class="c1"># which its ShowBase setup then hands to Panda3D's ``WindowProperties.setOrigin``</span>
+<span class="n">_DEFAULT_WINDOW</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"width"</span><span class="p">:</span> <span class="mi">1920</span><span class="p">,</span>
+    <span class="s2">"height"</span><span class="p">:</span> <span class="mi">1080</span><span class="p">,</span>
+    <span class="s2">"origin_x"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">"origin_y"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="MousePortalDevice">
+<a class="viewcode-back" href="../../../api/mesofield.devices.mouseportal_device.html#mesofield.devices.MousePortalDevice">[docs]</a>
+<span class="nd">@DeviceRegistry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"mouseportal"</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MousePortalDevice</span><span class="p">(</span><span class="n">SubprocessStimulusDevice</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Stimulus device that launches MousePortal and feeds it treadmill velocity."""</span>
+
+    <span class="n">file_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"csv"</span>
+    <span class="n">bids_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"beh"</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"corridor"</span>
+
+    <span class="c1"># Launch during arm() so the corridor is ready before recording starts.</span>
+    <span class="n">ready_token</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"MOUSEPORTAL_READY"</span>
+    <span class="n">launch_phase</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"arm"</span>
+    <span class="n">default_device_id</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"mouseportal"</span>
+
+<div class="viewcode-block" id="MousePortalDevice.__init__">
+<a class="viewcode-back" href="../../../api/mesofield.devices.mouseportal_device.html#mesofield.devices.MousePortalDevice.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">host</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"host"</span><span class="p">,</span> <span class="s2">"127.0.0.1"</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">udp_port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"udp_port"</span><span class="p">,</span> <span class="mi">8765</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">treadmill_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"treadmill_id"</span><span class="p">,</span> <span class="s2">"treadmill"</span><span class="p">))</span>
+        <span class="c1"># Recording tail: mesofield devices run this many seconds beyond the</span>
+        <span class="c1"># MousePortal experiment so MM cameras finish their preallocated frames</span>
+        <span class="c1"># (an early cutoff leaves black frames in the OME-TIFF). Consumed by the</span>
+        <span class="c1"># procedure to derive the recording duration.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tail_seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"tail_seconds"</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cfg_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sock</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_treadmill</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+    <span class="c1"># -- SubprocessStimulusDevice hooks ---------------------------------</span>
+<div class="viewcode-block" id="MousePortalDevice.serves_task">
+<a class="viewcode-back" href="../../../api/mesofield.devices.mouseportal_device.html#mesofield.devices.MousePortalDevice.serves_task">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">serves_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Serve a task iff it matches the MousePortal config block's ``task``.</span>
+
+<span class="sd">        Each MousePortal configuration corresponds to a single task ID (a list</span>
+<span class="sd">        is honored for the future multi-config case). With no ``task`` bound,</span>
+<span class="sd">        MousePortal serves every task, preserving the single-stimulus behavior.</span>
+<span class="sd">        """</span>
+        <span class="n">bound</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">mouseportal</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"task"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">bound</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bound</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="nb">set</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">task</span> <span class="ow">in</span> <span class="p">{</span><span class="nb">str</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">bound</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">task</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">bound</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MousePortalDevice.prepare">
+<a class="viewcode-back" href="../../../api/mesofield.devices.mouseportal_device.html#mesofield.devices.MousePortalDevice.prepare">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Generate the MousePortal cfg.json and wire treadmill forwarding.</span>
+
+<span class="sd">        The output CSV path is the ExperimentConfig-authoritative path:</span>
+<span class="sd">        ``DataManager.setup`` assigns ``self.output_path`` from ``DataPaths``</span>
+<span class="sd">        before arm.  We fall back to ``config.make_path`` only for standalone</span>
+<span class="sd">        use (no DataManager).  MousePortal is handed this exact file path and</span>
+<span class="sd">        writes only there -- it never constructs a BIDS directory layout.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_path</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_path</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">make_path</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bids_type</span><span class="p">,</span> <span class="n">create_dir</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+        <span class="n">out_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_path</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">out_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">portal_cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_portal_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cfg_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out_dir</span><span class="p">,</span> <span class="s2">"mouseportal_cfg.json"</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cfg_path</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">portal_cfg</span><span class="p">,</span> <span class="n">fh</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Wrote MousePortal config -&gt; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_cfg_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_open_forwarder</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="MousePortalDevice.build_command">
+<a class="viewcode-back" href="../../../api/mesofield.devices.mouseportal_device.html#mesofield.devices.MousePortalDevice.build_command">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_command</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="n">python_exe</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">python_exe</span> <span class="ow">or</span> <span class="n">sys</span><span class="o">.</span><span class="n">executable</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">python_exe</span><span class="p">,</span> <span class="s2">"-m"</span><span class="p">,</span> <span class="s2">"mouseportal"</span><span class="p">,</span> <span class="s2">"-c"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cfg_path</span><span class="p">,</span> <span class="s2">"--autostart"</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="MousePortalDevice.launch_env">
+<a class="viewcode-back" href="../../../api/mesofield.devices.mouseportal_device.html#mesofield.devices.MousePortalDevice.launch_env">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">launch_env</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Environment for the MousePortal subprocess.</span>
+
+<span class="sd">        Ensures Panda3D can find its ``Config.prc`` (which carries</span>
+<span class="sd">        ``load-display pandagl``). conda-forge's panda3d on Windows installs the</span>
+<span class="sd">        config under ``&lt;env&gt;\\Library\\etc\\panda3d`` and the GL plugin under</span>
+<span class="sd">        ``&lt;env&gt;\\Library\\bin``, but Panda3D's runtime auto-locator does not look</span>
+<span class="sd">        there -- so no display module loads and ShowBase aborts with</span>
+<span class="sd">        "No graphics pipe is available!". Setting ``PANDA_PRC_DIR`` points it at</span>
+<span class="sd">        the right directory. Respects an existing ``PANDA_PRC_DIR`` and is a</span>
+<span class="sd">        no-op when the directory cannot be found (e.g. macOS/pip layouts that</span>
+<span class="sd">        already auto-locate correctly).</span>
+<span class="sd">        """</span>
+        <span class="n">env</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">)</span>
+        <span class="n">prc_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"panda_prc_dir"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"PANDA_PRC_DIR"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">prc_dir</span><span class="p">:</span>
+            <span class="n">prc_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_panda_prc_dir</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">prc_dir</span><span class="p">:</span>
+            <span class="n">env</span><span class="p">[</span><span class="s2">"PANDA_PRC_DIR"</span><span class="p">]</span> <span class="o">=</span> <span class="n">prc_dir</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"PANDA_PRC_DIR -&gt; </span><span class="si">{</span><span class="n">prc_dir</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">"Could not locate a Panda3D Config.prc dir; relying on Panda3D's "</span>
+                <span class="s2">"own auto-location (PANDA_PRC_DIR unset)."</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">env</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_find_panda_prc_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Locate the panda3d ``etc`` dir for the interpreter we launch with.</span>
+
+<span class="sd">        Derived from ``python_exe`` so it matches the env that actually runs</span>
+<span class="sd">        MousePortal. Returns the first directory containing a ``Config.prc``,</span>
+<span class="sd">        else ``None``.</span>
+<span class="sd">        """</span>
+        <span class="n">python_exe</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">python_exe</span> <span class="ow">or</span> <span class="n">sys</span><span class="o">.</span><span class="n">executable</span>
+        <span class="n">env_root</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">python_exe</span><span class="p">))</span>
+        <span class="n">candidates</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">env_root</span><span class="p">,</span> <span class="s2">"Library"</span><span class="p">,</span> <span class="s2">"etc"</span><span class="p">,</span> <span class="s2">"panda3d"</span><span class="p">),</span>  <span class="c1"># conda-forge (Windows)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">env_root</span><span class="p">,</span> <span class="s2">"etc"</span><span class="p">,</span> <span class="s2">"panda3d"</span><span class="p">),</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">env_root</span><span class="p">,</span> <span class="s2">".."</span><span class="p">,</span> <span class="s2">"etc"</span><span class="p">,</span> <span class="s2">"panda3d"</span><span class="p">),</span>        <span class="c1"># conda-forge (POSIX)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">env_root</span><span class="p">,</span> <span class="s2">".."</span><span class="p">,</span> <span class="s2">"share"</span><span class="p">,</span> <span class="s2">"panda3d"</span><span class="p">,</span> <span class="s2">"etc"</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">cand</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">:</span>
+            <span class="n">cand</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">normpath</span><span class="p">(</span><span class="n">cand</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cand</span><span class="p">,</span> <span class="s2">"Config.prc"</span><span class="p">)):</span>
+                <span class="k">return</span> <span class="n">cand</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="MousePortalDevice.preflight">
+<a class="viewcode-back" href="../../../api/mesofield.devices.mouseportal_device.html#mesofield.devices.MousePortalDevice.preflight">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">preflight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Return an actionable error string if MousePortal cannot launch."""</span>
+        <span class="n">python_exe</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">python_exe</span> <span class="ow">or</span> <span class="n">sys</span><span class="o">.</span><span class="n">executable</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">app_dir</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">app_dir</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"MousePortal app_dir does not exist: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">app_dir</span><span class="si">!r}</span><span class="s2">. "</span>
+                <span class="sa">f</span><span class="s2">"Set 'app_dir:' in the mouseportal hardware.yaml stanza to the "</span>
+                <span class="sa">f</span><span class="s2">"MousePortal repo root."</span>
+            <span class="p">)</span>
+        <span class="c1"># Probe the full app import (panda3d + pyserial + mouseportal) with the</span>
+        <span class="c1"># same cwd the real launch uses, so a missing *dependency* (not just the</span>
+        <span class="c1"># package) is caught too.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">python_exe</span><span class="p">,</span> <span class="s2">"-c"</span><span class="p">,</span> <span class="s2">"import mouseportal.app"</span><span class="p">],</span>
+                <span class="n">cwd</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">app_dir</span><span class="p">,</span>
+                <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+                <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">STDOUT</span><span class="p">,</span>
+                <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">"Could not probe MousePortal interpreter </span><span class="si">{</span><span class="n">python_exe</span><span class="si">!r}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span>
+        <span class="k">if</span> <span class="n">proc</span><span class="o">.</span><span class="n">returncode</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"The interpreter mesofield would use to launch MousePortal "</span>
+                <span class="sa">f</span><span class="s2">"(</span><span class="si">{</span><span class="n">python_exe</span><span class="si">!r}</span><span class="s2">) cannot import MousePortal and its dependencies:</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="sa">f</span><span class="s2">"    </span><span class="si">{</span><span class="n">proc</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="sa">f</span><span class="s2">"Fix: set 'python_exe:' in the mouseportal hardware.yaml stanza "</span>
+                <span class="sa">f</span><span class="s2">"to a Python that has MousePortal + panda3d + pyserial installed "</span>
+                <span class="sa">f</span><span class="s2">"(e.g. the env where you `pip install -e` the MousePortal repo), "</span>
+                <span class="sa">f</span><span class="s2">"or install those into mesofield's environment."</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="MousePortalDevice.on_stop">
+<a class="viewcode-back" href="../../../api/mesofield.devices.mouseportal_device.html#mesofield.devices.MousePortalDevice.on_stop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_close_forwarder</span><span class="p">()</span></div>
+
+
+    <span class="c1"># -- treadmill velocity forwarding ----------------------------------</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_open_forwarder</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">hardware</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="p">,</span> <span class="s2">"hardware"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">treadmill</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">hardware</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">treadmill</span> <span class="o">=</span> <span class="n">hardware</span><span class="o">.</span><span class="n">devices</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">treadmill_id</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span>
+                <span class="n">hardware</span><span class="p">,</span> <span class="s2">"encoder"</span><span class="p">,</span> <span class="kc">None</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">treadmill</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"No treadmill device '</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">treadmill_id</span><span class="si">}</span><span class="s2">' found; MousePortal "</span>
+                <span class="sa">f</span><span class="s2">"will receive no velocity (corridor will not move)."</span>
+            <span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sock</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_DGRAM</span><span class="p">)</span>
+        <span class="n">addr</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">host</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">udp_port</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_forward</span><span class="p">(</span><span class="n">payload</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">device_ts</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                    <span class="n">device_us</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"device_us"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+                    <span class="n">distance</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"distance"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+                    <span class="n">speed</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"speed"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Scalar payload (e.g. a click count): treat as speed only.</span>
+                    <span class="n">device_us</span><span class="p">,</span> <span class="n">distance</span><span class="p">,</span> <span class="n">speed</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">device_us</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">distance</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">speed</span><span class="si">}</span><span class="s2">"</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"ascii"</span><span class="p">,</span> <span class="s2">"replace"</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_sock</span><span class="o">.</span><span class="n">sendto</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">addr</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># never let the queue thread die</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"treadmill forward failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="n">treadmill</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">_forward</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_treadmill</span> <span class="o">=</span> <span class="n">treadmill</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span> <span class="o">=</span> <span class="n">_forward</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Forwarding '</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">treadmill_id</span><span class="si">}</span><span class="s2">' velocity to MousePortal "</span>
+            <span class="sa">f</span><span class="s2">"at </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">host</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">udp_port</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_close_forwarder</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_treadmill</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_treadmill</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">disconnect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">pass</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_treadmill</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sock</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_sock</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                <span class="k">pass</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sock</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># -- config generation ---------------------------------------------</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_mouseportal_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""MousePortal application parameters (corridor + gain-trial design).</span>
+
+<span class="sd">        Sourced from the ExperimentConfig ``mouseportal`` key (experiment.json)</span>
+<span class="sd">        so the experiment design lives in the ExperimentConfig, not</span>
+<span class="sd">        hardware.yaml. Falls back to per-section keys on the hardware.yaml</span>
+<span class="sd">        stanza for backward compatibility with older configs.</span>
+<span class="sd">        """</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"config"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">"get"</span><span class="p">):</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"mouseportal"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="n">params</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">params</span>
+        <span class="c1"># Legacy fallback: sections authored directly on the hardware stanza.</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">section</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="p">[</span><span class="n">section</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">section</span> <span class="ow">in</span> <span class="n">_PORTAL_SECTIONS</span>
+            <span class="k">if</span> <span class="n">section</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_portal_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Assemble the JSON config handed to the MousePortal subprocess."""</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mouseportal_params</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+        <span class="n">portal</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">section</span><span class="p">:</span> <span class="n">params</span><span class="p">[</span><span class="n">section</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">section</span> <span class="ow">in</span> <span class="n">_PORTAL_SECTIONS</span>
+            <span class="k">if</span> <span class="n">section</span> <span class="ow">in</span> <span class="n">params</span>
+        <span class="p">}</span>
+        <span class="n">window</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">_DEFAULT_WINDOW</span><span class="p">)</span>
+        <span class="n">window</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">portal</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"window"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="n">portal</span><span class="p">[</span><span class="s2">"window"</span><span class="p">]</span> <span class="o">=</span> <span class="n">window</span>
+        <span class="n">portal</span><span class="p">[</span><span class="s2">"input"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"mode"</span><span class="p">:</span> <span class="s2">"network"</span><span class="p">,</span>
+            <span class="s2">"host"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">host</span><span class="p">,</span>
+            <span class="s2">"udp_port"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">udp_port</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">portal</span><span class="p">[</span><span class="s2">"triggers"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"enabled"</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span>
+        <span class="c1"># Hand MousePortal the exact, ExperimentConfig-allocated file path. It</span>
+        <span class="c1"># writes there verbatim and never builds its own BIDS directory layout.</span>
+        <span class="n">portal</span><span class="p">[</span><span class="s2">"logging"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"subject"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">subject</span><span class="p">),</span>
+            <span class="s2">"session"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">session</span><span class="p">),</span>
+            <span class="s2">"task"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">task</span><span class="p">),</span>
+            <span class="s2">"output_path"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_path</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">portal</span>
+
+    <span class="c1"># -- duration coupling ---------------------------------------------</span>
+<div class="viewcode-block" id="MousePortalDevice.expected_experiment_duration">
+<a class="viewcode-back" href="../../../api/mesofield.devices.mouseportal_device.html#mesofield.devices.MousePortalDevice.expected_experiment_duration">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">expected_experiment_duration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Estimate the MousePortal experiment length in seconds.</span>
+
+<span class="sd">        Mirrors MousePortal's per-trial resolution (condition override → global)</span>
+<span class="sd">        and sums each trial's duration plus the inter-trial interval that</span>
+<span class="sd">        follows it.  DURATION-ended trials are exact; DISTANCE/MANUAL trials are</span>
+<span class="sd">        non-deterministic, so their per-trial ``trial_duration`` (or the global</span>
+<span class="sd">        default) is used as an estimate -- pair this coupling with</span>
+<span class="sd">        duration-based trials for a precise camera preallocation.</span>
+<span class="sd">        """</span>
+        <span class="n">exp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mouseportal_params</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"experiment"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">num_blocks</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">exp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"num_blocks"</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">trials_per_block</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">exp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"trials_per_block"</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">iti</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">exp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"iti_duration"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+        <span class="n">global_dur</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">exp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"trial_duration"</span><span class="p">,</span> <span class="mf">60.0</span><span class="p">))</span>
+        <span class="n">conditions</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"label"</span><span class="p">):</span> <span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">exp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"conditions"</span><span class="p">,</span> <span class="p">[])</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+        <span class="p">}</span>
+        <span class="n">block_conditions</span> <span class="o">=</span> <span class="n">exp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"block_conditions"</span><span class="p">,</span> <span class="p">[])</span>
+
+        <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_blocks</span><span class="p">):</span>
+            <span class="n">seq</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">if</span> <span class="n">b</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">block_conditions</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">block_conditions</span><span class="p">[</span><span class="n">b</span><span class="p">],</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="n">seq</span> <span class="o">=</span> <span class="n">block_conditions</span><span class="p">[</span><span class="n">b</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"condition_sequence"</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">trials_per_block</span><span class="p">):</span>
+                <span class="n">cond</span> <span class="o">=</span> <span class="n">conditions</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">seq</span><span class="p">[</span><span class="n">t</span><span class="p">])</span> <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="n">cond</span> <span class="o">=</span> <span class="n">cond</span> <span class="ow">or</span> <span class="p">{}</span>
+                <span class="n">dur</span> <span class="o">=</span> <span class="n">cond</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"trial_duration"</span><span class="p">)</span>
+                <span class="n">trial_seconds</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">dur</span><span class="p">)</span> <span class="k">if</span> <span class="n">dur</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">global_dur</span>
+                <span class="n">total</span> <span class="o">+=</span> <span class="n">trial_seconds</span> <span class="o">+</span> <span class="n">iti</span>
+        <span class="k">return</span> <span class="n">total</span></div>
+
+
+    <span class="c1"># -- introspection (extend base) -----------------------------------</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">st</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">status</span><span class="p">()</span>
+        <span class="n">st</span><span class="p">[</span><span class="s2">"output_path"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_path</span>
+        <span class="k">return</span> <span class="n">st</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">metadata</span>
+        <span class="n">meta</span><span class="p">[</span><span class="s2">"udp_port"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">udp_port</span>
+        <span class="k">return</span> <span class="n">meta</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">calibration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Record the corridor/experiment parameters with the session."""</span>
+        <span class="n">out</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"udp_port"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">udp_port</span><span class="p">}</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mouseportal_params</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">params</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2026, Sipe Laboratory, Penn State.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.21.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

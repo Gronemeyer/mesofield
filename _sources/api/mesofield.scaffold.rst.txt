@@ -1,0 +1,15 @@
+scaffold
+========
+
+.. automodule:: mesofield.scaffold
+   :members:
+   :show-inheritance:
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   mesofield.scaffold.experiment
+   mesofield.scaffold.rigs

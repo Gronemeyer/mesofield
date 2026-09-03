@@ -1,0 +1,6 @@
+cameras
+=======
+
+.. automodule:: mesofield.devices.cameras
+   :members:
+   :show-inheritance:

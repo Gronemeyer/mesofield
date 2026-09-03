@@ -1,0 +1,886 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mesofield.devices.stimulus_base &#8212; Mesofield</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=f0c42745" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=cb8930eaaf36d9849b67"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67" />
+
+    <script src="../../../_static/documentation_options.js?v=b1cdc2ba"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/mesofield/devices/stimulus_base';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.5" />
+  
+    
+    <script src="../../../_static/searchtools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script src="../../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/logo.png" class="logo__image only-light" alt=""/>
+    <img src="../../../_static/logo.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">MESOFIELD</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">mesofield.devices.stimulus_base</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for mesofield.devices.stimulus_base</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Base class for stimulus devices that launch an external app subprocess.</span>
+
+<span class="sd">Captures the lifecycle shared by every "launch an external stimulus program,</span>
+<span class="sd">wait for a stdout readiness handshake, terminate on stop" device (MousePortal</span>
+<span class="sd">today; PsychoPy is a candidate to adopt this later). Subclasses implement a few</span>
+<span class="sd">hooks; the base wires the mesofield device contract</span>
+<span class="sd">(:class:`~mesofield.protocols.StimulusDevice`): ``DeviceSignals``,</span>
+<span class="sd">``initialize/arm/start/stop/shutdown``, ``status``/``metadata``, and a</span>
+<span class="sd">GUI-safe readiness wait.</span>
+
+<span class="sd">A stimulus device is *not* a :class:`~mesofield.protocols.DataProducer`: it</span>
+<span class="sd">never emits on ``signals.data``. ``signals.started`` fires on the readiness</span>
+<span class="sd">handshake; ``signals.finished`` fires on ``stop`` or subprocess exit.</span>
+
+<span class="sd">Required subclass surface</span>
+<span class="sd">-------------------------</span>
+<span class="sd">- ``ready_token`` (class attr) -- stdout substring the child prints when ready.</span>
+<span class="sd">- :meth:`build_command` -- the argv to launch.</span>
+
+<span class="sd">Optional hooks</span>
+<span class="sd">--------------</span>
+<span class="sd">- ``launch_phase`` (class attr, ``"arm"`` or ``"start"``) -- when to launch.</span>
+<span class="sd">  ``"arm"`` guarantees the stimulus is up *before* recording starts, since a</span>
+<span class="sd">  Procedure runs all ``arm_all`` before ``start_all``.</span>
+<span class="sd">- :meth:`prepare` -- per-run prep (generate config, open side channels) before launch.</span>
+<span class="sd">- :meth:`preflight` -- return an error string to abort launch with a clear message.</span>
+<span class="sd">- :meth:`launch_cwd` / :meth:`launch_env` -- subprocess working dir / environment.</span>
+<span class="sd">- :meth:`on_stop` -- teardown of any side channels opened in :meth:`prepare`.</span>
+<span class="sd">- ``require_ready`` (class attr) -- treat a missing readiness handshake as a</span>
+<span class="sd">  failure even if the child is still alive (PsychoPy); default False.</span>
+<span class="sd">- ``enabled`` (instance attr) -- per-run gate; a Procedure may set it False to</span>
+<span class="sd">  record a stimulus-free task.</span>
+
+<span class="sd">Operator presentation hooks (no-op/log by default, so automatic stimuli are</span>
+<span class="sd">unaffected; a GUI subclass overrides them to drive modal dialogs):</span>
+<span class="sd">:meth:`present_launching` / :meth:`dismiss_launching`, :meth:`present_failure`,</span>
+<span class="sd">and :meth:`confirm_ready_to_record` (the post-readiness "press to record" gate).</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.signals</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceSignals</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.utils._logger</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.devices.subprocesses.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">SubprocessSupervisor</span>
+
+
+<div class="viewcode-block" id="SubprocessStimulusDevice">
+<a class="viewcode-back" href="../../../api/mesofield.devices.stimulus_base.html#mesofield.devices.stimulus_base.SubprocessStimulusDevice">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SubprocessStimulusDevice</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Lifecycle skeleton for subprocess-backed stimulus devices."""</span>
+
+    <span class="n">device_type</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"stimulus"</span>
+    <span class="n">file_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
+    <span class="n">bids_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Subclass contract / tunables.</span>
+    <span class="n">ready_token</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"READY"</span>
+    <span class="n">launch_phase</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"start"</span>   <span class="c1"># "arm" | "start"</span>
+    <span class="n">default_device_id</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"stimulus"</span>
+    <span class="c1"># When True, a launch that never reports ``ready_token`` is a failure even</span>
+    <span class="c1"># if the child is still alive (the handshake is mandatory -- PsychoPy). When</span>
+    <span class="c1"># False (default), a still-running-but-not-ready child is accepted and the</span>
+    <span class="c1"># run continues, since some apps are slow to print their token (MousePortal).</span>
+    <span class="n">require_ready</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="SubprocessStimulusDevice.__init__">
+<a class="viewcode-back" href="../../../api/mesofield.devices.stimulus_base.html#mesofield.devices.stimulus_base.SubprocessStimulusDevice.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">psygnal</span><span class="w"> </span><span class="kn">import</span> <span class="n">SignalInstance</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">signals</span> <span class="o">=</span> <span class="n">DeviceSignals</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"id"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_device_id</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_primary</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"primary"</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
+        <span class="c1"># Per-run gate. A Procedure may set this False in ``prerun`` for a task</span>
+        <span class="c1"># that records without a stimulus (e.g. a spontaneous baseline), so</span>
+        <span class="c1"># neither ``arm`` nor ``start`` launches the subprocess.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="si">}</span><span class="s2">]"</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Common launch parameters.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"app_dir"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">python_exe</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"python_exe"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ready_timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ready_timeout"</span><span class="p">,</span> <span class="mf">30.0</span><span class="p">))</span>
+
+        <span class="c1"># GUI-facing lifecycle status: "loaded" -&gt; "launching" -&gt; "ready"</span>
+        <span class="c1"># (or "running"/"failed") -&gt; "stopped". ``status_changed`` lets a GUI</span>
+        <span class="c1"># panel reflect the subprocess state instead of failing silently.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_gui_status</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"loaded"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">status_changed</span><span class="p">:</span> <span class="n">SignalInstance</span> <span class="o">=</span> <span class="n">SignalInstance</span><span class="p">((</span><span class="nb">str</span><span class="p">,))</span>
+
+        <span class="c1"># Per-run state.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_process</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SubprocessSupervisor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+    <span class="c1"># -- GUI status -----------------------------------------------------</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">gui_status</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gui_status</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_gui_status</span> <span class="o">=</span> <span class="n">status</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">status_changed</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">status</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"status_changed emit failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="c1"># -- subclass hooks (override as needed) ----------------------------</span>
+<div class="viewcode-block" id="SubprocessStimulusDevice.serves_task">
+<a class="viewcode-back" href="../../../api/mesofield.devices.stimulus_base.html#mesofield.devices.stimulus_base.SubprocessStimulusDevice.serves_task">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">serves_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Whether this stimulus participates in *task*.</span>
+
+<span class="sd">        Drives per-run gating: before arming, a Procedure enables only the</span>
+<span class="sd">        stimulus device(s) that serve the selected task (see</span>
+<span class="sd">        ``Procedure._gate_stimuli_by_task``), so a rig with several stimulus apps</span>
+<span class="sd">        launches only what the task needs. The default serves **every** task --</span>
+<span class="sd">        correct for a single-stimulus rig or a device with no task binding.</span>
+<span class="sd">        Subclasses that bind to specific tasks override this.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="SubprocessStimulusDevice.prepare">
+<a class="viewcode-back" href="../../../api/mesofield.devices.stimulus_base.html#mesofield.devices.stimulus_base.SubprocessStimulusDevice.prepare">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Per-run prep before launch (config files, side channels). No-op."""</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="SubprocessStimulusDevice.preflight">
+<a class="viewcode-back" href="../../../api/mesofield.devices.stimulus_base.html#mesofield.devices.stimulus_base.SubprocessStimulusDevice.preflight">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">preflight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Return an actionable error string to abort launch, or None to proceed."""</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="SubprocessStimulusDevice.build_command">
+<a class="viewcode-back" href="../../../api/mesofield.devices.stimulus_base.html#mesofield.devices.stimulus_base.SubprocessStimulusDevice.build_command">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_command</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Return the full argv used to launch the stimulus subprocess."""</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">launch_cwd</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">app_dir</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">launch_env</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="SubprocessStimulusDevice.on_stop">
+<a class="viewcode-back" href="../../../api/mesofield.devices.stimulus_base.html#mesofield.devices.stimulus_base.SubprocessStimulusDevice.on_stop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Teardown for anything opened in :meth:`prepare`. No-op by default."""</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+    <span class="c1"># -- operator presentation hooks (override in a GUI-facing subclass) -</span>
+    <span class="c1"># These let an operator-in-the-loop stimulus (PsychoPy) surface modal</span>
+    <span class="c1"># dialogs without dragging Qt into this framework-agnostic base: the</span>
+    <span class="c1"># defaults are silent / log-only, so automatic stimuli (MousePortal) are</span>
+    <span class="c1"># unaffected. A subclass that overrides them imports its GUI toolkit only</span>
+    <span class="c1"># in its own module.</span>
+<div class="viewcode-block" id="SubprocessStimulusDevice.present_launching">
+<a class="viewcode-back" href="../../../api/mesofield.devices.stimulus_base.html#mesofield.devices.stimulus_base.SubprocessStimulusDevice.present_launching">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">present_launching</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Show a non-blocking 'launching, waiting for readiness' indicator.</span>
+
+<span class="sd">        Called right after the subprocess is spawned and before the readiness</span>
+<span class="sd">        wait (which pumps Qt events, so a shown-but-not-``exec``'d dialog stays</span>
+<span class="sd">        responsive). Pair with :meth:`dismiss_launching`. No-op by default.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="SubprocessStimulusDevice.dismiss_launching">
+<a class="viewcode-back" href="../../../api/mesofield.devices.stimulus_base.html#mesofield.devices.stimulus_base.SubprocessStimulusDevice.dismiss_launching">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dismiss_launching</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Dismiss the indicator shown by :meth:`present_launching`. No-op default."""</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="SubprocessStimulusDevice.present_failure">
+<a class="viewcode-back" href="../../../api/mesofield.devices.stimulus_base.html#mesofield.devices.stimulus_base.SubprocessStimulusDevice.present_failure">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">present_failure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">detail</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Surface a launch/handshake failure to the operator.</span>
+
+<span class="sd">        ``detail`` carries the child's last output (see</span>
+<span class="sd">        :attr:`SubprocessSupervisor.output_tail`). Logs by default; a GUI</span>
+<span class="sd">        subclass shows a dialog.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">message</span> <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="si">{</span><span class="n">detail</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="n">detail</span> <span class="k">else</span> <span class="s2">""</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="SubprocessStimulusDevice.confirm_ready_to_record">
+<a class="viewcode-back" href="../../../api/mesofield.devices.stimulus_base.html#mesofield.devices.stimulus_base.SubprocessStimulusDevice.confirm_ready_to_record">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">confirm_ready_to_record</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Operator gate after the stimulus reports ready; ``False`` cancels.</span>
+
+<span class="sd">        Runs inside :meth:`start` for ``launch_phase == "start"`` devices once</span>
+<span class="sd">        the readiness handshake has fired. Default proceeds immediately</span>
+<span class="sd">        (automatic stimuli); PsychoPy shows a focused "press to start</span>
+<span class="sd">        recording" dialog over its full-screen window.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+    <span class="c1"># -- handshake state ------------------------------------------------</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handshake_ok</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""``True`` once the subprocess reported its ``ready_token``."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gui_status</span> <span class="o">==</span> <span class="s2">"ready"</span>
+
+    <span class="c1"># -- lifecycle ------------------------------------------------------</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">arm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="n">config</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="si">}</span><span class="s2"> disabled for this run; not arming."</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="c1"># Reset per-run state so a second run in the same session relaunches</span>
+        <span class="c1"># cleanly: a prior run leaves a (terminated) supervisor on</span>
+        <span class="c1"># ``self._process``, which would otherwise make ``start`` a no-op via</span>
+        <span class="c1"># its "already launched" guard. Terminate defensively in case it is</span>
+        <span class="c1"># somehow still alive, then drop the handle.</span>
+        <span class="c1"># Always tear down the previous run's process tree before dropping the</span>
+        <span class="c1"># handle -- not just when the parent is still alive. A parent that</span>
+        <span class="c1"># crashed (e.g. PsychoPy on an iohub error) can leave an orphaned helper</span>
+        <span class="c1"># holding a port; terminate() is idempotent and reaps that whole tree, so</span>
+        <span class="c1"># the relaunch below can't collide with a lingering subprocess.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_process</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_process</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_started</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_status</span><span class="p">(</span><span class="s2">"loaded"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">launch_phase</span> <span class="o">==</span> <span class="s2">"arm"</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_launch_and_wait</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="si">}</span><span class="s2"> disabled for this run; skipping launch."</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">launch_phase</span> <span class="o">==</span> <span class="s2">"arm"</span><span class="p">:</span>
+            <span class="c1"># Launched during arm; just confirm it is alive.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process</span><span class="o">.</span><span class="n">is_running</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="si">}</span><span class="s2"> is not running at start()."</span><span class="p">)</span>
+                <span class="k">return</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_started</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_started</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="c1"># start-phase: launch now (unless a start gate already launched us).</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Already launched (e.g. by a Procedure's start_on_trigger gate,</span>
+            <span class="c1"># before start_all). Don't spawn a second subprocess.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">handshake_ok</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_launch_and_wait</span><span class="p">():</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="c1"># Operator gate: only after a clean readiness handshake.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gui_status</span> <span class="o">==</span> <span class="s2">"ready"</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">confirm_ready_to_record</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="si">}</span><span class="s2">: operator cancelled at the ready gate."</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">on_stop</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"on_stop failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_process</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_status</span><span class="p">(</span><span class="s2">"stopped"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">finished</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_process</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># -- launch helpers -------------------------------------------------</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_launch_and_wait</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Spawn the subprocess and block (pumping Qt) on its readiness.</span>
+
+<span class="sd">        Returns ``True`` if the child reached ``ready`` (or, when</span>
+<span class="sd">        ``require_ready`` is False, is still running after the timeout) and</span>
+<span class="sd">        ``False`` on a failed launch -- so a start-phase caller can abort.</span>
+<span class="sd">        """</span>
+        <span class="n">problem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">preflight</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">problem</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_set_status</span><span class="p">(</span><span class="s2">"failed"</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">present_failure</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_process</span> <span class="o">=</span> <span class="n">SubprocessSupervisor</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_command</span><span class="p">(),</span>
+            <span class="n">ready_token</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ready_token</span><span class="p">,</span>
+            <span class="n">cwd</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">launch_cwd</span><span class="p">(),</span>
+            <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">launch_env</span><span class="p">(),</span>
+            <span class="n">on_ready</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">started</span><span class="o">.</span><span class="n">emit</span><span class="p">(),</span>
+            <span class="n">on_finished</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_on_finished</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_started</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_status</span><span class="p">(</span><span class="s2">"launching"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Launching </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="si">}</span><span class="s2">; waiting for '</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ready_token</span><span class="si">}</span><span class="s2">'..."</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_process</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">present_launching</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait_ready_pumping</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ready_timeout</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="si">}</span><span class="s2"> is ready."</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_set_status</span><span class="p">(</span><span class="s2">"ready"</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process</span><span class="o">.</span><span class="n">is_running</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">require_ready</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="si">}</span><span class="s2"> not ready after </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ready_timeout</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">s but "</span>
+                    <span class="sa">f</span><span class="s2">"still running; continuing."</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_set_status</span><span class="p">(</span><span class="s2">"running"</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="si">}</span><span class="s2"> did not report '</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ready_token</span><span class="si">}</span><span class="s2">' "</span>
+                    <span class="sa">f</span><span class="s2">"(timeout </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ready_timeout</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">s); see the log lines above."</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_set_status</span><span class="p">(</span><span class="s2">"failed"</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dismiss_launching</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gui_status</span> <span class="o">==</span> <span class="s2">"failed"</span><span class="p">:</span>
+            <span class="n">tail</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_process</span><span class="p">,</span> <span class="s2">"output_tail"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process</span> <span class="k">else</span> <span class="s2">""</span>
+            <span class="c1"># Always tear down on failure, even when the parent already exited:</span>
+            <span class="c1"># a crashed launcher can leave an orphaned helper (e.g. PsychoPy's</span>
+            <span class="c1"># iohub) holding a port, and that helper may also be inheriting the</span>
+            <span class="c1"># parent's stdout pipe -- which keeps the reader thread's own</span>
+            <span class="c1"># exit-reap from firing until the helper dies. terminate() reaps the</span>
+            <span class="c1"># whole process tree now and is a no-op on an already-dead parent.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_process</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">present_failure</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="si">}</span><span class="s2"> did not report ready ('</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ready_token</span><span class="si">}</span><span class="s2">')."</span><span class="p">,</span>
+                <span class="n">tail</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_wait_ready_pumping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Wait for the readiness handshake, pumping Qt events if a GUI is up.</span>
+
+<span class="sd">        In the GUI, arm_all/start_all run on the Qt main thread, so a plain</span>
+<span class="sd">        blocking wait would freeze the window. Pumping ``processEvents`` keeps</span>
+<span class="sd">        it responsive during the brief boot; headless callers just poll.</span>
+
+<span class="sd">        Polls in short slices so it can **fail fast**: if the child exits before</span>
+<span class="sd">        the handshake (a stimulus script that errors on startup), this returns</span>
+<span class="sd">        immediately instead of waiting out the full ``timeout``.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">PyQt6.QtWidgets</span><span class="w"> </span><span class="kn">import</span> <span class="n">QApplication</span>
+            <span class="n">app</span> <span class="o">=</span> <span class="n">QApplication</span><span class="o">.</span><span class="n">instance</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">app</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">deadline</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">+</span> <span class="n">timeout</span>
+        <span class="k">while</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">deadline</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process</span><span class="o">.</span><span class="n">wait_ready</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">0.05</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">True</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process</span><span class="o">.</span><span class="n">is_running</span><span class="p">():</span>
+                <span class="c1"># Child exited before the handshake -- don't wait out the timeout.</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process</span><span class="o">.</span><span class="n">wait_ready</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">app</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">app</span><span class="o">.</span><span class="n">processEvents</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process</span><span class="o">.</span><span class="n">wait_ready</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_on_finished</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_code</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Subprocess exited. Reflect an unexpected mid-run exit without</span>
+        <span class="c1"># clobbering a "failed" set by the launch path.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gui_status</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"launching"</span><span class="p">,</span> <span class="s2">"running"</span><span class="p">,</span> <span class="s2">"ready"</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_set_status</span><span class="p">(</span><span class="s2">"stopped"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">finished</span><span class="o">.</span><span class="n">emit</span><span class="p">()</span>
+
+    <span class="c1"># -- introspection --------------------------------------------------</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"device_id"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="p">,</span>
+            <span class="s2">"running"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process</span><span class="o">.</span><span class="n">is_running</span><span class="p">(),</span>
+            <span class="s2">"started"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="p">,</span>
+            <span class="s2">"stopped"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"device_id"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="p">,</span>
+            <span class="s2">"device_type"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_type</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2026, Sipe Laboratory, Penn State.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.21.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

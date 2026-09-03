@@ -1,0 +1,6 @@
+registry
+========
+
+.. automodule:: mesofield.processors.registry
+   :members:
+   :show-inheritance:

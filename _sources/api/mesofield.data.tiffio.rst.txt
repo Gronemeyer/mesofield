@@ -1,0 +1,6 @@
+tiffio
+======
+
+.. automodule:: mesofield.data.tiffio
+   :members:
+   :show-inheritance:

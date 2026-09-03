@@ -1,0 +1,1599 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mesofield.config &#8212; Mesofield</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=f0c42745" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=cb8930eaaf36d9849b67"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67" />
+
+    <script src="../../_static/documentation_options.js?v=b1cdc2ba"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/mesofield/config';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.5" />
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/logo.png" class="logo__image only-light" alt=""/>
+    <img src="../../_static/logo.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">MESOFIELD</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">mesofield.config</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for mesofield.config</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Experiment configuration registry.</span>
+
+<span class="sd">This module defines two classes:</span>
+
+<span class="sd">:class:`ConfigRegister`</span>
+<span class="sd">    A generic key/value registry with optional type validation and</span>
+<span class="sd">    per-key change callbacks. Used as a building block by</span>
+<span class="sd">    :class:`ExperimentConfig`.</span>
+
+<span class="sd">:class:`ExperimentConfig`</span>
+<span class="sd">    Experiment-aware extension of ``ConfigRegister`` with default</span>
+<span class="sd">    parameters (subject / session / task / LED pattern / duration), a</span>
+<span class="sd">    BIDS-style path layout (``experiment_dir`` → ``data_dir`` →</span>
+<span class="sd">    ``bids_dir``), JSON load/save, and an attached</span>
+<span class="sd">    :class:`~mesofield.hardware.HardwareManager`.</span>
+
+<span class="sd">Typical lifecycle:</span>
+
+<span class="sd">.. code-block:: python</span>
+
+<span class="sd">    cfg = ExperimentConfig("path/to/hardware.yaml")</span>
+<span class="sd">    cfg.load_json("path/to/experiment.json")</span>
+<span class="sd">    cfg.set("subject", "001")</span>
+<span class="sd">    seq = cfg.build_sequence(cfg.hardware.primary)</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">TypeVar</span><span class="p">,</span> <span class="n">Callable</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">useq</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">useq</span><span class="w"> </span><span class="kn">import</span> <span class="n">TIntervalLoops</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.hardware</span><span class="w"> </span><span class="kn">import</span> <span class="n">HardwareManager</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.protocols</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataProducer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.utils._logger</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_logger</span><span class="p">,</span> <span class="n">hyperlink</span>
+
+<span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">'T'</span><span class="p">)</span>
+
+<span class="c1"># A PsychoPy script declares the task it implements by embedding ``task-{name}``</span>
+<span class="c1"># in its filename -- the same token used for BIDS paths (see make_path /</span>
+<span class="c1"># psychopy_save_path). This is the single place the convention is parsed, shared</span>
+<span class="c1"># by ExperimentConfig (load-time task discovery) and the PsychoPy GUI tab.</span>
+<span class="n">_TASK_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"task-([A-Za-z0-9]+)"</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="parse_task_from_filename">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.parse_task_from_filename">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">parse_task_from_filename</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Return the task token from a ``task-{name}`` filename, or ``None``.</span>
+
+<span class="sd">    Example: ``parse_task_from_filename("Gratings_task-grat_v0.9.py") == "grat"``.</span>
+<span class="sd">    """</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">_TASK_RE</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">match</span> <span class="k">else</span> <span class="kc">None</span></div>
+
+
+
+<div class="viewcode-block" id="ConfigRegister">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ConfigRegister">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ConfigRegister</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""A registry that maintains configuration values with optional type validation."""</span>
+    
+<div class="viewcode-block" id="ConfigRegister.__init__">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ConfigRegister.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_registry</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_callbacks</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="kc">None</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_choices</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span></div>
+
+    
+<div class="viewcode-block" id="ConfigRegister.register">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ConfigRegister.register">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+                <span class="n">type_hint</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Type</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+                <span class="n">description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span> 
+                <span class="n">category</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"general"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Register a configuration parameter with metadata."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_registry</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">default</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"type"</span><span class="p">:</span> <span class="n">type_hint</span><span class="p">,</span>
+            <span class="s2">"description"</span><span class="p">:</span> <span class="n">description</span><span class="p">,</span>
+            <span class="s2">"category"</span><span class="p">:</span> <span class="n">category</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_callbacks</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span></div>
+
+    
+<div class="viewcode-block" id="ConfigRegister.get">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ConfigRegister.get">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get a configuration value."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_registry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="ConfigRegister.set">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ConfigRegister.set">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Set a configuration value with type validation."""</span>
+        <span class="c1"># Register the key if it doesn't exist</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_registry</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        
+        <span class="c1"># Validate type if type hint exists</span>
+        <span class="n">type_hint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">type_hint</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">type_hint</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Attempt type conversion</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">type_hint</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid type for </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">. Expected </span><span class="si">{</span><span class="n">type_hint</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        
+        <span class="c1"># Update value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_registry</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        
+        <span class="c1"># Trigger callbacks</span>
+        <span class="k">for</span> <span class="n">callback</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_callbacks</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="n">callback</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="ConfigRegister.has">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ConfigRegister.has">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">has</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Check if a key exists in the registry."""</span>
+        <span class="k">return</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_registry</span></div>
+
+    
+<div class="viewcode-block" id="ConfigRegister.keys">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ConfigRegister.keys">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">keys</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Get all registered keys."""</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_registry</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span></div>
+
+    
+<div class="viewcode-block" id="ConfigRegister.items">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ConfigRegister.items">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">items</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Get all key-value pairs."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_registry</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
+
+    
+<div class="viewcode-block" id="ConfigRegister.get_metadata">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ConfigRegister.get_metadata">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Get metadata for a key."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">{})</span></div>
+
+    
+<div class="viewcode-block" id="ConfigRegister.register_callback">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ConfigRegister.register_callback">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="kc">None</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Register a callback for when a key's value changes."""</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_callbacks</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_callbacks</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_callbacks</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">callback</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ConfigRegister.unregister_callback">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ConfigRegister.unregister_callback">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unregister_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="kc">None</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Remove a previously registered callback for *key*."""</span>
+        <span class="n">callbacks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_callbacks</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">callbacks</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">callbacks</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">callback</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">pass</span></div>
+
+
+    
+<div class="viewcode-block" id="ConfigRegister.register_choices">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ConfigRegister.register_choices">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_choices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">choices</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Register a list of selectable choices for a configuration key."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_choices</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">choices</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ConfigRegister.get_choices">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ConfigRegister.get_choices">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_choices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Return the list of choices for *key*, or ``None`` if none are registered."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_choices</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ConfigRegister.clear">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ConfigRegister.clear">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Clear all configurations."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_registry</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_choices</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ExperimentConfig">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ExperimentConfig</span><span class="p">(</span><span class="n">ConfigRegister</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Generate and store experiment parameters using a configuration registry.</span>
+
+<span class="sd">    ``ExperimentConfig`` extends :class:`ConfigRegister` with experiment-aware</span>
+<span class="sd">    defaults (subject / session / task, LED pattern, duration, etc.), a</span>
+<span class="sd">    BIDS-style path layout (``experiment_dir / data_dir / bids_dir``), and</span>
+<span class="sd">    integration with a :class:`~mesofield.hardware.HardwareManager`.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            from mesofield.config import ExperimentConfig</span>
+
+<span class="sd">            config = ExperimentConfig("path/to/hardware.yaml")</span>
+<span class="sd">            # Populate from a JSON config file:</span>
+<span class="sd">            config.load_json("path/to/experiment.json")</span>
+
+<span class="sd">            config.experiment_dir = "./output"</span>
+<span class="sd">            config.set("subject", "001")</span>
+<span class="sd">            config.set("task", "TestTask")</span>
+<span class="sd">            config.notes.append("This is a test note.")</span>
+
+<span class="sd">            # Persist parameters and notes back to JSON:</span>
+<span class="sd">            config.save_json("path/to/experiment.json")</span>
+<span class="sd">    """</span>
+
+<div class="viewcode-block" id="ExperimentConfig.__init__">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="c1"># Initialize logging first</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">path</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">"Initializing ExperimentConfig with hardware path: "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">hyperlink</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">normpath</span><span class="p">(</span><span class="n">path</span><span class="p">)))</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Initializing ExperimentConfig with hardware path: None"</span><span class="p">)</span>
+        
+        <span class="c1"># Initialize the configuration registry</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_json_file_path</span> <span class="o">=</span> <span class="s1">''</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_dir</span> <span class="o">=</span> <span class="s1">''</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subjects</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">selected_subject</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">display_keys</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Register common configuration parameters with defaults and types</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_register_default_parameters</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Registered default parameters"</span><span class="p">)</span>
+
+        <span class="c1"># Data output directory defaults to the current working directory;</span>
+        <span class="c1"># an `experiment_directory` config key, load_json, or the GUI picker</span>
+        <span class="c1"># overrides it. It is intentionally NOT derived from the hardware</span>
+        <span class="c1"># file's location -- a rig YAML may live in a shared rig store, and</span>
+        <span class="c1"># data must never land there. Assigned directly (not via the property</span>
+        <span class="c1"># setter) so `experiment_dir_is_set` stays False until a caller</span>
+        <span class="c1"># chooses a directory explicitly.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_experiment_dir_set</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">())</span>
+
+        <span class="c1"># Initialize hardware. The rig (hardware.yaml) is the anchor; experiment</span>
+        <span class="c1"># params are loaded separately and never touch hardware state.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hardware</span><span class="p">:</span> <span class="n">HardwareManager</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hardware</span> <span class="o">=</span> <span class="n">HardwareManager</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_resolve_hardware_path</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Hardware config not available: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">. Starting in default state."</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hardware</span> <span class="o">=</span> <span class="n">HardwareManager</span><span class="p">()</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">notes</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_register_default_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Register default parameters in the registry."""</span>
+        <span class="c1"># Core experiment parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"subject"</span><span class="p">,</span> <span class="s2">"sub"</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="s2">"Subject identifier"</span><span class="p">,</span> <span class="s2">"experiment"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"session"</span><span class="p">,</span> <span class="s2">"ses"</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="s2">"Session identifier"</span><span class="p">,</span> <span class="s2">"experiment"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"task"</span><span class="p">,</span> <span class="s2">"task"</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="s2">"Task identifier"</span><span class="p">,</span> <span class="s2">"experiment"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"start_on_trigger"</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="s2">"Whether to start acquisition on trigger"</span><span class="p">,</span> <span class="s2">"hardware"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"duration"</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="s2">"Sequence duration in seconds"</span><span class="p">,</span> <span class="s2">"experiment"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"trial_duration"</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="s2">"Trial duration in seconds"</span><span class="p">,</span> <span class="s2">"experiment"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"led_pattern"</span><span class="p">,</span> <span class="p">[</span><span class="s2">"4"</span><span class="p">,</span> <span class="s2">"4"</span><span class="p">],</span> <span class="nb">list</span><span class="p">,</span> <span class="s2">"Arduino LED sequence pattern"</span><span class="p">,</span> <span class="s2">"hardware"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"psychopy_filename"</span><span class="p">,</span> <span class="s2">"experiment.py"</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="s2">"PsychoPy experiment filename"</span><span class="p">,</span> <span class="s2">"experiment"</span><span class="p">)</span>
+        <span class="c1"># Task -&gt; PsychoPy-script map (e.g. {"grat": "Gratings_task-grat.py"}).</span>
+        <span class="c1"># Lives in its own top-level "PsychoPy" block in experiment.json, edited</span>
+        <span class="c1"># via the PsychoPy tab and persisted with update_psychopy(). The selected</span>
+        <span class="c1"># `task` keys this map at runtime to choose which script to launch; the</span>
+        <span class="c1"># legacy single `psychopy_filename` remains a fallback.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"psychopy"</span><span class="p">,</span> <span class="p">{},</span> <span class="nb">dict</span><span class="p">,</span> <span class="s2">"Task-&gt;PsychoPy-script map"</span><span class="p">,</span> <span class="s2">"stimulus"</span><span class="p">)</span>
+        <span class="c1"># MousePortal stimulus config (corridor + gain-trial design). Lives in</span>
+        <span class="c1"># its own top-level "MousePortal" block in experiment.json, edited via</span>
+        <span class="c1"># the MousePortal tab and persisted with update_mouseportal().</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"mouseportal"</span><span class="p">,</span> <span class="p">{},</span> <span class="nb">dict</span><span class="p">,</span> <span class="s2">"MousePortal stimulus configuration"</span><span class="p">,</span> <span class="s2">"stimulus"</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ExperimentConfig.set">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.set">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Set config values with field-specific normalization where needed."""</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">"led_pattern"</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_normalize_led_pattern</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_hardware_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Normalize a hardware path to a YAML file (or ``None``).</span>
+
+<span class="sd">        A file path is used as-is; a directory resolves to</span>
+<span class="sd">        ``&lt;dir&gt;/hardware.yaml``; ``None`` stays ``None``. This never touches</span>
+<span class="sd">        ``experiment_dir`` -- the rig location does not dictate where data is</span>
+<span class="sd">        written.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">abs_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">abs_path</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">abs_path</span><span class="p">,</span> <span class="s2">"hardware.yaml"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">abs_path</span>
+
+<div class="viewcode-block" id="ExperimentConfig.load_hardware">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.load_hardware">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_hardware</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">yaml_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Load (or reload) a hardware YAML configuration.</span>
+
+<span class="sd">        This replaces the current :class:`HardwareManager` with a new one</span>
+<span class="sd">        pointed at *yaml_path*.  Devices are **not** initialised until</span>
+<span class="sd">        :meth:`HardwareManager.initialize` is called (which is normally done</span>
+<span class="sd">        by :class:`~mesofield.base.Procedure.initialize_hardware`).</span>
+<span class="sd">        """</span>
+        <span class="n">abs_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">)</span>
+        <span class="c1"># Tear down the outgoing rig before replacing it. Without this, a reload</span>
+        <span class="c1"># orphans the old HardwareManager with its camera threads still running</span>
+        <span class="c1"># and signals still connected (leaked threads + open writers, and frames</span>
+        <span class="c1"># firing into about-to-be-deleted GUI widgets). `deinitialize` already</span>
+        <span class="c1"># stops devices, unloads mmcore, and clears refs — it was just never</span>
+        <span class="c1"># called on the reload path.</span>
+        <span class="n">old</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"hardware"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">old</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">old</span><span class="p">,</span> <span class="s2">"is_configured"</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">old</span><span class="o">.</span><span class="n">deinitialize</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">"Error deinitializing previous hardware"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hardware</span> <span class="o">=</span> <span class="n">HardwareManager</span><span class="p">(</span><span class="n">abs_path</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">"Loaded hardware config from: "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">hyperlink</span><span class="p">(</span><span class="n">abs_path</span><span class="p">,</span><span class="w"> </span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">abs_path</span><span class="p">))</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ExperimentConfig.load_hardware_spec">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.load_hardware_spec">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_hardware_spec</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">spec</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Install a rig from an in-memory mapping (e.g. an embedded ``hardware`` block).</span>
+
+<span class="sd">        Replaces the current :class:`HardwareManager` with one built from *spec*.</span>
+<span class="sd">        Devices are not initialised until :meth:`HardwareManager.initialize`.</span>
+<span class="sd">        """</span>
+        <span class="n">old</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"hardware"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">old</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">old</span><span class="p">,</span> <span class="s2">"is_configured"</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">old</span><span class="o">.</span><span class="n">deinitialize</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">"Error deinitializing previous hardware"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hardware</span> <span class="o">=</span> <span class="n">HardwareManager</span><span class="p">(</span><span class="n">spec</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">spec</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Loaded hardware config from embedded rig spec"</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_cores</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span><span class="c1"># -&gt; tuple[CMMCorePlus, ...]:</span>
+<span class="w">        </span><span class="sd">"""Return the tuple of CMMCorePlus instances from the hardware cameras."""</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">cam</span><span class="o">.</span><span class="n">core</span> <span class="k">for</span> <span class="n">cam</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">cameras</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">cam</span><span class="p">,</span> <span class="s1">'core'</span><span class="p">))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">experiment_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the experiment directory (base directory)."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_save_dir</span>
+
+    <span class="nd">@experiment_dir</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">experiment_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Set the experiment directory (base directory)."""</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">)):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_save_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">fspath</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_experiment_dir_set</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ExperimentConfig: </span><span class="se">\n</span><span class="s2"> Invalid experiment directory path: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">experiment_dir_is_set</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""``True`` once a caller has explicitly chosen ``experiment_dir``.</span>
+
+<span class="sd">        Lets launchers (e.g. ``load_procedure``) apply a fallback</span>
+<span class="sd">        directory only when the user/config never picked one.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_experiment_dir_set</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">data_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the data directory (experiment_dir/data)."""</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_save_dir</span><span class="p">,</span> <span class="s1">'data'</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the save directory (legacy alias for data_dir)."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span>
+
+    <span class="nd">@save_dir</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Set the save directory (base experiment directory)."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experiment_dir</span> <span class="o">=</span> <span class="n">path</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subject</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the subject ID."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"subject"</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the session ID as a zero-padded BIDS string (e.g. "01").</span>
+
+<span class="sd">        Formatting is enforced here so paths/filenames are always padded</span>
+<span class="sd">        regardless of how the raw value was entered (GUI, JSON, etc.).</span>
+<span class="sd">        """</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"session"</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">"</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="k">return</span> <span class="s2">""</span> <span class="k">if</span> <span class="n">raw</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">task</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the task ID."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"task"</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start_on_trigger</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get whether to start on trigger."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"start_on_trigger"</span><span class="p">)</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sequence_duration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the sequence duration in seconds."""</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"duration"</span><span class="p">))</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">trial_duration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Trial duration in seconds.</span>
+
+<span class="sd">        The selected task's PsychoPy ``trial_duration`` (when set) wins over the</span>
+<span class="sd">        plain ``trial_duration`` config value, so per-task stimulus timing is</span>
+<span class="sd">        data-driven instead of hardcoded in a Procedure subclass.</span>
+<span class="sd">        """</span>
+        <span class="n">per_task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_psychopy_trial_duration</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">per_task</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">per_task</span>
+        <span class="n">trial_dur</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"trial_duration"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">trial_dur</span><span class="p">)</span> <span class="k">if</span> <span class="n">trial_dur</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">num_trials</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Number of trials.</span>
+
+<span class="sd">        When the selected task declares a PsychoPy ``trial_duration``, derive it</span>
+<span class="sd">        as ``sequence_duration // trial_duration`` (at least 1) -- the rule the</span>
+<span class="sd">        legacy vis-stim Procedure hardcoded, now driven by the task map.</span>
+<span class="sd">        Otherwise fall back to the stored ``num_trials`` (default 20).</span>
+<span class="sd">        """</span>
+        <span class="n">per_task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_psychopy_trial_duration</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">per_task</span> <span class="ow">and</span> <span class="n">per_task</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sequence_duration</span> <span class="o">//</span> <span class="n">per_task</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"num_trials"</span><span class="p">,</span> <span class="mi">20</span><span class="p">))</span>
+    
+    
+<div class="viewcode-block" id="ExperimentConfig.build_sequence">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.build_sequence">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_sequence</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">camera</span><span class="p">:</span> <span class="n">DataProducer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">useq</span><span class="o">.</span><span class="n">MDASequence</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Build a :class:`useq.MDASequence` sized to this experiment.</span>
+
+<span class="sd">        The loop count is derived from ``num_meso_frames`` when set, or</span>
+<span class="sd">        from ``camera.sampling_rate * sequence_duration`` otherwise.  All</span>
+<span class="sd">        ``HardwareManager`` fields are attached as sequence metadata so</span>
+<span class="sd">        downstream engines (e.g. :class:`~mesofield.engines.MesoEngine`)</span>
+<span class="sd">        can resolve the LED pattern and NI-DAQ at setup time.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            camera: The primary :class:`DataProducer` whose</span>
+<span class="sd">                ``sampling_rate`` drives the default loop count.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A ready-to-run ``MDASequence`` with a zero-interval time plan.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="s1">'num_meso_frames'</span><span class="p">):</span>
+            <span class="n">loops</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'num_meso_frames'</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">loops</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">camera</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">sequence_duration</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="n">loops</span> <span class="o">=</span> <span class="mi">5</span>
+
+        <span class="n">metadata</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">)</span>
+        <span class="n">metadata</span><span class="p">[</span><span class="s2">"led_sequence"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">led_pattern</span>
+
+        <span class="c1"># convert to a datetime.timedelta and build the time_plan</span>
+        <span class="n">time_plan</span> <span class="o">=</span> <span class="n">TIntervalLoops</span><span class="p">(</span>
+            <span class="n">interval</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">loops</span><span class="o">=</span><span class="n">loops</span><span class="p">,</span>
+            <span class="n">prioritize_duration</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">useq</span><span class="o">.</span><span class="n">MDASequence</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span> <span class="n">time_plan</span><span class="o">=</span><span class="n">time_plan</span><span class="p">)</span></div>
+
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bids_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">""" Dynamic construct of BIDS directory path """</span>
+        <span class="n">bids</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"sub-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">subject</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"ses-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span><span class="p">,</span> <span class="n">bids</span><span class="p">))</span>
+
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Convert parameters to a pandas DataFrame."""</span>
+        <span class="n">combined_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'Parameter'</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">combined_params</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span>
+                <span class="s1">'Value'</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">combined_params</span><span class="o">.</span><span class="n">values</span><span class="p">())}</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">psychopy_filename</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the PsychoPy experiment filename."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"psychopy_filename"</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">psychopy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The task -&gt; PsychoPy-script map.</span>
+
+<span class="sd">        Each value is either a bare filename (legacy) or a dict</span>
+<span class="sd">        ``{"file": ..., "trial_duration": ...}`` -- the optional per-task</span>
+<span class="sd">        ``trial_duration`` (seconds) drives ``num_trials`` and is passed to the</span>
+<span class="sd">        script. Use :meth:`_psychopy_entry` to read either shape.</span>
+<span class="sd">        """</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"psychopy"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="p">{}</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_psychopy_entry</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Normalize a PsychoPy map value to ``(filename, trial_duration|None)``."""</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">raw</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"trial_duration"</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">trial</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span> <span class="k">if</span> <span class="n">raw</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                <span class="n">trial</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"file"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)),</span> <span class="n">trial</span>
+        <span class="k">return</span> <span class="p">(</span><span class="s2">""</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)),</span> <span class="kc">None</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_normalize_psychopy_map</span><span class="p">(</span><span class="n">block</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Coerce a task-&gt;script map to canonical storage (str or {file,trial_duration})."""</span>
+        <span class="n">out</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">dict</span><span class="p">(</span><span class="n">block</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">filename</span><span class="p">,</span> <span class="n">trial</span> <span class="o">=</span> <span class="n">ExperimentConfig</span><span class="o">.</span><span class="n">_psychopy_entry</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">trial</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">out</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">key</span><span class="p">)]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"file"</span><span class="p">:</span> <span class="n">filename</span><span class="p">,</span> <span class="s2">"trial_duration"</span><span class="p">:</span> <span class="n">trial</span><span class="p">}</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">out</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">key</span><span class="p">)]</span> <span class="o">=</span> <span class="n">filename</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_current_psychopy_trial_duration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Per-task ``trial_duration`` for the selected task's PsychoPy entry, or None."""</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">trial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_psychopy_entry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">psychopy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">trial</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">psychopy_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Resolve the PsychoPy script path for the currently selected task.</span>
+
+<span class="sd">        When a ``task -&gt; script`` map is present (the ``PsychoPy`` block) and has</span>
+<span class="sd">        an entry for the current ``task``, that script wins: an absolute path is</span>
+<span class="sd">        used as-is, a relative one is resolved against ``experiment_dir``. With no</span>
+<span class="sd">        map (or no entry for this task) it falls back to the legacy single</span>
+<span class="sd">        ``psychopy_filename`` so existing one-script experiments keep working.</span>
+<span class="sd">        """</span>
+        <span class="n">mapped_file</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_psychopy_entry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">psychopy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="p">))</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">mapped_file</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">psychopy_filename</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">filename</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_save_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">psychopy_save_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the PsychoPy save path."""</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_save_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"data/sub-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">subject</span><span class="si">}</span><span class="s2">/ses-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="si">}</span><span class="s2">/beh/</span><span class="si">{</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">'%Y%m</span><span class="si">%d</span><span class="s1">_%H%M%S'</span><span class="p">)</span><span class="si">}</span><span class="s2">_sub-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">subject</span><span class="si">}</span><span class="s2">_ses-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="si">}</span><span class="s2">_task-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="si">}</span><span class="s2">_psychopy"</span><span class="p">)</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">psychopy_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get parameters for PsychoPy."""</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">'subject'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">subject</span><span class="p">,</span>
+            <span class="s1">'session'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="p">,</span>
+            <span class="s1">'save_dir'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span><span class="p">,</span>
+            <span class="s1">'num_trials'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_trials</span><span class="p">,</span>
+            <span class="s1">'trial_duration'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">trial_duration</span><span class="p">,</span>
+            <span class="s1">'save_path'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">psychopy_save_path</span>
+        <span class="p">}</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">led_pattern</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Get the LED pattern."""</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"led_pattern"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_normalize_led_pattern</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    
+    <span class="nd">@led_pattern</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">led_pattern</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Set the LED pattern, normalising strings / JSON lists to ``list[str]``."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"led_pattern"</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_normalize_led_pattern</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">raw</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"led_pattern must not be empty"</span><span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">parsed</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">:</span>
+                <span class="n">parsed</span> <span class="o">=</span> <span class="n">raw</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parsed</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">parsed</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parsed</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">parsed</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Numeric tokens like "422222442" parse as int in json.loads.</span>
+                <span class="c1"># Treat the original string as compact LED sequence shorthand.</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">normalized</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">normalized</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"led_pattern must not be empty"</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">normalized</span>
+
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"led_pattern must be a list or a JSON string representing a list"</span><span class="p">)</span>
+    
+<div class="viewcode-block" id="ExperimentConfig.make_path">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.make_path">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">suffix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">extension</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">bids_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">create_dir</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Build a unique BIDS-style output file path.</span>
+
+<span class="sd">        The returned path follows the layout</span>
+<span class="sd">        ``&lt;bids_dir&gt;/[&lt;bids_type&gt;/]&lt;timestamp&gt;_sub-&lt;id&gt;_ses-&lt;id&gt;_task-&lt;id&gt;_&lt;suffix&gt;.&lt;ext&gt;``.</span>
+<span class="sd">        If a file with that name already exists, ``_&lt;n&gt;`` is appended to keep</span>
+<span class="sd">        the path unique.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            suffix: Trailing tag added to the filename, e.g. ``"images"``.</span>
+<span class="sd">            extension: File extension without the leading dot, e.g. ``"jpg"``.</span>
+<span class="sd">            bids_type: Optional BIDS modality subdirectory under ``bids_dir``</span>
+<span class="sd">                (e.g. ``"func"``). When ``None``, the file is placed directly</span>
+<span class="sd">                under ``bids_dir``.</span>
+<span class="sd">            create_dir: When ``True``, parent directories are created.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Absolute path to the generated file.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            .. code-block:: python</span>
+
+<span class="sd">                cfg.make_path("images", "jpg", "func")</span>
+<span class="sd">                # -&gt; 'C:/save_dir/data/sub-001/ses-01/func/'</span>
+<span class="sd">                #    '20250110_123456_sub-001_ses-01_task-example_images.jpg'</span>
+<span class="sd">        """</span>
+        <span class="n">file</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">'%Y%m</span><span class="si">%d</span><span class="s1">_%H%M%S'</span><span class="p">)</span><span class="si">}</span><span class="s2">_sub-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">subject</span><span class="si">}</span><span class="s2">_ses-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="si">}</span><span class="s2">_task-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">extension</span><span class="si">}</span><span class="s2">"</span>
+
+        <span class="k">if</span> <span class="n">bids_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">bids_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bids_dir</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">bids_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bids_dir</span><span class="p">,</span> <span class="n">bids_type</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">create_dir</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">bids_path</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">base</span><span class="p">,</span> <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+        <span class="n">counter</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bids_path</span><span class="p">,</span> <span class="n">file</span><span class="p">)</span>
+        <span class="k">while</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">file_path</span><span class="p">):</span>
+            <span class="n">file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bids_path</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">base</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">counter</span><span class="si">}{</span><span class="n">ext</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">file_path</span></div>
+
+        
+<div class="viewcode-block" id="ExperimentConfig.load_json">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.load_json">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">""" Load parameters from a JSON configuration file into the config object. </span>
+<span class="sd">        """</span>
+        <span class="n">file_path_str</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">fspath</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
+        <span class="n">file_link</span> <span class="o">=</span> <span class="n">hyperlink</span><span class="p">(</span>
+            <span class="n">file_path_str</span><span class="p">,</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">normpath</span><span class="p">(</span><span class="n">file_path_str</span><span class="p">)),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Loading configuration from: </span><span class="si">{</span><span class="n">file_link</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_path_str</span><span class="p">,</span> <span class="s1">'r'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">loaded_config</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Successfully loaded configuration JSON"</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Configuration file not found: </span><span class="si">{</span><span class="n">file_link</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">except</span> <span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error decoding JSON from </span><span class="si">{</span><span class="n">file_link</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_json_file_path</span> <span class="o">=</span> <span class="n">file_path_str</span> <span class="c1">#store the json filepath</span>
+        <span class="n">json_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">file_path_str</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">json_dir</span><span class="p">:</span>
+            <span class="c1"># Experiment params live beside their JSON; point data output there.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">experiment_dir</span> <span class="o">=</span> <span class="n">json_dir</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_config</span><span class="p">(</span><span class="n">loaded_config</span><span class="p">)</span>
+
+        <span class="c1"># Legacy upgrade: a JSON with no embedded rig falls back to a sibling</span>
+        <span class="c1"># hardware.yaml. The next save folds it into the ``hardware`` block.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hardware</span><span class="p">,</span> <span class="s2">"is_configured"</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="n">sibling</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">json_dir</span><span class="p">,</span> <span class="s2">"hardware.yaml"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">sibling</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">load_hardware</span><span class="p">(</span><span class="n">sibling</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ExperimentConfig.load_dict">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.load_dict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Load parameters from a dataclass instance or plain mapping.</span>
+
+<span class="sd">        This is the programmatic counterpart to :meth:`load_json` used by</span>
+<span class="sd">        scripted procedures (see :meth:`Procedure.define_config`). Unlike</span>
+<span class="sd">        :meth:`load_json` it does not touch the hardware YAML path -- scripted</span>
+<span class="sd">        hardware is supplied directly via :meth:`Procedure.define_hardware`.</span>
+
+<span class="sd">        *data* may be a ``@dataclass`` instance or any mapping. Both the flat</span>
+<span class="sd">        and the ``Configuration``/``Subjects`` shapes are accepted.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">is_dataclass</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+            <span class="n">loaded_config</span> <span class="o">=</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">asdict</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">loaded_config</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Loading configuration from in-memory mapping"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_config</span><span class="p">(</span><span class="n">loaded_config</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loaded_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Apply a parsed configuration mapping to the registry."""</span>
+        <span class="c1"># A self-contained config carries its rig inline under ``hardware``.</span>
+        <span class="n">hardware_block</span> <span class="o">=</span> <span class="n">loaded_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"hardware"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">hardware_block</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="n">hardware_block</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">load_hardware_spec</span><span class="p">(</span><span class="n">hardware_block</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">display_keys</span> <span class="o">=</span> <span class="n">loaded_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"DisplayKeys"</span><span class="p">)</span>
+        <span class="c1"># Detect new style JSON with 'Configuration' and 'Subjects'</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subjects</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">if</span> <span class="s2">"Configuration"</span> <span class="ow">in</span> <span class="n">loaded_config</span> <span class="ow">and</span> <span class="s2">"Subjects"</span> <span class="ow">in</span> <span class="n">loaded_config</span><span class="p">:</span>
+            <span class="n">config_params</span> <span class="o">=</span> <span class="n">loaded_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Configuration"</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">config_params</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">"led_pattern"</span><span class="p">:</span>
+                    <span class="c1"># Lists in Configuration are treated as selectable choices.</span>
+                    <span class="c1"># Store the full list as choices and default to the first item.</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">register_choices</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">value</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">config_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"experiment_dir"</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">experiment_dir</span> <span class="o">=</span> <span class="n">config_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"experiment_dir"</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">config_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"experiment_directory"</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">experiment_dir</span> <span class="o">=</span> <span class="n">config_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"experiment_directory"</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">subjects</span> <span class="o">=</span> <span class="n">loaded_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Subjects"</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">subjects</span><span class="p">:</span>
+                <span class="n">first</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subjects</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">select_subject</span><span class="p">(</span><span class="n">first</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># flat structure (legacy JSON or scripted define_config mappings)</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">loaded_config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">loaded_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"experiment_dir"</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">experiment_dir</span> <span class="o">=</span> <span class="n">loaded_config</span><span class="p">[</span><span class="s2">"experiment_dir"</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="n">loaded_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"experiment_directory"</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">experiment_dir</span> <span class="o">=</span> <span class="n">loaded_config</span><span class="p">[</span><span class="s2">"experiment_directory"</span><span class="p">]</span>
+
+        <span class="c1"># MousePortal stimulus config is its own top-level block (not nested</span>
+        <span class="c1"># under Configuration) and is round-tripped via update_mouseportal().</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loaded_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"MousePortal"</span><span class="p">),</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"mouseportal"</span><span class="p">,</span> <span class="n">loaded_config</span><span class="p">[</span><span class="s2">"MousePortal"</span><span class="p">])</span>
+
+        <span class="c1"># PsychoPy task-&gt;script map is also its own top-level block. When present</span>
+        <span class="c1"># it owns the `task` choices (derived from its keys), overriding any plain</span>
+        <span class="c1"># Configuration.task list -- the scripts are the source of truth for which</span>
+        <span class="c1"># tasks exist. Round-tripped via update_psychopy().</span>
+        <span class="n">psychopy_block</span> <span class="o">=</span> <span class="n">loaded_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"PsychoPy"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">psychopy_block</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"psychopy"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_normalize_psychopy_map</span><span class="p">(</span><span class="n">psychopy_block</span><span class="p">))</span>
+
+        <span class="c1"># Derive the `task` dropdown from every stimulus binding (PsychoPy map</span>
+        <span class="c1"># keys + MousePortal's task) unioned with any plain Configuration tasks.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_register_stimulus_tasks</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="s2">"Plugins"</span> <span class="ow">in</span> <span class="n">loaded_config</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">plugins</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">loaded_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Plugins"</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="k">for</span> <span class="n">plugin</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">plugins</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">plugins</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">plugin</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'enabled'</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">plugin</span><span class="p">,</span> 
+                                <span class="bp">self</span><span class="o">.</span><span class="n">plugins</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">plugin</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'config'</span><span class="p">),</span> 
+                                <span class="nb">dict</span><span class="p">,</span> 
+                                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">plugin</span><span class="si">}</span><span class="s2"> plugin configuration"</span><span class="p">,</span> 
+                                <span class="s2">"plugins"</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_auto_increment_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Increment the session number in the config and persist it to the JSON file."""</span>
+        <span class="c1"># get current session number</span>
+        <span class="n">curr</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="p">)</span>
+        <span class="n">next_num</span> <span class="o">=</span> <span class="n">curr</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">session_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">next_num</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">"</span>
+
+        <span class="c1"># update in-memory config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"session"</span><span class="p">,</span> <span class="n">session_str</span><span class="p">)</span>
+
+        <span class="c1"># persist back to the JSON file if available</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_json_file_path"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">path</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+                <span class="c1"># new-style JSON</span>
+                <span class="k">if</span> <span class="s2">"Subjects"</span> <span class="ow">in</span> <span class="n">data</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">selected_subject</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s2">"Subjects"</span><span class="p">]:</span>
+                    <span class="n">data</span><span class="p">[</span><span class="s2">"Subjects"</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">selected_subject</span><span class="p">][</span><span class="s2">"session"</span><span class="p">]</span> <span class="o">=</span> <span class="n">session_str</span>
+                <span class="c1"># configuration block</span>
+                <span class="k">elif</span> <span class="s2">"Configuration"</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+                    <span class="n">data</span><span class="p">[</span><span class="s2">"Configuration"</span><span class="p">][</span><span class="s2">"session"</span><span class="p">]</span> <span class="o">=</span> <span class="n">session_str</span>
+                <span class="c1"># legacy flat structure</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">data</span><span class="p">[</span><span class="s2">"session"</span><span class="p">]</span> <span class="o">=</span> <span class="n">session_str</span>
+
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to update session in JSON file: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"No JSON file to update; _json_file_path not set or file missing"</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ExperimentConfig.save_json">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.save_json">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Persist displayed configuration values back to the JSON file."""</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">path</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_json_file_path"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"No JSON file to update; _json_file_path not set or file missing"</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+            <span class="n">display</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_keys</span> <span class="ow">or</span> <span class="p">[]</span>
+            <span class="n">subject_vals</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Subjects"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">selected_subject</span><span class="p">,</span> <span class="p">{})</span>
+
+            <span class="k">if</span> <span class="s2">"Configuration"</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+                <span class="n">cfg_block</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Configuration"</span><span class="p">,</span> <span class="p">{})</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">display</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">subject_vals</span><span class="p">:</span>
+                        <span class="k">continue</span>  <span class="c1"># subject-specific key</span>
+                    <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">cfg_block</span><span class="p">:</span>
+                        <span class="n">cfg_block</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+                <span class="n">cfg_block</span><span class="p">[</span><span class="s2">"experiment_dir"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment_dir</span>
+                <span class="n">data</span><span class="p">[</span><span class="s2">"Configuration"</span><span class="p">]</span> <span class="o">=</span> <span class="n">cfg_block</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">display</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">subject_vals</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+                        <span class="n">data</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+                <span class="n">data</span><span class="p">[</span><span class="s2">"experiment_dir"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment_dir</span>
+
+            <span class="k">if</span> <span class="n">subject_vals</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">display</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">subject_vals</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+                        <span class="n">subject_vals</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+                <span class="k">if</span> <span class="s2">"Subjects"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+                    <span class="n">data</span><span class="p">[</span><span class="s2">"Subjects"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="n">data</span><span class="p">[</span><span class="s2">"Subjects"</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">selected_subject</span><span class="p">]</span> <span class="o">=</span> <span class="n">subject_vals</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to update configuration JSON: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ExperimentConfig.save_json_as">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.save_json_as">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_json_as</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Write the current configuration to a *new* JSON file and adopt it.</span>
+
+<span class="sd">        Unlike :meth:`save_json` (which edits an existing file in place), this</span>
+<span class="sd">        serializes the full in-memory state -- registry values, subjects, and</span>
+<span class="sd">        DisplayKeys -- into the ``Configuration`` / ``Subjects`` / ``DisplayKeys``</span>
+<span class="sd">        shape, then points ``_json_file_path`` at the new file so later saves</span>
+<span class="sd">        land there. Lets the GUI author an experiment.json from a hardware-only</span>
+<span class="sd">        session.</span>
+<span class="sd">        """</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"Configuration"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span>
+            <span class="s2">"Subjects"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">subjects</span><span class="p">,</span>
+            <span class="s2">"DisplayKeys"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_keys</span> <span class="ow">or</span> <span class="p">[],</span>
+        <span class="p">}</span>
+        <span class="n">data</span><span class="p">[</span><span class="s2">"Configuration"</span><span class="p">][</span><span class="s2">"experiment_dir"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment_dir</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">is_configured</span><span class="p">:</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">"hardware"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">rig_spec</span><span class="p">()</span>
+        <span class="n">abs_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">abs_path</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to write configuration JSON: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">raise</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_json_file_path</span> <span class="o">=</span> <span class="n">abs_path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">"Wrote experiment configuration to: "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">hyperlink</span><span class="p">(</span><span class="n">abs_path</span><span class="p">,</span><span class="w"> </span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">abs_path</span><span class="p">))</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ExperimentConfig.select_subject">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.select_subject">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">select_subject</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Apply subject-specific parameters from ``self.subjects``."""</span>
+        <span class="n">subj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subjects</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">subject_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">subj</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Subject </span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2"> not found"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">selected_subject</span> <span class="o">=</span> <span class="n">subject_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"subject"</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">subj</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to update session in JSON file: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mouseportal</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The MousePortal stimulus config block (corridor + gain trials)."""</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"mouseportal"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="ExperimentConfig.update_mouseportal">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.update_mouseportal">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_mouseportal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Apply and persist the MousePortal config block.</span>
+
+<span class="sd">        Updates the in-memory registry (so the next run's ``arm`` reads the new</span>
+<span class="sd">        params) and writes the top-level ``MousePortal`` block back to</span>
+<span class="sd">        experiment.json. Mirrors how ConfigController persists ExperimentConfig</span>
+<span class="sd">        edits, but for MousePortal's structured block.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"mouseportal"</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="n">block</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_register_stimulus_tasks</span><span class="p">()</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_json_file</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">"MousePortal"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_write_json_file</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Persisted MousePortal config block to experiment.json"</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ExperimentConfig.update_psychopy">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.update_psychopy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_psychopy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Apply and persist the task -&gt; PsychoPy-script map.</span>
+
+<span class="sd">        Updates the in-memory registry (so the next run's ``arm`` resolves the</span>
+<span class="sd">        right script), re-derives the ``task`` dropdown choices from the map</span>
+<span class="sd">        keys, and writes the top-level ``PsychoPy`` block back to experiment.json.</span>
+<span class="sd">        Mirrors :meth:`update_mouseportal` for PsychoPy's task-&gt;script map.</span>
+<span class="sd">        """</span>
+        <span class="n">block</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_normalize_psychopy_map</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"psychopy"</span><span class="p">,</span> <span class="n">block</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_register_stimulus_tasks</span><span class="p">()</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_json_file</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">"PsychoPy"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_write_json_file</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Persisted PsychoPy task-&gt;script map to experiment.json"</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ExperimentConfig.update_hardware">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.update_hardware">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_hardware</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">spec</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Persist the rig as the top-level ``hardware`` block of experiment.json.</span>
+
+<span class="sd">        Makes the JSON self-contained so a relaunch needs no separate rig file.</span>
+<span class="sd">        """</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_json_file</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">"hardware"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_write_json_file</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Persisted hardware rig to experiment.json"</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_register_stimulus_tasks</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Refresh the ``task`` choices from every stimulus device's bindings.</span>
+
+<span class="sd">        Each stimulus binding declares the task(s) it serves -- PsychoPy via its</span>
+<span class="sd">        task-&gt;script map keys, MousePortal via its config block's ``task`` -- and</span>
+<span class="sd">        selecting that task is what launches the matching stimulus at run time</span>
+<span class="sd">        (see ``Procedure._gate_stimuli_by_task``). The dropdown is the union of</span>
+<span class="sd">        those stimulus tasks with any plain tasks already declared in</span>
+<span class="sd">        ``Configuration`` (a stimulus-free baseline keeps its entry). Keeps the</span>
+<span class="sd">        current task selected when still valid; otherwise defaults to the first.</span>
+<span class="sd">        """</span>
+        <span class="n">stimulus_tasks</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">psychopy</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">mp_task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mouseportal</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"task"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mp_task</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="nb">set</span><span class="p">)):</span>
+            <span class="n">stimulus_tasks</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">mp_task</span> <span class="k">if</span> <span class="n">t</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mp_task</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">mp_task</span><span class="p">:</span>
+            <span class="n">stimulus_tasks</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">mp_task</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">stimulus_tasks</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">existing</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_choices</span><span class="p">(</span><span class="s2">"task"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]</span>
+        <span class="n">tasks</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">existing</span><span class="p">)</span> <span class="o">|</span> <span class="n">stimulus_tasks</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_choices</span><span class="p">(</span><span class="s2">"task"</span><span class="p">,</span> <span class="n">tasks</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"task"</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"task"</span><span class="p">,</span> <span class="n">tasks</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_read_json_file</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_json_file_path"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"No JSON file to update; _json_file_path not set or file missing"</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_write_json_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_json_file_path"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ExperimentConfig.add_subject">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.add_subject">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_subject</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Add a new subject, seeding parameters from existing subjects.</span>
+
+<span class="sd">        The new subject's parameter dict is the union of keys from existing</span>
+<span class="sd">        subjects with blank string values, so all subjects share a consistent</span>
+<span class="sd">        parameter set and :meth:`select_subject` will accept the new entry.</span>
+<span class="sd">        Persists to ``experiment.json``.</span>
+<span class="sd">        """</span>
+        <span class="n">subject_id</span> <span class="o">=</span> <span class="p">(</span><span class="n">subject_id</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">subject_id</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Subject ID must not be empty"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">subject_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subjects</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Subject '</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">' already exists"</span><span class="p">)</span>
+
+        <span class="n">seed_keys</span><span class="p">:</span> <span class="nb">set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">params</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subjects</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="n">seed_keys</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">seed_keys</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_keys</span><span class="p">:</span>
+            <span class="n">seed_keys</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_keys</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">"subject"</span><span class="p">}</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">seed_keys</span><span class="p">:</span>
+            <span class="n">seed_keys</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"session"</span><span class="p">}</span>
+
+        <span class="n">new_params</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="s2">""</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">seed_keys</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subjects</span><span class="p">[</span><span class="n">subject_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_params</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_json_file</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"Subjects"</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">"Subjects"</span><span class="p">][</span><span class="n">subject_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_params</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_write_json_file</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ExperimentConfig.add_parameter">
+<a class="viewcode-back" href="../../api/mesofield.config.html#mesofield.config.ExperimentConfig.add_parameter">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">type_hint</span><span class="p">:</span> <span class="n">Type</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Add a subject-scoped parameter to every subject and DisplayKeys.</span>
+
+<span class="sd">        Registers the parameter in the config registry, fills it on every</span>
+<span class="sd">        subject in :attr:`subjects`, appends it to :attr:`display_keys`, and</span>
+<span class="sd">        persists the additions to ``experiment.json``.</span>
+<span class="sd">        """</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="p">(</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Parameter name must not be empty"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Parameter '</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">' already exists"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">type_hint</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"type_hint must be str, int, or bool"</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">default</span><span class="p">,</span> <span class="n">type_hint</span><span class="p">,</span> <span class="s2">"User-added subject parameter"</span><span class="p">,</span> <span class="s2">"subject"</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">params</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subjects</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
+                <span class="n">params</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">default</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">selected_subject</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">selected_subject</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subjects</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">subjects</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">selected_subject</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">default</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_keys</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">display_keys</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">display_keys</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">display_keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_json_file</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">subjects_block</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"Subjects"</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="k">for</span> <span class="n">subj_id</span> <span class="ow">in</span> <span class="n">subjects_block</span><span class="p">:</span>
+                <span class="n">subjects_block</span><span class="p">[</span><span class="n">subj_id</span><span class="p">]</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
+            <span class="n">display</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"DisplayKeys"</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">display</span><span class="p">:</span>
+                <span class="n">display</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_write_json_file</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+</div>
+
+
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2026, Sipe Laboratory, Penn State.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.21.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

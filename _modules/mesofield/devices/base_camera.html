@@ -1,0 +1,869 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mesofield.devices.base_camera &#8212; Mesofield</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=f0c42745" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=cb8930eaaf36d9849b67"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67" />
+
+    <script src="../../../_static/documentation_options.js?v=b1cdc2ba"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/mesofield/devices/base_camera';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.5" />
+  
+    
+    <script src="../../../_static/searchtools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script src="../../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/logo.png" class="logo__image only-light" alt=""/>
+    <img src="../../../_static/logo.png" class="logo__image only-dark pst-js-only" alt=""/>
+  
+  
+    <p class="title logo__title">MESOFIELD</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../index.html">
+    Home
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../developer_guide.html">
+    Developer Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api/index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/Gronemeyer/mesofield" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">mesofield.devices.base_camera</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for mesofield.devices.base_camera</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Shared surface for camera-shaped devices.</span>
+
+<span class="sd">Three concrete cameras converge on this base:</span>
+
+<span class="sd">  - :class:`mesofield.devices.cameras.MMCamera`  (Micro-Manager backend)</span>
+<span class="sd">  - :class:`mesofield.devices.cameras.OpenCVCamera`  (OpenCV/UVC)</span>
+<span class="sd">  - :class:`mesofield.devices.mocks.MockFrameProducer`  (synthetic)</span>
+
+<span class="sd">They have wildly different acquisition loops (mmcore-driven MDA vs Qt thread</span>
+<span class="sd">vs synthetic frame generator) so we don't try to unify the run-loop here.</span>
+<span class="sd">What we DO unify is the *surface* every camera must expose:</span>
+
+<span class="sd">  - Identity &amp; cosmetic attrs the MDA GUI reads</span>
+<span class="sd">    (``name``, ``viewer``, ``auto_contrast``, ``core``, ``backend``).</span>
+<span class="sd">  - Output paths and metadata sidecar plumbing.</span>
+<span class="sd">  - The standard lifecycle hooks (``arm``, ``set_writer``, ``set_sequence``,</span>
+<span class="sd">    ``shutdown``, ``status``, ``calibration``).</span>
+<span class="sd">  - The :class:`DeviceSignals` bundle that :class:`DataManager` subscribes to</span>
+<span class="sd">    (``signals.started``, ``signals.finished``, ``signals.data``).</span>
+
+<span class="sd">Subclasses keep their backend-specific ``initialize``, ``start``, ``stop``,</span>
+<span class="sd">``save_data``, and writer setup.</span>
+
+<span class="sd">Design notes:</span>
+
+<span class="sd">- :class:`BaseCamera` is a *regular* class -- not a Protocol -- so subclasses</span>
+<span class="sd">  can multiply-inherit alongside Qt's :class:`QThread` (``OpenCVCamera``),</span>
+<span class="sd">  pymmcore-plus's ``DataProducer``/``HardwareDevice`` Protocols</span>
+<span class="sd">  (``MMCamera``), and our pure-Python :class:`BaseDataProducer`</span>
+<span class="sd">  (``MockFrameProducer``).</span>
+<span class="sd">- We avoid ``BaseCamera.__init__`` to dodge multiple-inheritance ``super()``</span>
+<span class="sd">  chains with QThread. Subclasses call :meth:`_init_camera_surface` after</span>
+<span class="sd">  whatever parent ``__init__`` they need.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.signals</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceSignals</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.utils._logger</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_logger</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExperimentConfig</span>
+
+
+<div class="viewcode-block" id="BaseCamera">
+<a class="viewcode-back" href="../../../api/mesofield.devices.base_camera.html#mesofield.devices.base_camera.BaseCamera">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BaseCamera</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Common camera surface (no Qt, no acquisition loop).</span>
+
+<span class="sd">    Subclasses call :meth:`_init_camera_surface` from their ``__init__``</span>
+<span class="sd">    after any superclass ``super().__init__()`` calls. Override</span>
+<span class="sd">    :meth:`set_writer`, :meth:`set_sequence`, :meth:`start`, :meth:`stop`,</span>
+<span class="sd">    :meth:`save_data`, and :meth:`get_data` as needed.</span>
+<span class="sd">    """</span>
+
+    <span class="c1"># --- class-level defaults; subclasses override as appropriate -------</span>
+    <span class="n">device_type</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"camera"</span>
+    <span class="n">viewer</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"static"</span>
+    <span class="n">file_type</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"ome.tiff"</span>
+    <span class="n">bids_type</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="s2">"func"</span>
+    <span class="n">data_type</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"frames"</span>
+
+    <span class="c1"># --- initialisation helper ------------------------------------------</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_init_camera_surface</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">backend</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Populate the shared camera attributes from a YAML stanza.</span>
+
+<span class="sd">        Sets identity (id/device_id/name), primary flag, viewer cosmetics,</span>
+<span class="sd">        sampling rate, the :class:`DeviceSignals` bundle, output paths,</span>
+<span class="sd">        and timing slots. Idempotent on ``signals`` if the subclass has</span>
+<span class="sd">        already created it (e.g. :class:`BaseDataProducer` does).</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">cfg</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"id"</span><span class="p">,</span> <span class="s2">"camera"</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">backend</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_primary</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"primary"</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_active</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">auto_contrast</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"auto_contrast"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># Sensor value that renders as pure white. `None` means unknown</span>
+        <span class="c1"># -&gt; consumers fall back to the frame's dtype range. Backends that can</span>
+        <span class="c1"># ask the driver (see MMCamera.initialize) fill this</span>
+        <span class="n">depth</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"bit_depth"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">white_level</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="nb">int</span><span class="p">(</span><span class="n">depth</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">depth</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">viewer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"viewer_type"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">viewer</span><span class="p">)</span>
+        <span class="c1"># `sampling_rate` is the canonical fps for the camera. Subclasses</span>
+        <span class="c1"># may overwrite from cfg["fps"] or driver introspection.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"sampling_rate"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"fps"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="ow">or</span> <span class="mf">0.0</span>
+        <span class="p">)</span>
+        <span class="c1"># Output state (filled in by set_writer/save_data).</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Injected once by HardwareManager.initialize() so the camera can</span>
+        <span class="c1"># resolve paths (`config.make_path`) outside the per-run `arm()`.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">"ExperimentConfig"</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># MDA gui reads `cam.core` (None for non-mmcore cameras). MMCamera</span>
+        <span class="c1"># overrides during backend setup; others leave it None.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">camera_device</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Lifecycle timestamps.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># One-shot guard so `shutdown` is safe to call twice (HardwareManager</span>
+        <span class="c1"># deinitialize + any GUI/teardown path can both reach a device).</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_done</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="c1"># `image_ready` is a pyqtSignal (or psygnal wrapper) the MDA gui's</span>
+        <span class="c1"># non-mmcore viewer subscribes to. Subclasses set this when they</span>
+        <span class="c1"># have a Qt-friendly emitter (OpenCVCamera does directly via</span>
+        <span class="c1"># `pyqtSignal`; MockFrameProducer composes a `QtImageAdapter`).</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"image_ready"</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">image_ready</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># `signals` may already be created by a parent class (e.g.</span>
+        <span class="c1"># BaseDataProducer.__init__). Don't clobber if so.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"signals"</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">signals</span> <span class="o">=</span> <span class="n">DeviceSignals</span><span class="p">()</span>
+        <span class="c1"># Per-instance logger keyed on the actual subclass name + id.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__module__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">[</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">]"</span>
+        <span class="p">)</span>
+
+    <span class="c1"># --- per-run prep ---------------------------------------------------</span>
+<div class="viewcode-block" id="BaseCamera.arm">
+<a class="viewcode-back" href="../../../api/mesofield.devices.base_camera.html#mesofield.devices.base_camera.BaseCamera.arm">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">arm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="s2">"ExperimentConfig"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Per-run prep: set up the writer + (optionally) an MDA sequence.</span>
+
+<span class="sd">        The default body fits both MMCamera (which needs a sequence) and</span>
+<span class="sd">        OpenCV/Mock (where ``set_sequence`` is a no-op). Subclasses</span>
+<span class="sd">        override only when they need additional prep.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_writer</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">make_path</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_sequence</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">build_sequence</span><span class="p">)</span></div>
+
+
+    <span class="c1"># --- writer selection ------------------------------------------------</span>
+    <span class="c1"># The default mapping is `file_type` (the YAML stanza's `output.file_type`</span>
+    <span class="c1"># key) -&gt; writer class. Subclasses can override the mapping to add new</span>
+    <span class="c1"># output formats (e.g. a future Zarr writer) without touching `set_writer`.</span>
+    <span class="c1"># GUI code wanting to switch writers at runtime only has to update</span>
+    <span class="c1"># `self.file_type` and call `set_writer` again.</span>
+    <span class="n">_WRITER_FOR_FILE_TYPE</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"ome.tiff"</span><span class="p">:</span> <span class="s2">"OMEWriter"</span><span class="p">,</span>
+        <span class="s2">"tiff"</span><span class="p">:</span> <span class="s2">"OMEWriter"</span><span class="p">,</span>
+        <span class="s2">"mp4"</span><span class="p">:</span> <span class="s2">"CV2Writer"</span><span class="p">,</span>
+        <span class="s2">"avi"</span><span class="p">:</span> <span class="s2">"CV2Writer"</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_writer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Construct the writer matching ``self.file_type``.</span>
+
+<span class="sd">        Default selection: OME-TIFF (``OMEWriter``) for ``ome.tiff`` / ``tiff``,</span>
+<span class="sd">        MP4 (``CV2Writer``) for ``mp4`` / ``avi``. Override</span>
+<span class="sd">        :attr:`_WRITER_FOR_FILE_TYPE` on a subclass to register additional</span>
+<span class="sd">        writers, or override this method entirely to control construction</span>
+<span class="sd">        per-format (e.g. passing ``fps`` to a video writer).</span>
+<span class="sd">        """</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">CV2Writer</span>
+
+        <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_WRITER_FOR_FILE_TYPE</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">file_type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"No writer registered for file_type </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">file_type</span><span class="si">!r}</span><span class="s2">. "</span>
+                <span class="sa">f</span><span class="s2">"Known: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_WRITER_FOR_FILE_TYPE</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">"OMEWriter"</span><span class="p">:</span>
+            <span class="c1"># OME-TIFF via the ome-writers-backed OMEWriter (incremental,</span>
+            <span class="c1"># flushed, no giant memmap pre-allocation). MESOFIELD_NULL_WRITER=1</span>
+            <span class="c1"># swaps in the disk-free NullWriter for benchmark A/B isolation</span>
+            <span class="c1"># (off in normal operation).</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">"MESOFIELD_NULL_WRITER"</span><span class="p">):</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.data.writer</span><span class="w"> </span><span class="kn">import</span> <span class="n">NullWriter</span>
+
+                <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">"MESOFIELD_NULL_WRITER set: using disk-free NullWriter for </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="n">filename</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="n">NullWriter</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">)</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.data.writer</span><span class="w"> </span><span class="kn">import</span> <span class="n">OMEWriter</span>
+
+            <span class="k">return</span> <span class="n">OMEWriter</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">"CV2Writer"</span><span class="p">:</span>
+            <span class="n">fps</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="k">else</span> <span class="mi">30</span>
+            <span class="n">fourcc</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"cfg"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="n">fourcc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"fourcc"</span><span class="p">)</span>
+            <span class="n">fourcc</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"fourcc"</span><span class="p">,</span> <span class="n">fourcc</span><span class="p">)</span>
+            <span class="c1"># `white_level` keeps the recorded video on the same fixed</span>
+            <span class="c1"># intensity scale as the live viewer, not a per-frame stretch.</span>
+            <span class="k">if</span> <span class="n">fourcc</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">CV2Writer</span><span class="p">(</span>
+                    <span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span> <span class="n">fps</span><span class="o">=</span><span class="n">fps</span><span class="p">,</span> <span class="n">fourcc</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">fourcc</span><span class="p">),</span>
+                    <span class="n">white_level</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">white_level</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">CV2Writer</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="n">filename</span><span class="p">,</span> <span class="n">fps</span><span class="o">=</span><span class="n">fps</span><span class="p">,</span> <span class="n">white_level</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">white_level</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown writer class name </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BaseCamera.set_writer">
+<a class="viewcode-back" href="../../../api/mesofield.devices.base_camera.html#mesofield.devices.base_camera.BaseCamera.set_writer">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_writer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">make_path</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">],</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Generate the camera's output path and construct the writer.</span>
+
+<span class="sd">        Resolves ``self.output_path`` via ``make_path``, then instantiates</span>
+<span class="sd">        the writer that :meth:`_make_writer` picks for ``self.file_type``</span>
+<span class="sd">        and copies the writer's sidecar filename onto ``self.metadata_path``</span>
+<span class="sd">        for the AcquisitionManifest. Subclasses override only when they</span>
+<span class="sd">        need additional plumbing on top (e.g. OpenCVCamera resetting its</span>
+<span class="sd">        capture-loop timing).</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_path</span> <span class="o">=</span> <span class="n">make_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bids_type</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">writer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_writer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="p">,</span> <span class="s2">"_frame_metadata_filename"</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metadata_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">_frame_metadata_filename</span></div>
+
+
+<div class="viewcode-block" id="BaseCamera.set_sequence">
+<a class="viewcode-back" href="../../../api/mesofield.devices.base_camera.html#mesofield.devices.base_camera.BaseCamera.set_sequence">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_sequence</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">build_mda</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Default no-op (only MMCamera with an MDA backend overrides this)."""</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+    <span class="c1"># --- live-view + snap contract --------------------------------------</span>
+    <span class="c1"># The MDA GUI's snap/live buttons used to call mmcore directly; with</span>
+    <span class="c1"># BaseCamera in place they can call these methods on the camera and</span>
+    <span class="c1"># work uniformly across MMCamera (mmcore-driven), OpenCVCamera</span>
+    <span class="c1"># (cv2.VideoCapture-driven), and MockFrameProducer (synthetic).</span>
+    <span class="c1"># Subclasses MUST implement; the base raises NotImplementedError so a</span>
+    <span class="c1"># mis-wired GUI surfaces it immediately instead of silently no-op'ing.</span>
+
+<div class="viewcode-block" id="BaseCamera.snap">
+<a class="viewcode-back" href="../../../api/mesofield.devices.base_camera.html#mesofield.devices.base_camera.BaseCamera.snap">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">snap</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Capture a single frame outside any recording, return it as an ndarray.</span>
+
+<span class="sd">        Used by the GUI's snap button. Implementations should NOT alter</span>
+<span class="sd">        recording state -- snap is preview-only -- but they SHOULD call</span>
+<span class="sd">        :meth:`_save_snap_png` so each snap also lands a ``*_snap.png``.</span>
+<span class="sd">        """</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.snap() not implemented"</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_save_snap_png</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Write a snapped frame to ``&lt;name&gt;_snap.png`` at the BIDS path.</span>
+
+<span class="sd">        No-op when no :class:`ExperimentConfig` has been injected. Uses</span>
+<span class="sd">        ``config.make_path`` so the snapshot follows the same BIDS layout</span>
+<span class="sd">        (and ``bids_type``) as the camera's recordings.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">frame</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">make_path</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">"make_path"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">make_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">PIL</span><span class="w"> </span><span class="kn">import</span> <span class="n">Image</span>
+
+            <span class="kn">from</span><span class="w"> </span><span class="nn">mesofield.data.writer</span><span class="w"> </span><span class="kn">import</span> <span class="n">frame_to_uint8</span>
+
+            <span class="n">path</span> <span class="o">=</span> <span class="n">make_path</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_snap"</span><span class="p">,</span> <span class="s2">"png"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bids_type</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+            <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span> <span class="ow">and</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">arr</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># OpenCV BGR -&gt; RGB</span>
+            <span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">:</span>
+                <span class="c1"># Fixed-range 8-bit scaling</span>
+                <span class="n">arr</span> <span class="o">=</span> <span class="n">frame_to_uint8</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">white_level</span><span class="p">)</span>
+            <span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Snapshot saved to </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">path</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to save snapshot PNG: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="BaseCamera.start_live">
+<a class="viewcode-back" href="../../../api/mesofield.devices.base_camera.html#mesofield.devices.base_camera.BaseCamera.start_live">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start_live</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Begin continuous live preview WITHOUT writing to disk.</span>
+
+<span class="sd">        Subscribers receive frames via ``image_ready`` (Qt) / ``signals.data``</span>
+<span class="sd">        (psygnal). No recording side-effects; pair with :meth:`stop_live`.</span>
+<span class="sd">        """</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.start_live() not implemented"</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BaseCamera.stop_live">
+<a class="viewcode-back" href="../../../api/mesofield.devices.base_camera.html#mesofield.devices.base_camera.BaseCamera.stop_live">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop_live</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""End the continuous live preview started by :meth:`start_live`."""</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.stop_live() not implemented"</span><span class="p">)</span></div>
+
+
+    <span class="c1"># --- standard introspection -----------------------------------------</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"device_id"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="p">,</span>
+            <span class="s2">"device_type"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_type</span><span class="p">,</span>
+            <span class="s2">"backend"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span><span class="p">,</span>
+            <span class="s2">"is_primary"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_primary</span><span class="p">,</span>
+            <span class="s2">"is_active"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_active</span><span class="p">,</span>
+            <span class="s2">"output_path"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_path</span><span class="p">,</span>
+            <span class="s2">"metadata_path"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_path</span><span class="p">,</span>
+            <span class="s2">"started"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_started</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s2">"stopped"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"device_id"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_id</span><span class="p">,</span>
+            <span class="s2">"device_type"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_type</span><span class="p">,</span>
+            <span class="s2">"backend"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">backend</span><span class="p">,</span>
+            <span class="s2">"name"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">"fps"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
+            <span class="s2">"file_type"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_type</span><span class="p">,</span>
+            <span class="s2">"bids_type"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">bids_type</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">calibration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Camera-specific constants worth recording in the AcquisitionManifest."""</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"name"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">"sampling_rate_hz"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
+            <span class="s2">"viewer"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">viewer</span><span class="p">,</span>
+        <span class="p">}</span>
+
+<div class="viewcode-block" id="BaseCamera.sidecars">
+<a class="viewcode-back" href="../../../api/mesofield.devices.base_camera.html#mesofield.devices.base_camera.BaseCamera.sidecars">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sidecars</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Extra sidecars beyond ``metadata_path``. Cameras typically have none."""</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_release</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Backend-specific teardown hook (default no-op).</span>
+
+<span class="sd">        Called by :meth:`shutdown` after :meth:`stop` and before this camera's</span>
+<span class="sd">        signals are severed. Override to disconnect backend event handlers</span>
+<span class="sd">        (e.g. mmcore MDA events) and drop driver/adapter handles. Do NOT</span>
+<span class="sd">        disconnect this camera's own ``signals`` / ``image_ready`` here — the</span>
+<span class="sd">        template does that uniformly for every subclass.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="BaseCamera.shutdown">
+<a class="viewcode-back" href="../../../api/mesofield.devices.base_camera.html#mesofield.devices.base_camera.BaseCamera.shutdown">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Stop the camera and release everything it owns. **Final** — override</span>
+<span class="sd">        :meth:`_release` (and :meth:`stop`), not this.</span>
+
+<span class="sd">        After it returns: threads are joined, backend handles released, and</span>
+<span class="sd">        every signal this camera owns (``signals`` psygnal bundle plus the Qt</span>
+<span class="sd">        ``image_ready`` / ``frame_ready`` / ``progress`` emitters) is</span>
+<span class="sd">        disconnected — so nothing it emits can reach a now-deleted subscriber</span>
+<span class="sd">        during a hot-reload. Idempotent.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_done</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_done</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="c1"># 1. Stop acquisition / join threads (subclass-specific, idempotent).</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">"shutdown: stop() failed"</span><span class="p">)</span>
+
+        <span class="c1"># 2. Backend handle + backend-signal release.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_release</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">"shutdown: _release() failed"</span><span class="p">)</span>
+
+        <span class="c1"># 3. Sever the psygnal bundle at the source.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">signals</span><span class="o">.</span><span class="n">disconnect_all</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+        <span class="c1"># 4. Sever the Qt signals this camera owns (no-op when unset / no slots).</span>
+        <span class="k">for</span> <span class="n">_sig_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"image_ready"</span><span class="p">,</span> <span class="s2">"frame_ready"</span><span class="p">,</span> <span class="s2">"progress"</span><span class="p">):</span>
+            <span class="n">sig</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_sig_name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">sig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sig</span><span class="p">,</span> <span class="s2">"disconnect"</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">sig</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>
+                <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">RuntimeError</span><span class="p">):</span>
+                    <span class="k">pass</span></div>
+</div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2026, Sipe Laboratory, Penn State.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.21.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

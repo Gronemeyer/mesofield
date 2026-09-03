@@ -1,0 +1,6 @@
+discover
+========
+
+.. automodule:: mesofield.datakit.discover
+   :members:
+   :show-inheritance:

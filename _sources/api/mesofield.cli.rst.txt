@@ -1,0 +1,18 @@
+cli
+===
+
+.. automodule:: mesofield.cli
+   :members:
+   :show-inheritance:
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   mesofield.cli.acquire
+   mesofield.cli.datakit
+   mesofield.cli.process
+   mesofield.cli.rig
+   mesofield.cli.tools

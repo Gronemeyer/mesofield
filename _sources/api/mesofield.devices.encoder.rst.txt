@@ -1,0 +1,6 @@
+encoder
+=======
+
+.. automodule:: mesofield.devices.encoder
+   :members:
+   :show-inheritance:

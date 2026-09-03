@@ -1,0 +1,6 @@
+profile
+=======
+
+.. automodule:: mesofield.datakit.profile
+   :members:
+   :show-inheritance:

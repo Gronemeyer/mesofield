@@ -1,0 +1,6 @@
+psychopy
+========
+
+.. automodule:: mesofield.devices.subprocesses.psychopy
+   :members:
+   :show-inheritance:

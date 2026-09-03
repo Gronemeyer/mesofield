@@ -1,0 +1,6 @@
+psychopy
+========
+
+.. automodule:: mesofield.datakit.sources.behavior.psychopy
+   :members:
+   :show-inheritance:

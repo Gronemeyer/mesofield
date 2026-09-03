@@ -1,0 +1,6 @@
+config\_builder
+===============
+
+.. automodule:: mesofield.gui.config_builder
+   :members:
+   :show-inheritance:

@@ -1,0 +1,6 @@
+acquire
+=======
+
+.. automodule:: mesofield.cli.acquire
+   :members:
+   :show-inheritance:

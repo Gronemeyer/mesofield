@@ -1,0 +1,6 @@
+psychopy\_controller
+====================
+
+.. automodule:: mesofield.gui.psychopy_controller
+   :members:
+   :show-inheritance:

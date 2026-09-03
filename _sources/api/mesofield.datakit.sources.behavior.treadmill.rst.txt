@@ -1,0 +1,6 @@
+treadmill
+=========
+
+.. automodule:: mesofield.datakit.sources.behavior.treadmill
+   :members:
+   :show-inheritance:

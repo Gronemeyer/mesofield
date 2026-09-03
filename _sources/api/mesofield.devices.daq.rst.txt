@@ -1,0 +1,6 @@
+daq
+===
+
+.. automodule:: mesofield.devices.daq
+   :members:
+   :show-inheritance:
