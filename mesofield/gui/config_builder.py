@@ -240,6 +240,9 @@ class DeviceSpec:
     output: List[FieldSpec] = field(default_factory=list)
     fixed: dict = field(default_factory=dict)  # keys forced into the stanza
     stimulus: bool = False            # subprocess stimulus app: no output, never primary
+    # Cameras are conventionally written as a ``cameras:`` YAML sequence -- one
+    # mapping per camera, keyed by ``id`` with a separate display ``name``
+    list_key: Optional[str] = None
     # Some top-level YAML keys have a dedicated loader in HardwareManager that
     # expects a different ``type`` value than the DeviceRegistry one. When a
     # card is named ``reserved_key`` it must serialise as ``reserved_type``.
@@ -302,6 +305,7 @@ DEVICE_SPECS: dict[str, DeviceSpec] = {
         ],
         output=_output_fields("cam", "mp4", ["mp4", "ome.tiff"], "func"),
         fixed={"backend": "opencv"},
+        list_key="cameras",
     ),
     "camera": DeviceSpec(
         type="camera",
@@ -322,6 +326,7 @@ DEVICE_SPECS: dict[str, DeviceSpec] = {
         ],
         output=_output_fields("cam", "ome.tiff", ["ome.tiff", "mp4"], "func"),
         fixed={"backend": "micromanager"},
+        list_key="cameras",
     ),
     "treadmill": DeviceSpec(
         # Teensy treadmill (EncoderSerialInterface) registers under "encoder";
@@ -444,18 +449,44 @@ def _spec_key(type_key: str | None) -> str | None:
 
 
 class _DeviceCard(QFrame):
-    """One device stanza in the hardware builder: name + fields + primary."""
+    """One device stanza in the hardware builder: name + fields + primary.
 
-    def __init__(self, spec: DeviceSpec, parent: QWidget | None = None):
+    A card serialises either as a top-level mapping (``wheel: {...}``) or, when
+    ``list_entry`` is set, as one entry of a YAML sequence (``cameras: - ...``).
+    The two differ in identity: a list entry carries its own ``id`` (the device
+    key at runtime) and display ``name``, where a top-level stanza takes both
+    from its mapping key.
+
+    Keys the card's schema doesn't model (``properties:``, ``widgets:``,
+    ``led_serial:`` ...) are captured on load and written back untouched, so
+    editing a hand-written camera here never drops its MicroManager property
+    block.
+    """
+
+    #: Keys handled explicitly below; everything else on a loaded stanza is
+    #: round-tripped through :attr:`_extras`.
+    _STRUCTURAL_KEYS = frozenset({"type", "primary", "output", "id", "name"})
+
+    def __init__(
+        self,
+        spec: DeviceSpec,
+        parent: QWidget | None = None,
+        *,
+        list_entry: bool = False,
+    ):
         super().__init__(parent)
         self.spec = spec
+        self.list_entry = list_entry
         # Only camera-like devices may drive acquisition timing.
         self._supports_primary = spec.type.endswith("camera")
+        self._extras: dict[str, Any] = {}
         self.setFrameShape(QFrame.Shape.StyledPanel)
 
         layout = QVBoxLayout(self)
         header = QHBoxLayout()
         tag = "stimulus" if spec.stimulus else f"type: {spec.type}"
+        if list_entry and spec.list_key:
+            tag = f"{spec.list_key}[] \u00b7 {tag}"
         header.addWidget(QLabel(f"<b>{spec.label}</b>  <span style='color:gray'>({tag})</span>"))
         header.addStretch()
         self.remove_btn = QPushButton("Remove")
@@ -464,9 +495,23 @@ class _DeviceCard(QFrame):
         layout.addLayout(header)
 
         name_row = QHBoxLayout()
+        self._id_edit: QLineEdit | None = None
+        if list_entry:
+            # In a `cameras:` entry the device key is `id` (for MicroManager,
+            # the device label in the .cfg) and `name` is the stream name.
+            self._id_edit = QLineEdit(spec.default_name)
+            self._id_edit.setToolTip(
+                "Device id \u2014 the key this camera is addressed by at runtime "
+                "(for MicroManager, the device label in the .cfg, e.g. Dhyana)"
+            )
+            name_row.addWidget(QLabel("id:"))
+            name_row.addWidget(self._id_edit)
         name_row.addWidget(QLabel("name:"))
         self._name_edit = QLineEdit(spec.default_name)
-        self._name_edit.setToolTip("The hardware.yaml stanza key for this device")
+        self._name_edit.setToolTip(
+            "Display name for this camera's stream"
+            if list_entry else "The hardware.yaml stanza key for this device"
+        )
         name_row.addWidget(self._name_edit)
         self._primary_check = QCheckBox("primary")
         self._primary_check.setToolTip("The camera that drives acquisition timing (exactly one rig-wide)")
@@ -484,19 +529,44 @@ class _DeviceCard(QFrame):
             layout.addWidget(out_label)
             layout.addWidget(self._output_form)
 
+        # Keys this form can't edit but does preserve, named so that "not
+        # shown" never reads as "lost".
+        from mesofield.gui import theme as _theme
+        self._extras_label = QLabel()
+        self._extras_label.setWordWrap(True)
+        self._extras_label.setStyleSheet(f"color: {_theme.TEXT_DIM};")
+        self._extras_label.setVisible(False)
+        layout.addWidget(self._extras_label)
+
     # -- accessors -----------------------------------------------------------
 
     def name(self) -> str:
+        """The device key: a list entry's ``id``, else the stanza key."""
+        if self._id_edit is not None:
+            return self._id_edit.text().strip()
+        return self._name_edit.text().strip()
+
+    def display_name(self) -> str:
         return self._name_edit.text().strip()
 
     def set_values(self, name: str, stanza: dict) -> None:
         """Populate this card from an existing ``hardware.yaml`` stanza."""
-        self._name_edit.setText(str(name))
+        self._name_edit.setText(str(stanza.get("name", name) if self.list_entry else name))
+        if self._id_edit is not None:
+            self._id_edit.setText(str(stanza.get("id", name)))
         self._primary_check.setChecked(self._supports_primary and bool(stanza.get("primary", False)))
         if self._field_form is not None:
             self._field_form.set_values(stanza)
         if self._output_form is not None and isinstance(stanza.get("output"), dict):
             self._output_form.set_values(stanza["output"])
+        known = set(self._STRUCTURAL_KEYS) | set(self.spec.fixed)
+        known |= {f.key for f in self.spec.fields}
+        self._extras = {k: v for k, v in stanza.items() if k not in known}
+        if self._extras:
+            self._extras_label.setText(
+                "preserved as written: " + ", ".join(f"{k}:" for k in self._extras)
+            )
+        self._extras_label.setVisible(bool(self._extras))
 
     def is_primary(self) -> bool:
         return self._supports_primary and self._primary_check.isChecked()
@@ -505,11 +575,18 @@ class _DeviceCard(QFrame):
         self._primary_check.setChecked(self._supports_primary and value)
 
     def stanza(self) -> dict:
-        """Assemble this card's ``hardware.yaml`` stanza."""
+        """Assemble this card's ``hardware.yaml`` stanza (or list entry)."""
         type_value = self.spec.type
         if self.spec.reserved_key and self.name() == self.spec.reserved_key:
             type_value = self.spec.reserved_type or type_value
-        out: dict[str, Any] = {"type": type_value}
+        out: dict[str, Any] = {}
+        if self.list_entry:
+            # `cameras:` entries are dispatched on `backend`, not `type`
+            # (HardwareManager._init_cameras), and carry their own identity.
+            out["id"] = self.name()
+            out["name"] = self.display_name() or self.name()
+        else:
+            out["type"] = type_value
         out.update(self.spec.fixed)
         if self._field_form is not None:
             for key, val in self._field_form.values().items():
@@ -518,6 +595,7 @@ class _DeviceCard(QFrame):
                 out[key] = val
         if self.is_primary():
             out["primary"] = True
+        out.update(self._extras)  # properties:, widgets:, ... verbatim
         if self._output_form is not None:
             out["output"] = self._output_form.values()
         return out
@@ -543,13 +621,16 @@ class HardwareBuilderDialog(QDialog):
         self.rig_name: Optional[str] = None
         self._initial_name = rig_name
         self._cards: list[_DeviceCard] = []
-        # Stanzas/keys the builder doesn't model (custom devices, cameras: lists,
-        # viewer_type, etc.) are preserved verbatim so editing never drops them.
+        # Stanzas/keys the builder doesn't model (custom devices, viewer_type,
+        # etc.) are preserved verbatim so editing never drops them.
         self._passthrough: dict = {}
+        # `cameras:` entries with no backend we can model -- kept in place.
+        self._camera_list_extras: list[Any] = []
 
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(
-            "Add the devices on this rig. Each becomes a stanza in hardware.yaml.\n"
+            "Add the devices on this rig. Each becomes a stanza in hardware.yaml "
+            "(cameras join its cameras: list when the rig uses one).\n"
             "Exactly one recording device drives timing (“primary”); stimulus "
             "apps (PsychoPy, MousePortal) run alongside."
         ))
@@ -643,14 +724,25 @@ class HardwareBuilderDialog(QDialog):
 
     # -- populate from an existing rig ---------------------------------------
 
+    #: `cameras:` entries are dispatched on `backend` (HardwareManager
+    #: ._init_cameras), not on a `type:` key, so they map to a spec by backend.
+    _CAMERA_BACKEND_SPECS = {"opencv": "opencv_camera", "micromanager": "camera"}
+
     def _load_doc(self, doc: dict) -> None:
         """Pre-fill the builder from an existing ``hardware.yaml`` mapping."""
         self._buffer_spin.setValue(int(doc.get("memory_buffer_size", 1000) or 1000))
         for key, val in doc.items():
             if key == "memory_buffer_size":
                 continue
+            if key == "cameras" and isinstance(val, list):
+                self._load_camera_list(val)
+                continue
             type_key = _spec_key(val.get("type") if isinstance(val, dict) else None)
             if type_key is not None:
+                # A camera written as a top-level stanza (what this builder
+                # used to emit) is loaded as a `cameras:` entry, so saving
+                # settles the rig on one shape. The device key is unchanged:
+                # the stanza key becomes the entry's `id`.
                 card = self._make_card(type_key)
                 card.set_values(key, val)
             else:
@@ -661,34 +753,53 @@ class HardwareBuilderDialog(QDialog):
             cameras[0].set_primary(True)
         self._refresh_passthrough_view()
 
+    def _load_camera_list(self, entries: list) -> None:
+        """Turn a ``cameras:`` sequence into editable cards.
+
+        The cameras on a real rig are usually written as this list rather than
+        as top-level stanzas; before, they showed up only as read-only
+        passthrough text, so opening the builder on a working rig showed a rig
+        with no cameras in it.
+        """
+        for entry in entries:
+            backend = str(entry.get("backend", "")).lower() if isinstance(entry, dict) else ""
+            type_key = self._CAMERA_BACKEND_SPECS.get(backend)
+            if type_key is None:
+                self._camera_list_extras.append(entry)  # unknown backend: keep as-is
+                continue
+            card = self._make_card(type_key, list_entry=True)
+            card.set_values(str(entry.get("id", entry.get("name", "camera"))), entry)
+
     def _refresh_passthrough_view(self) -> None:
         """List the stanzas this dialog can't edit, so nothing looks missing.
 
         The builder models a fixed catalogue of device types; anything else
-        (custom registered devices, and the ``cameras:`` list, which is a YAML
-        sequence rather than a typed stanza) is round-tripped untouched by
-        :meth:`_save`. Showing it here is the difference between "preserved"
-        and "silently vanished".
+        (custom registered devices, and ``cameras:`` entries whose backend the
+        catalogue doesn't cover) is round-tripped untouched by :meth:`_save`.
+        Showing it here is the difference between "preserved" and "silently
+        vanished".
         """
         lines: list[str] = []
+        for entry in self._camera_list_extras:
+            if isinstance(entry, dict):
+                name = entry.get("name") or entry.get("id") or "?"
+                backend = entry.get("backend", "?")
+                lines.append(f"cameras[] · {name}  —  backend: {backend}")
+            else:
+                lines.append("cameras[] · (unrecognised entry)")
         for key, val in self._passthrough.items():
-            if key == "cameras" and isinstance(val, list):
-                for entry in val:
-                    if not isinstance(entry, dict):
-                        continue
-                    name = entry.get("name") or entry.get("id") or "?"
-                    backend = entry.get("backend", "?")
-                    primary = "  (primary)" if entry.get("primary") else ""
-                    lines.append(f"cameras[] · {name}  —  backend: {backend}{primary}")
-            elif isinstance(val, dict) and val.get("type"):
+            if isinstance(val, dict) and val.get("type"):
                 lines.append(f"{key}  —  type: {val['type']}")
             else:
                 lines.append(f"{key}")
         self._passthrough_label.setText("\n".join(lines))
         self._passthrough_box.setVisible(bool(lines))
 
-    def _make_card(self, type_key: str) -> _DeviceCard:
-        card = _DeviceCard(DEVICE_SPECS[type_key])
+    def _make_card(self, type_key: str, *, list_entry: bool | None = None) -> _DeviceCard:
+        spec = DEVICE_SPECS[type_key]
+        if list_entry is None:
+            list_entry = bool(spec.list_key)
+        card = _DeviceCard(spec, list_entry=list_entry)
         card.remove_btn.clicked.connect(lambda _=False, c=card: self._remove_card(c))
         self._cards_layout.insertWidget(self._cards_layout.count() - 1, card)
         self._cards.append(card)
@@ -756,7 +867,13 @@ class HardwareBuilderDialog(QDialog):
 
         doc: dict[str, Any] = {"memory_buffer_size": int(self._buffer_spin.value())}
         doc.update(self._passthrough)  # preserve stanzas the builder doesn't model
+        camera_list = [c.stanza() for c in self._cards if c.list_entry]
+        camera_list.extend(self._camera_list_extras)
+        if camera_list:
+            doc["cameras"] = camera_list
         for card in self._cards:
+            if card.list_entry:
+                continue
             doc[card.name()] = card.stanza()
 
         import mesofield.hardware  # noqa: F401  (triggers built-in device registration)
