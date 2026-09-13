@@ -20,7 +20,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PyQt6.QtGui import QColor, QPalette
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import (
+    QAbstractScrollArea, QAbstractSpinBox, QApplication, QLabel, QWidget,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -357,6 +360,18 @@ QLabel {{
 # ---------------------------------------------------------------------------
 # Helpers for special widget states
 # ---------------------------------------------------------------------------
+def dim_label(text: str = "", tooltip: str = "", selectable: bool = False) -> QLabel:
+    """A word-wrapped caption in the dim text colour."""
+    label = QLabel(text)
+    label.setWordWrap(True)
+    label.setStyleSheet(f"color: {TEXT_DIM};")
+    if tooltip:
+        label.setToolTip(tooltip)
+    if selectable:
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+    return label
+
+
 def record_button_qss() -> str:
     """QSS for the record button: idle gunmetal → armed bright phosphor.
 
