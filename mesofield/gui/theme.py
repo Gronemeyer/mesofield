@@ -19,8 +19,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from PyQt6.QtGui import QColor, QPalette
-from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QIcon, QPainter, QPalette, QPen, QPixmap
+from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtWidgets import (
     QAbstractScrollArea, QAbstractSpinBox, QApplication, QComboBox,
     QDoubleSpinBox, QLabel, QSpinBox, QWidget,
@@ -530,6 +530,64 @@ def apply_wizard_dark_fix(wizard) -> None:
     """
     if _is_dark_palette(wizard):
         wizard.setStyleSheet(_DARK_WIZARD_QSS)
+
+
+# ---------------------------------------------------------------------------
+# Monochrome button glyphs
+# ---------------------------------------------------------------------------
+# Qt's stock icons (SP_DirOpenIcon and friends) are the platform's: full-colour
+# Windows folders and documents, which read as clip-art against this palette
+# and make a considered layout look unfinished. These are drawn in one colour
+# at call time so they inherit the theme instead of fighting it.
+
+def mono_icon(kind: str, color: str = TEXT_DIM, size: int = 16) -> QIcon:
+    """A single-colour glyph: ``folder``, ``file``, ``play`` or ``dots``."""
+    scale = 2  # draw oversized so the glyph stays crisp on HiDPI
+    pixmap = QPixmap(size * scale, size * scale)
+    pixmap.fill(Qt.GlobalColor.transparent)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pen = QPen(QColor(color))
+    pen.setWidthF(1.4 * scale)
+    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+    painter.setPen(pen)
+    u = size * scale / 16.0  # one unit of a nominal 16x16 grid
+
+    if kind == "folder":
+        painter.drawPolyline([
+            QPointF(2 * u, 13 * u), QPointF(2 * u, 3.5 * u),
+            QPointF(6 * u, 3.5 * u), QPointF(7.4 * u, 5.4 * u),
+            QPointF(14 * u, 5.4 * u), QPointF(14 * u, 13 * u),
+            QPointF(2 * u, 13 * u),
+        ])
+    elif kind == "file":
+        painter.drawPolyline([
+            QPointF(4 * u, 2.5 * u), QPointF(9.5 * u, 2.5 * u),
+            QPointF(12.5 * u, 5.5 * u), QPointF(12.5 * u, 13.5 * u),
+            QPointF(4 * u, 13.5 * u), QPointF(4 * u, 2.5 * u),
+        ])
+        painter.drawPolyline([
+            QPointF(9.3 * u, 2.6 * u), QPointF(9.3 * u, 5.7 * u),
+            QPointF(12.4 * u, 5.7 * u),
+        ])
+    elif kind == "play":
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(color))
+        painter.drawPolygon([
+            QPointF(4.5 * u, 3 * u), QPointF(12.5 * u, 8 * u),
+            QPointF(4.5 * u, 13 * u),
+        ])
+    elif kind == "dots":
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(color))
+        for cx in (4, 8, 12):
+            painter.drawEllipse(QPointF(cx * u, 8 * u), 1.15 * u, 1.15 * u)
+
+    painter.end()
+    pixmap.setDevicePixelRatio(float(scale))
+    return QIcon(pixmap)
 
 
 def record_button_qss() -> str:

@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Optional
 from PyQt6.QtCore import pyqtSignal, Qt, QSettings, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
+    QSizePolicy,
     QApplication,
     QFileDialog,
     QGroupBox,
@@ -23,7 +24,6 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
-    QStyle,
     QVBoxLayout,
     QWidget,
     QMessageBox,
@@ -165,27 +165,40 @@ class ConfigWizard(QWidget):
 
     # -- UI ------------------------------------------------------------------
 
-    # Every button on this tab is one of three widths, so the rows line up
-    # whatever text they carry: a full-width action, a compact secondary, or
-    # an icon-only square.
+    # Shared metrics. The compact width is a MINIMUM, not a fixed size: a
+    # fixed one clipped "Replace experiment.json..." down to "place experime"
+    # the moment the button was relabelled.
     _BTN_HEIGHT = 28
-    _BTN_COMPACT = 96
-    _BTN_SQUARE = 32
+    _BTN_COMPACT = 92
+    _BTN_SQUARE = 30
+    # Width of the row labels, so button rows start on the same column as the
+    # inputs above them instead of hanging off the group's left edge.
+    _LABEL_COL = 52
+    _LABEL_GAP = 8
 
-    def _icon(self, sp: QStyle.StandardPixmap):
-        """Return a themed standard icon for buttons."""
-        return self.style().standardIcon(sp)
-
-    def _button(self, text: str, sp, tooltip: str = "", *, width: int = 0):
-        """A button sized to this tab's shared metrics."""
-        button = QPushButton(f"  {text}" if text else "")
-        button.setIcon(self._icon(sp))
+    def _button(self, text: str, glyph: str = "", tooltip: str = "", *,
+                square: bool = False):
+        """A text button, or an icon-only square, on the shared metrics."""
+        button = QPushButton(text)
+        if glyph:
+            button.setIcon(theme.mono_icon(glyph))
         button.setFixedHeight(self._BTN_HEIGHT)
-        if width:
-            button.setFixedWidth(width)
+        if square:
+            button.setFixedWidth(self._BTN_SQUARE)
+        else:
+            button.setMinimumWidth(self._BTN_COMPACT)
+            button.setSizePolicy(QSizePolicy.Policy.Maximum,
+                                 QSizePolicy.Policy.Fixed)
         if tooltip:
             button.setToolTip(tooltip)
         return button
+
+    def _indented_row(self) -> QHBoxLayout:
+        """A row that starts under the inputs, not under their labels."""
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        row.addSpacing(self._LABEL_COL + self._LABEL_GAP)
+        return row
 
     def _file_actions(self, get_path) -> QWidget:
         """Open / Reveal for *get_path*, as two icon buttons beside the status.
@@ -198,13 +211,11 @@ class ConfigWizard(QWidget):
         row = QHBoxLayout(holder)
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(4)
-        for text, pixmap, tip, slot in (
-            ("", QStyle.StandardPixmap.SP_FileIcon,
-             "Open this file in your default editor", self._open_file),
-            ("", QStyle.StandardPixmap.SP_DirOpenIcon,
-             "Show this file in your file manager", self._reveal_file),
+        for glyph, tip, slot in (
+            ("file", "Open this file in your default editor", self._open_file),
+            ("folder", "Show this file in your file manager", self._reveal_file),
         ):
-            button = self._button(text, pixmap, tip, width=self._BTN_SQUARE)
+            button = self._button("", glyph, tip, square=True)
             button.clicked.connect(lambda _=False, s=slot: s(get_path()))
             row.addWidget(button)
         return holder
@@ -229,10 +240,12 @@ class ConfigWizard(QWidget):
         return label
 
     @staticmethod
-    def _status_row(status: QLabel, actions: QWidget) -> QHBoxLayout:
+    def _status_row(status: QLabel, actions: QWidget, *, indent: int = 0) -> QHBoxLayout:
         """A status line with its file actions tucked to the right."""
         row = QHBoxLayout()
         row.setSpacing(8)
+        if indent:
+            row.addSpacing(indent)
         row.addWidget(status, 1)
         row.addWidget(actions)
         return row
@@ -262,7 +275,7 @@ class ConfigWizard(QWidget):
         rig_layout.setSpacing(6)
         rig_row = QHBoxLayout()
         rig_row.setSpacing(8)
-        rig_row.addWidget(self._field_label("Rig"))
+        rig_row.addWidget(self._field_label("Rig"), 0, Qt.AlignmentFlag.AlignVCenter)
         self._rig_combo = theme.NoScrollComboBox()
         self._rig_combo.setFixedHeight(self._BTN_HEIGHT)
         self._rig_combo.setToolTip("Bring up a canonical rig from this machine's rig store")
@@ -272,24 +285,17 @@ class ConfigWizard(QWidget):
         rig_layout.addLayout(rig_row)
 
         # Most-used action first, then the two authoring ones.
-        rig_btn_row = QHBoxLayout()
-        rig_btn_row.setSpacing(6)
+        rig_btn_row = self._indented_row()
         new_rig_btn = self._button(
-            "New…", QStyle.StandardPixmap.SP_FileDialogNewFolder,
-            "Build a new hardware.yaml from a guided device list",
-            width=self._BTN_COMPACT)
+            "New…", "", "Build a new hardware.yaml from a guided device list")
         new_rig_btn.clicked.connect(self._new_rig)
         rig_btn_row.addWidget(new_rig_btn)
         edit_rig_btn = self._button(
-            "Edit…", QStyle.StandardPixmap.SP_FileDialogDetailedView,
-            "Edit the selected rig's devices",
-            width=self._BTN_COMPACT)
+            "Edit…", "", "Edit the selected rig's devices")
         edit_rig_btn.clicked.connect(self._edit_rig)
         rig_btn_row.addWidget(edit_rig_btn)
         browse_yaml_btn = self._button(
-            "Browse…", QStyle.StandardPixmap.SP_DialogOpenButton,
-            "Use a hardware.yaml from outside the rig store",
-            width=self._BTN_COMPACT)
+            "Browse…", "", "Use a hardware.yaml from outside the rig store")
         browse_yaml_btn.clicked.connect(self._browse_yaml)
         rig_btn_row.addWidget(browse_yaml_btn)
         rig_btn_row.addStretch()
@@ -298,7 +304,9 @@ class ConfigWizard(QWidget):
         self._yaml_status = theme.dim_label("No rig selected")
         self._yaml_actions = self._file_actions(lambda: self._hardware_path)
         self._yaml_actions.setVisible(False)
-        rig_layout.addLayout(self._status_row(self._yaml_status, self._yaml_actions))
+        rig_layout.addLayout(
+            self._status_row(self._yaml_status, self._yaml_actions,
+                             indent=self._LABEL_COL + self._LABEL_GAP))
         layout.addWidget(rig_group)
 
         # === ② Experiment (optional) =======================================
@@ -307,30 +315,25 @@ class ConfigWizard(QWidget):
         exp_layout.setSpacing(6)
         out_row = QHBoxLayout()
         out_row.setSpacing(8)
-        out_row.addWidget(self._field_label("Folder"))
+        out_row.addWidget(self._field_label("Folder"), 0, Qt.AlignmentFlag.AlignVCenter)
         self._outdir_edit = QLineEdit()
         self._outdir_edit.setPlaceholderText("where data is written")
         self._outdir_edit.setText(self.procedure.config.experiment_dir)
         self._outdir_edit.setFixedHeight(self._BTN_HEIGHT)
         out_row.addWidget(self._outdir_edit, 1)
         outdir_browse = self._button(
-            "", QStyle.StandardPixmap.SP_DirOpenIcon,
-            "Choose the experiment / output directory", width=self._BTN_SQUARE)
+            "", "folder", "Choose the experiment / output directory", square=True)
         outdir_browse.clicked.connect(self._browse_outdir)
         out_row.addWidget(outdir_browse)
         exp_layout.addLayout(out_row)
 
-        json_btn_row = QHBoxLayout()
-        json_btn_row.setSpacing(6)
+        json_btn_row = self._indented_row()
         self._create_json_btn = self._button(
-            "New…", QStyle.StandardPixmap.SP_FileDialogNewFolder,
-            "Author a new experiment.json (subjects, tasks, variables)",
-            width=self._BTN_COMPACT)
+            "New…", "", "Author a new experiment.json (subjects, tasks, variables)")
         self._create_json_btn.clicked.connect(self._create_experiment_json)
         json_btn_row.addWidget(self._create_json_btn)
         browse_json_btn = self._button(
-            "Load…", QStyle.StandardPixmap.SP_DialogOpenButton,
-            "Load an existing experiment.json", width=self._BTN_COMPACT)
+            "Load…", "", "Load an existing experiment.json")
         browse_json_btn.clicked.connect(self._browse_json)
         json_btn_row.addWidget(browse_json_btn)
         json_btn_row.addStretch()
@@ -339,15 +342,17 @@ class ConfigWizard(QWidget):
         self._json_status = theme.dim_label("No experiment selected")
         self._json_actions = self._file_actions(lambda: self._experiment_json)
         self._json_actions.setVisible(False)
-        exp_layout.addLayout(self._status_row(self._json_status, self._json_actions))
+        exp_layout.addLayout(
+            self._status_row(self._json_status, self._json_actions,
+                             indent=self._LABEL_COL + self._LABEL_GAP))
         layout.addWidget(exp_group)
 
         self._outdir_edit.textChanged.connect(self._on_outdir_changed)
         self._on_outdir_changed(self._outdir_edit.text())
 
         # === Apply (primary CTA) ===========================================
-        self._apply_btn = QPushButton("  Apply Configuration")
-        self._apply_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_MediaPlay))
+        self._apply_btn = QPushButton("Apply Configuration")
+        self._apply_btn.setIcon(theme.mono_icon("play", theme.ACCENT))
         self._apply_btn.setFixedHeight(36)
         self._apply_btn.setStyleSheet(
             f"QPushButton {{ padding: 10px 16px; font-weight: bold; "
@@ -550,7 +555,9 @@ class ConfigWizard(QWidget):
         candidate = os.path.join(text, "experiment.json") if text else ""
         if candidate and os.path.isfile(candidate):
             self._set_experiment_json(candidate, "experiment.json found — will load")
-            self._create_json_btn.setText(" Replace experiment.json…")
+            self._create_json_btn.setText("Replace…")
+            self._create_json_btn.setToolTip(
+                "Author a new experiment.json in place of the one found here")
         else:
             # Drop an auto-detected JSON if we navigated away from its dir;
             # keep one the user explicitly browsed from elsewhere.
@@ -563,7 +570,9 @@ class ConfigWizard(QWidget):
                 )
                 self._json_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
                 self._json_status.setToolTip("")
-            self._create_json_btn.setText(" Create experiment.json…")
+            self._create_json_btn.setText("New…")
+            self._create_json_btn.setToolTip(
+                "Author a new experiment.json (subjects, tasks, variables)")
 
     def _create_experiment_json(self) -> None:
         """Author a fresh experiment.json via the guided experiment builder."""
