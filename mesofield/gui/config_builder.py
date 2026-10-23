@@ -514,14 +514,60 @@ DEVICE_SPECS: dict[str, DeviceSpec] = {
 # ---------------------------------------------------------------------------
 
 
+def spec_key_for_stanza(stanza: dict) -> Optional[str]:
+    """Return the :data:`DEVICE_SPECS` key that models *stanza*, if any.
+
+    A stanza's ``type:`` is the **DeviceRegistry** key, which is not always the
+    catalog key: the Teensy treadmill is catalogued as ``treadmill`` but
+    registers as ``encoder``. Matching on the catalog key alone meant a
+    treadmill became unrecognisable the moment the builder had written it once,
+    so it silently dropped out of the form on the next edit. Try the catalog
+    key first, then any spec whose ``type`` matches.
+    """
+    type_key = stanza.get("type")
+    if type_key in DEVICE_SPECS:
+        return type_key
+    for key, spec in DEVICE_SPECS.items():
+        if spec.type == type_key:
+            return key
+    return None
+
+
+def camera_spec_key(entry: dict) -> str:
+    """Pick a camera spec for an entry in a ``cameras:`` list.
+
+    Those entries usually carry no ``type:`` at all -- the list position is
+    what marks them as cameras -- so the backend decides.
+    """
+    explicit = spec_key_for_stanza(entry)
+    if explicit is not None:
+        return explicit
+    backend = str(entry.get("backend", "")).lower()
+    return "opencv_camera" if backend == "opencv" else "camera"
+
+
 class _DeviceCard(QFrame):
     """One device stanza in the hardware builder: name + fields + primary."""
 
     def __init__(self, spec: DeviceSpec, parent: QWidget | None = None):
         super().__init__(parent)
         self.spec = spec
-        # Only camera-like devices may drive acquisition timing.
+        # The stanza this card was loaded from. A DeviceSpec models only the
+        # handful of keys worth a form control, but a real rig stanza carries
+        # far more -- `properties:` (exposure, gain, ROI, trigger wiring),
+        # `widgets:`, `auto_contrast:`, a camera's `id:`. Those are kept here
+        # and merged back in `stanza()`, so editing a device cannot silently
+        # delete the parts of it the builder has no opinion about.
+        self._original: dict = {}
+        # Set when this camera came out of a `cameras:` list, where the device
+        # name is a `name:` key inside the entry rather than the stanza key.
+        self.from_camera_list = False
+        # Only camera-like devices get the checkbox -- choosing which camera
+        # drives timing is a real decision. Everything else can still *be*
+        # primary (a treadmill-only rig has to have one), it just isn't chosen
+        # here, so that flag is carried rather than shown.
         self._supports_primary = spec.type.endswith("camera")
+        self._primary_unshown = False
         self.setFrameShape(QFrame.Shape.StyledPanel)
 
         layout = QVBoxLayout(self)
@@ -562,35 +608,71 @@ class _DeviceCard(QFrame):
 
     def set_values(self, name: str, stanza: dict) -> None:
         """Populate this card from an existing ``hardware.yaml`` stanza."""
+        self._original = dict(stanza or {})
         self._name_edit.setText(str(name))
-        self._primary_check.setChecked(self._supports_primary and bool(stanza.get("primary", False)))
+        self.set_primary(bool(stanza.get("primary", False)))
         if self._field_form is not None:
             self._field_form.set_values(stanza)
         if self._output_form is not None and isinstance(stanza.get("output"), dict):
             self._output_form.set_values(stanza["output"])
 
+    @property
+    def supports_primary(self) -> bool:
+        """Whether this device type shows the primary checkbox."""
+        return self._supports_primary
+
+    @property
+    def primary_toggled(self):
+        """The checkbox's ``toggled`` signal (cameras only)."""
+        return self._primary_check.toggled
+
     def is_primary(self) -> bool:
-        return self._supports_primary and self._primary_check.isChecked()
+        if self._supports_primary:
+            return self._primary_check.isChecked()
+        return self._primary_unshown
 
     def set_primary(self, value: bool) -> None:
-        self._primary_check.setChecked(self._supports_primary and value)
+        if self._supports_primary:
+            self._primary_check.setChecked(value)
+        else:
+            # Used by the camera-less fallback in `_save`, which was a silent
+            # no-op while this only drove a checkbox the device never shows.
+            self._primary_unshown = bool(value)
 
     def stanza(self) -> dict:
-        """Assemble this card's ``hardware.yaml`` stanza."""
-        out: dict[str, Any] = {"type": self.spec.type}
+        """Assemble this card's ``hardware.yaml`` stanza.
+
+        The form's values are layered **over** the stanza this card was loaded
+        from rather than replacing it, so keys the builder does not model
+        survive a round trip. Clearing a field the builder *does* model still
+        removes that key -- a blanked ``configuration_path`` means "no .cfg",
+        not "keep the old one".
+        """
+        out: dict[str, Any] = dict(self._original)
+        out["type"] = self.spec.type
         out.update(self.spec.fixed)
         if self._field_form is not None:
             for key, val in self._field_form.values().items():
-                # Drop empty optionals: a blank configuration_path, an unset
+                # Empty optionals: a blank configuration_path, an unset
                 # `device` picker. `0`/`False` are real values and survive,
                 # since neither equals "" nor {}.
                 if val == "" or val == {} or val is None:
-                    continue
-                out[key] = val
+                    out.pop(key, None)
+                else:
+                    out[key] = val
         if self.is_primary():
             out["primary"] = True
+        else:
+            out.pop("primary", None)
         if self._output_form is not None:
-            out["output"] = self._output_form.values()
+            # Same merge: an `output:` block may carry keys the form omits.
+            out["output"] = {**(self._original.get("output") or {}),
+                             **self._output_form.values()}
+        if self.from_camera_list:
+            # Entries in a `cameras:` list name themselves; the stanza key is
+            # the list position, not a name.
+            out["name"] = self.name()
+            out.setdefault("id", self.name())
         return out
 
 
@@ -617,6 +699,15 @@ class HardwareBuilderDialog(QDialog):
         # Stanzas/keys the builder doesn't model (custom devices, cameras: lists,
         # viewer_type, etc.) are preserved verbatim so editing never drops them.
         self._passthrough: dict = {}
+        # True when the loaded rig spelled its cameras as a `cameras:` list, so
+        # saving writes them back the same way instead of silently restructuring
+        # the file into one top-level stanza per camera.
+        self._cameras_from_list = False
+        # Guards for the "exactly one primary" rule. `_loading` keeps a file
+        # with two primaries from being silently repaired on open -- `_save`
+        # reports it instead, so the user knows their rig was wrong.
+        self._loading = False
+        self._syncing_primary = False
 
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(
@@ -698,13 +789,34 @@ class HardwareBuilderDialog(QDialog):
 
     def _load_doc(self, doc: dict) -> None:
         """Pre-fill the builder from an existing ``hardware.yaml`` mapping."""
+        self._loading = True
+        try:
+            self._load_doc_inner(doc)
+        finally:
+            self._loading = False
+
+    def _load_doc_inner(self, doc: dict) -> None:
         self._buffer_spin.setValue(int(doc.get("memory_buffer_size", 1000) or 1000))
         for key, val in doc.items():
             if key == "memory_buffer_size":
                 continue
-            type_key = val.get("type") if isinstance(val, dict) else None
-            if type_key in DEVICE_SPECS:
-                card = self._make_card(type_key)
+            # A `cameras:` list is the other way a rig spells its cameras, and
+            # the one every hand-written rig here uses. Leaving it unmodelled
+            # meant those cameras were invisible in the builder -- and so were
+            # excluded from the "exactly one primary" check, which is how a rig
+            # could end up with two.
+            if key == "cameras" and isinstance(val, list):
+                self._cameras_from_list = True
+                for entry in val:
+                    if not isinstance(entry, dict):
+                        continue
+                    card = self._make_card(camera_spec_key(entry))
+                    card.from_camera_list = True
+                    card.set_values(entry.get("name") or entry.get("id") or "camera", entry)
+                continue
+            spec_key = spec_key_for_stanza(val) if isinstance(val, dict) else None
+            if spec_key is not None:
+                card = self._make_card(spec_key)
                 card.set_values(key, val)
             else:
                 self._passthrough[key] = val  # preserve what we don't model
@@ -718,14 +830,43 @@ class HardwareBuilderDialog(QDialog):
         card.remove_btn.clicked.connect(lambda _=False, c=card: self._remove_card(c))
         self._cards_layout.insertWidget(self._cards_layout.count() - 1, card)
         self._cards.append(card)
-        # Hard-to-fail default: the first camera added becomes primary.
+        if card.supports_primary:
+            card.primary_toggled.connect(
+                lambda on, c=card: self._on_primary_toggled(c, on)
+            )
+        # Hard-to-fail default: a rig with no primary camera yet gets one.
+        # Checked against every card, because a camera hidden inside a
+        # `cameras:` list is still a camera -- missing those is how a rig ended
+        # up with two primaries.
         if card.spec.type.endswith("camera"):
             has_primary_camera = any(
                 c.spec.type.endswith("camera") and c.is_primary() for c in self._cards
             )
             if not has_primary_camera:
                 card.set_primary(True)
+                # A camera takes over timing from a non-camera that held it.
+                self._make_sole_primary(card)
         return card
+
+    def _on_primary_toggled(self, card: _DeviceCard, on: bool) -> None:
+        """Keep `primary` to one device as the user ticks the boxes.
+
+        Without this the builder let two be ticked and only complained at save
+        time, which is a long way from the click that caused it.
+        """
+        if on and not self._loading:
+            self._make_sole_primary(card)
+
+    def _make_sole_primary(self, card: _DeviceCard) -> None:
+        if self._syncing_primary:
+            return
+        self._syncing_primary = True
+        try:
+            for other in self._cards:
+                if other is not card and other.is_primary():
+                    other.set_primary(False)
+        finally:
+            self._syncing_primary = False
 
     # -- slots ---------------------------------------------------------------
 
@@ -734,8 +875,15 @@ class HardwareBuilderDialog(QDialog):
             return
         type_key = self._add_combo.itemData(index)
         self._add_combo.setCurrentIndex(0)
-        if type_key:
-            self._make_card(type_key)
+        if not type_key:
+            return
+        card = self._make_card(type_key)
+        # A camera added to a rig that keeps its cameras in a `cameras:` list
+        # joins that list, so the rig does not end up describing cameras two
+        # different ways at once. Stanzas loaded from the file keep the shape
+        # they already had.
+        if self._cameras_from_list and card.spec.type.endswith("camera"):
+            card.from_camera_list = True
 
     def _remove_card(self, card: _DeviceCard) -> None:
         if card in self._cards:
@@ -782,7 +930,15 @@ class HardwareBuilderDialog(QDialog):
 
         doc: dict[str, Any] = {"memory_buffer_size": int(self._buffer_spin.value())}
         doc.update(self._passthrough)  # preserve stanzas the builder doesn't model
+        # Cameras go back in the shape they arrived in. A rig that spelled them
+        # as a `cameras:` list keeps that list -- including any camera added
+        # here -- rather than being restructured behind the user's back.
+        camera_list = [c for c in self._cards if c.from_camera_list]
+        if camera_list:
+            doc["cameras"] = [c.stanza() for c in camera_list]
         for card in self._cards:
+            if card.from_camera_list:
+                continue
             doc[card.name()] = card.stanza()
 
         import mesofield.hardware  # noqa: F401  (triggers built-in device registration)
