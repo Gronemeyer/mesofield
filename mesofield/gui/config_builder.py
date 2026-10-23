@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
 from PyQt6.QtCore import Qt
+from mesofield.gui.theme import NoScrollComboBox, NoScrollSpinBox
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -112,14 +113,14 @@ class SchemaForm(QWidget):
             editor.setChecked(bool(spec.default))
             return editor
         if spec.choices:
-            editor = QComboBox()
+            editor = NoScrollComboBox()
             editor.addItems([str(c) for c in spec.choices])
             idx = editor.findText(str(spec.default))
             if idx >= 0:
                 editor.setCurrentIndex(idx)
             return editor
         if spec.type is int:
-            editor = QSpinBox()
+            editor = NoScrollSpinBox()
             editor.setRange(-1_000_000, 1_000_000)
             try:
                 editor.setValue(int(spec.default or 0))
@@ -718,12 +719,12 @@ class HardwareBuilderDialog(QDialog):
 
         top = QHBoxLayout()
         top.addWidget(QLabel("memory_buffer_size:"))
-        self._buffer_spin = QSpinBox()
+        self._buffer_spin = NoScrollSpinBox()
         self._buffer_spin.setRange(1, 1_000_000)
         self._buffer_spin.setValue(1000)
         top.addWidget(self._buffer_spin)
         top.addStretch()
-        self._add_combo = QComboBox()
+        self._add_combo = NoScrollComboBox()
         self._populate_add_combo()
         self._add_combo.currentIndexChanged.connect(self._on_add)
         top.addWidget(self._add_combo)

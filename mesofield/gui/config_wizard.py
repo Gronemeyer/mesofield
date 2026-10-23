@@ -558,7 +558,7 @@ class ConfigWizard(QWidget):
         rig_lbl = QLabel("🔧")
         rig_lbl.setToolTip("Hardware rig (hardware.yaml)")
         rig_row.addWidget(rig_lbl)
-        self._rig_combo = QComboBox()
+        self._rig_combo = theme.NoScrollComboBox()
         self._rig_combo.setToolTip("Bring up a canonical rig from this machine's rig store")
         self._populate_rig_combo()
         self._rig_combo.currentIndexChanged.connect(self._on_rig_selected)

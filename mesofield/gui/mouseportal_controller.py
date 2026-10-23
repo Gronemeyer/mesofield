@@ -26,6 +26,9 @@ from PyQt6.QtWidgets import (
     QSpinBox, QDoubleSpinBox, QComboBox, QPushButton, QTableWidget,
     QTableWidgetItem, QPlainTextEdit, QMessageBox, QHeaderView, QLineEdit,
 )
+from mesofield.gui.theme import (
+    NoScrollComboBox, NoScrollDoubleSpinBox, NoScrollSpinBox,
+)
 
 from mesofield.gui.mouseportal_panel import MousePortalPanel
 from mesofield.gui.mouseportal_config import (
@@ -76,12 +79,12 @@ class MousePortalController(QWidget):
         # --- Experiment scalars -------------------------------------------
         exp_box = QGroupBox("Experiment")
         form = QFormLayout(exp_box)
-        self.num_blocks = QSpinBox(); self.num_blocks.setRange(1, 999)
-        self.trials_per_block = QSpinBox(); self.trials_per_block.setRange(1, 999)
-        self.iti_duration = QDoubleSpinBox(); self.iti_duration.setRange(0, 3600); self.iti_duration.setSuffix(" s")
-        self.trial_end = QComboBox(); self.trial_end.addItems(list(TRIAL_END_CONDITIONS))
-        self.trial_duration = QDoubleSpinBox(); self.trial_duration.setRange(0, 86400); self.trial_duration.setSuffix(" s")
-        self.trial_distance = QDoubleSpinBox(); self.trial_distance.setRange(0, 1_000_000)
+        self.num_blocks = NoScrollSpinBox(); self.num_blocks.setRange(1, 999)
+        self.trials_per_block = NoScrollSpinBox(); self.trials_per_block.setRange(1, 999)
+        self.iti_duration = NoScrollDoubleSpinBox(); self.iti_duration.setRange(0, 3600); self.iti_duration.setSuffix(" s")
+        self.trial_end = NoScrollComboBox(); self.trial_end.addItems(list(TRIAL_END_CONDITIONS))
+        self.trial_duration = NoScrollDoubleSpinBox(); self.trial_duration.setRange(0, 86400); self.trial_duration.setSuffix(" s")
+        self.trial_distance = NoScrollDoubleSpinBox(); self.trial_distance.setRange(0, 1_000_000)
         form.addRow("num_blocks", self.num_blocks)
         form.addRow("trials_per_block", self.trials_per_block)
         form.addRow("iti_duration", self.iti_duration)
@@ -194,11 +197,11 @@ class MousePortalController(QWidget):
         row = self.cond_table.rowCount()
         self.cond_table.insertRow(row)
         self.cond_table.setItem(row, 0, QTableWidgetItem(str(label)))
-        combo = QComboBox(); combo.addItems(list(KNOWN_TRANSFORMS))
+        combo = NoScrollComboBox(); combo.addItems(list(KNOWN_TRANSFORMS))
         idx = combo.findText(ttype)
         combo.setCurrentIndex(idx if idx >= 0 else 0)
         self.cond_table.setCellWidget(row, 1, combo)
-        spin = QDoubleSpinBox(); spin.setRange(-1_000_000, 1_000_000); spin.setDecimals(3)
+        spin = NoScrollDoubleSpinBox(); spin.setRange(-1_000_000, 1_000_000); spin.setDecimals(3)
         spin.setValue(float(value))
         self.cond_table.setCellWidget(row, 2, spin)
 

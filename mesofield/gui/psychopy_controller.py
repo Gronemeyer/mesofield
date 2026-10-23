@@ -31,6 +31,9 @@ from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QMessageBox, QHeaderView, QFileDialog,
     QSpinBox,
 )
+from mesofield.gui.theme import (
+    NoScrollComboBox, NoScrollDoubleSpinBox, NoScrollSpinBox,
+)
 
 from mesofield.config import parse_task_from_filename
 
@@ -194,7 +197,7 @@ class PsychoPyController(QWidget):
         file_item.setFlags(file_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
         file_item.setToolTip(self._resolve_abs(stored_filename))
         self.table.setItem(row, 1, file_item)
-        spin = QSpinBox()
+        spin = NoScrollSpinBox()
         spin.setRange(0, 1_000_000)
         spin.setToolTip("Seconds per trial; 0 = unset (uses the default num_trials)")
         try:

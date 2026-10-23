@@ -295,7 +295,7 @@ class MMDevicePickerDialog(QDialog):
         # -- installation -----------------------------------------------
         install_row = QHBoxLayout()
         install_row.addWidget(QLabel("Micro-Manager:"))
-        self._mm_combo = QComboBox()
+        self._mm_combo = theme.NoScrollComboBox()
         self._mm_combo.setEditable(True)
         installed = installed_micromanagers()
         for path in installed:
@@ -469,7 +469,7 @@ class MMDevicePickerDialog(QDialog):
     ) -> QComboBox | QLineEdit:
         value = str(existing) if existing is not None else prop.current
         if prop.allowed:
-            editor = QComboBox()
+            editor = theme.NoScrollComboBox()
             editor.addItems(prop.allowed)
             index = editor.findText(value)
             editor.setCurrentIndex(index if index >= 0 else 0)

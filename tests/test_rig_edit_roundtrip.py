@@ -305,6 +305,69 @@ def test_init_encoder_still_rejects_nonsense(monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
+# Form ergonomics
+# --------------------------------------------------------------------------- #
+
+
+def _send_wheel(widget) -> bool:
+    """Scroll down over *widget*; return whether it accepted the event."""
+    from PyQt6.QtCore import QPoint, QPointF, Qt
+    from PyQt6.QtGui import QWheelEvent
+    from PyQt6.QtWidgets import QApplication
+
+    event = QWheelEvent(
+        QPointF(5, 5), QPointF(5, 5), QPoint(0, -120), QPoint(0, -120),
+        Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier,
+        Qt.ScrollPhase.NoScrollPhase, False,
+    )
+    QApplication.sendEvent(widget, event)
+    return event.isAccepted()
+
+
+def test_scrolling_over_a_dropdown_does_not_change_it(qapp):
+    from mesofield.gui.config_builder import SchemaForm
+
+    form = SchemaForm(DEVICE_SPECS["opencv_camera"].fields)
+    combo = form._editors["cv_backend"]
+    before = combo.currentText()
+
+    accepted = _send_wheel(combo)
+    assert combo.currentText() == before
+    # Refused, not swallowed -- the enclosing scroll area still scrolls.
+    assert accepted is False
+
+
+def test_scrolling_over_a_spinbox_does_not_change_it(qapp):
+    from mesofield.gui.config_builder import SchemaForm
+
+    form = SchemaForm(DEVICE_SPECS["opencv_camera"].fields)
+    spin = form._editors["device_index"]
+    before = spin.value()
+
+    accepted = _send_wheel(spin)
+    assert spin.value() == before
+    assert accepted is False
+
+
+def test_scrolling_over_the_add_device_menu_adds_nothing(qapp):
+    """A stray wheel here used to add a device outright."""
+    dialog = HardwareBuilderDialog(None, doc=_rig_with_camera_list())
+    before = len(dialog._cards)
+
+    _send_wheel(dialog._add_combo)
+    assert dialog._add_combo.currentIndex() == 0
+    assert len(dialog._cards) == before
+
+
+def test_scrolling_over_the_buffer_size_does_not_change_it(qapp):
+    dialog = HardwareBuilderDialog(None, doc=_rig_with_camera_list())
+    before = dialog._buffer_spin.value()
+
+    _send_wheel(dialog._buffer_spin)
+    assert dialog._buffer_spin.value() == before
+
+
+# --------------------------------------------------------------------------- #
 # Exactly one primary
 # --------------------------------------------------------------------------- #
 

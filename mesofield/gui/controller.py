@@ -21,6 +21,9 @@ from PyQt6.QtWidgets import (
     QCheckBox,
 )
 from PyQt6.QtGui import QIcon
+from mesofield.gui.theme import (
+    NoScrollComboBox, NoScrollDoubleSpinBox, NoScrollSpinBox,
+)
 from qtpy.QtGui import QDesktopServices
 from qtpy.QtCore import QUrl
 
@@ -67,7 +70,7 @@ class ConfigFormWidget(QWidget):
                 # a stepper while preserving the "%02d" string format on commit.
                 # When choices are registered (playback mode lists the recorded
                 # sessions on disk) fall through to the dropdown branch below.
-                editor = QSpinBox()
+                editor = NoScrollSpinBox()
                 editor.setRange(0, 999)
                 try:
                     editor.setValue(int(value))
@@ -78,7 +81,7 @@ class ConfigFormWidget(QWidget):
                 )
             elif choices and key != "led_pattern":
                 # Key has registered choices — render a dropdown
-                editor = QComboBox()
+                editor = NoScrollComboBox()
                 editor.addItems([str(c) for c in choices])
                 current = str(value) if value is not None else ""
                 idx = editor.findText(current)
@@ -86,7 +89,7 @@ class ConfigFormWidget(QWidget):
                     editor.setCurrentIndex(idx)
                 editor.currentTextChanged.connect(lambda text, k=key: self._registry.set(k, text))
             elif type_hint is int:
-                editor = QSpinBox()
+                editor = NoScrollSpinBox()
                 editor.setRange(-1_000_000, 1_000_000)
                 editor.setValue(int(value or 0))
                 editor.valueChanged.connect(lambda val, k=key: self._registry.set(k, val))
@@ -169,7 +172,7 @@ class ConfigController(QWidget):
 
         # subject selection dropdown
         self.subject_dropdown_label = QLabel('Select Subject:')
-        self.subject_dropdown = QComboBox()
+        self.subject_dropdown = NoScrollComboBox()
         self.add_subject_button = QPushButton("+ Subject")
         self.add_subject_button.setToolTip("Add a new subject to experiment.json")
         self.add_parameter_button = QPushButton("+ Parameter")

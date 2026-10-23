@@ -22,7 +22,8 @@ from dataclasses import dataclass
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QAbstractScrollArea, QAbstractSpinBox, QApplication, QLabel, QWidget,
+    QAbstractScrollArea, QAbstractSpinBox, QApplication, QComboBox,
+    QDoubleSpinBox, QLabel, QSpinBox, QWidget,
 )
 
 
@@ -370,6 +371,39 @@ def dim_label(text: str = "", tooltip: str = "", selectable: bool = False) -> QL
     if selectable:
         label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
     return label
+
+
+# ---------------------------------------------------------------------------
+# Form widgets that ignore the scroll wheel
+# ---------------------------------------------------------------------------
+# A combo box or spin box inside a scrolling form is a trap: scrolling the page
+# with the cursor anywhere over one silently changes its value instead of
+# scrolling, and the change is easy to miss. These refuse the wheel entirely.
+#
+# `ignore()` rather than consuming the event matters -- the event then
+# propagates to the enclosing scroll area, so the page still scrolls normally
+# while the cursor passes over a control.
+
+
+class NoScrollComboBox(QComboBox):
+    """A combo box whose value the scroll wheel cannot change."""
+
+    def wheelEvent(self, event) -> None:  # noqa: N802 (Qt naming)
+        event.ignore()
+
+
+class NoScrollSpinBox(QSpinBox):
+    """A spin box whose value the scroll wheel cannot change."""
+
+    def wheelEvent(self, event) -> None:  # noqa: N802 (Qt naming)
+        event.ignore()
+
+
+class NoScrollDoubleSpinBox(QDoubleSpinBox):
+    """A float spin box whose value the scroll wheel cannot change."""
+
+    def wheelEvent(self, event) -> None:  # noqa: N802 (Qt naming)
+        event.ignore()
 
 
 def record_button_qss() -> str:
