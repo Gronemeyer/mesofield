@@ -1292,7 +1292,7 @@ class ExperimentBuilderDialog(QDialog):
         self._var_name.setPlaceholderText("variable name…")
         self._var_name.returnPressed.connect(self._add_variable)
         row.addWidget(self._var_name)
-        self._var_type = QComboBox()
+        self._var_type = NoScrollComboBox()
         self._var_type.addItems(["text", "number"])
         self._var_type.setFixedWidth(90)
         row.addWidget(self._var_type)
@@ -1322,7 +1322,7 @@ class ExperimentBuilderDialog(QDialog):
         v = QVBoxLayout(box)
         controls = QHBoxLayout()
         controls.addWidget(QLabel("Number of subjects:"))
-        self._count_spin = QSpinBox()
+        self._count_spin = NoScrollSpinBox()
         self._count_spin.setRange(1, 999)
         self._count_spin.setValue(1)
         self._count_spin.valueChanged.connect(self._on_count_changed)
@@ -1345,7 +1345,7 @@ class ExperimentBuilderDialog(QDialog):
         self._id_prefix.setPlaceholderText("e.g. STREHAB or GS (leave blank for none)")
         id_row.addWidget(self._id_prefix, 1)
         id_row.addWidget(QLabel("start #:"))
-        self._id_start = QSpinBox()
+        self._id_start = NoScrollSpinBox()
         self._id_start.setRange(0, 9999)
         self._id_start.setValue(1)
         id_row.addWidget(self._id_start)
@@ -1491,7 +1491,7 @@ class ExperimentBuilderDialog(QDialog):
                 if col == "task":
                     # Editable so a task can be typed even before any are
                     # defined in the Tasks section (which seeds the dropdown).
-                    combo = QComboBox()
+                    combo = NoScrollComboBox()
                     combo.setEditable(True)
                     combo.addItems(self._tasks)
                     combo.setCurrentText(subj.get("task", ""))
