@@ -1,0 +1,6 @@
+psychopy\_device
+================
+
+.. automodule:: mesofield.devices.psychopy_device
+   :members:
+   :show-inheritance:

@@ -1,0 +1,6 @@
+stimulus\_base
+==============
+
+.. automodule:: mesofield.devices.stimulus_base
+   :members:
+   :show-inheritance:

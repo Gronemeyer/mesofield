@@ -1,0 +1,6 @@
+nidaq\_indicator
+================
+
+.. automodule:: mesofield.gui.nidaq_indicator
+   :members:
+   :show-inheritance:

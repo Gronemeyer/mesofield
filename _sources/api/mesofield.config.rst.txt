@@ -1,0 +1,6 @@
+config
+======
+
+.. automodule:: mesofield.config
+   :members:
+   :show-inheritance:

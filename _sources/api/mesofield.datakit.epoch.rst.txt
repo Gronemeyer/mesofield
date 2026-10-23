@@ -1,0 +1,6 @@
+epoch
+=====
+
+.. automodule:: mesofield.datakit.epoch
+   :members:
+   :show-inheritance:

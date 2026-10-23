@@ -1,0 +1,6 @@
+core
+====
+
+.. automodule:: mesofield.datakit.core
+   :members:
+   :show-inheritance:

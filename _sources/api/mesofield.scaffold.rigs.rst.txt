@@ -1,0 +1,6 @@
+rigs
+====
+
+.. automodule:: mesofield.scaffold.rigs
+   :members:
+   :show-inheritance:

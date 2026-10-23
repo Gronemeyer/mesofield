@@ -1,0 +1,6 @@
+datakit
+=======
+
+.. automodule:: mesofield.cli.datakit
+   :members:
+   :show-inheritance:

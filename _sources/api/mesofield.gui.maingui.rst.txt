@@ -1,0 +1,6 @@
+maingui
+=======
+
+.. automodule:: mesofield.gui.maingui
+   :members:
+   :show-inheritance:

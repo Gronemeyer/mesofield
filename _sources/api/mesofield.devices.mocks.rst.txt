@@ -1,0 +1,6 @@
+mocks
+=====
+
+.. automodule:: mesofield.devices.mocks
+   :members:
+   :show-inheritance:

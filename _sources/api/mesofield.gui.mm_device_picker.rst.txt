@@ -1,0 +1,6 @@
+mm\_device\_picker
+==================
+
+.. automodule:: mesofield.gui.mm_device_picker
+   :members:
+   :show-inheritance:

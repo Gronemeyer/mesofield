@@ -1,0 +1,6 @@
+rig
+===
+
+.. automodule:: mesofield.cli.rig
+   :members:
+   :show-inheritance:

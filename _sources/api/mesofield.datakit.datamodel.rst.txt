@@ -1,0 +1,6 @@
+datamodel
+=========
+
+.. automodule:: mesofield.datakit.datamodel
+   :members:
+   :show-inheritance:

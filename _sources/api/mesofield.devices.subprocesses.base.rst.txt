@@ -1,0 +1,6 @@
+base
+====
+
+.. automodule:: mesofield.devices.subprocesses.base
+   :members:
+   :show-inheritance:

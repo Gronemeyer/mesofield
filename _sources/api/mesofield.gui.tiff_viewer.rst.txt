@@ -1,0 +1,6 @@
+tiff\_viewer
+============
+
+.. automodule:: mesofield.gui.tiff_viewer
+   :members:
+   :show-inheritance:

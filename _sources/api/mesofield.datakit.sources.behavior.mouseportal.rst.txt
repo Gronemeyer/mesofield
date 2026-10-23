@@ -1,0 +1,6 @@
+mouseportal
+===========
+
+.. automodule:: mesofield.datakit.sources.behavior.mouseportal
+   :members:
+   :show-inheritance:

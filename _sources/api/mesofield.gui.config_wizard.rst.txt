@@ -1,0 +1,6 @@
+config\_wizard
+==============
+
+.. automodule:: mesofield.gui.config_wizard
+   :members:
+   :show-inheritance:

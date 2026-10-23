@@ -1,0 +1,40 @@
+/* Wordmark font: Exo 2 — clean, slightly futuristic, pairs well with PyData. */
+@import url("https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700&display=swap");
+
+/* PyData renders the brand as: .navbar-brand > img.logo__image + p.title */
+.navbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-decoration: none;
+}
+
+/* Override pydata's higher-specificity rule on the logo image. */
+.bd-header .navbar-brand img.logo__image,
+.navbar-brand img.logo__image,
+.navbar-brand-box img.logo__image {
+    height: 1.4rem !important;
+    max-height: 1.4rem !important;
+    width: auto !important;
+    object-fit: contain;
+}
+
+/* Stop the README's banner image from being stretched to content width.
+   pydata applies width:100% to images by default; cap to natural size. */
+.bd-content img {
+    max-width: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+.navbar-brand p,
+.navbar-brand .title {
+    font-family: "Exo 2", system-ui, sans-serif;
+    font-weight: 500;
+    font-size: 1.5rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0;
+    line-height: 1;
+}

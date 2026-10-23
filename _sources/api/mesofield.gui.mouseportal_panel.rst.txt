@@ -1,0 +1,6 @@
+mouseportal\_panel
+==================
+
+.. automodule:: mesofield.gui.mouseportal_panel
+   :members:
+   :show-inheritance:

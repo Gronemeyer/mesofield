@@ -1,0 +1,6 @@
+register
+========
+
+.. automodule:: mesofield.datakit.sources.register
+   :members:
+   :show-inheritance:

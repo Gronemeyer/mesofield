@@ -1,0 +1,6 @@
+viewer
+======
+
+.. automodule:: mesofield.gui.viewer
+   :members:
+   :show-inheritance:

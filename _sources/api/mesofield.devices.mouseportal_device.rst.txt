@@ -1,0 +1,6 @@
+mouseportal\_device
+===================
+
+.. automodule:: mesofield.devices.mouseportal_device
+   :members:
+   :show-inheritance:

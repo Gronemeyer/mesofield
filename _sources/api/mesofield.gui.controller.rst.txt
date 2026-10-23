@@ -1,0 +1,6 @@
+controller
+==========
+
+.. automodule:: mesofield.gui.controller
+   :members:
+   :show-inheritance:

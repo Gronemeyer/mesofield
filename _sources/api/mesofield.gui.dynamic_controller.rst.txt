@@ -1,0 +1,6 @@
+dynamic\_controller
+===================
+
+.. automodule:: mesofield.gui.dynamic_controller
+   :members:
+   :show-inheritance:
