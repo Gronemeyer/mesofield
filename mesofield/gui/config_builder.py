@@ -407,7 +407,11 @@ class SchemaForm(QWidget):
             if spec.picker:
                 out[spec.key] = dict(editor._value)  # type: ignore[attr-defined]
             elif spec.is_path:
-                out[spec.key] = editor._line_edit.text().strip()  # type: ignore[attr-defined]
+                # Qt's pickers hand back native separators, so one rig could
+                # end up with both `C:/Program Files/...` and `C:\Program
+                # Files\...`. Both work; only one reads as deliberate.
+                text = editor._line_edit.text().strip()  # type: ignore[attr-defined]
+                out[spec.key] = text.replace("\\", "/")
             elif isinstance(editor, QCheckBox):
                 out[spec.key] = editor.isChecked()
             elif isinstance(editor, QComboBox):
@@ -862,12 +866,22 @@ class _DeviceCard(QFrame):
             # Same merge: an `output:` block may carry keys the form omits.
             out["output"] = {**(self._original.get("output") or {}),
                              **self._output_form.values()}
+        # A key whose value is null says nothing; it is residue from an
+        # earlier edit (`output: {bodycam: null}`) and only looks like a
+        # setting someone meant.
+        out = {k: v for k, v in out.items() if v is not None}
+        if isinstance(out.get("output"), dict):
+            out["output"] = {k: v for k, v in out["output"].items() if v is not None}
+
         if self.list_entry:
             # A `cameras:` entry names itself and dispatches on `backend:`,
             # so it carries id/name and never the catalogue's `type:`.
             out.pop("type", None)
-            out["id"] = self.name()
-            out["name"] = self.display_name()
+            # Lead with id/name the way hand-written rigs do. Merging over the
+            # loaded stanza otherwise appended them, so a camera the builder
+            # had migrated read differently from its neighbours.
+            out = {"id": self.name(), "name": self.display_name(),
+                   **{k: v for k, v in out.items() if k not in ("id", "name")}}
         return out
 
 

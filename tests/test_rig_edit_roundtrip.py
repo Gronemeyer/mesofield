@@ -141,13 +141,14 @@ def test_card_preserves_keys_the_form_does_not_model(qapp):
 
 
 def test_card_preserves_extra_output_keys(qapp):
+    """An `output:` block may carry keys the form has no control for."""
     card = _DeviceCard(DEVICE_SPECS["camera"])
     card.set_values("pupil", {
         "type": "camera", "backend": "micromanager",
         "output": {"suffix": "pupil", "file_type": "mp4",
-                   "bids_type": "func", "bodycam": None},
+                   "bids_type": "func", "compression": "zstd"},
     })
-    assert "bodycam" in card.stanza()["output"]
+    assert card.stanza()["output"]["compression"] == "zstd"
 
 
 def test_clearing_a_modelled_field_still_removes_it(qapp):
@@ -654,3 +655,48 @@ def test_colour_snap_renders_as_rgb(qapp):
 
     assert image.format().name == "Format_RGB888"
     assert image.pixelColor(0, 0).red() == 255
+
+
+# --------------------------------------------------------------------------- #
+# What a re-saved rig reads like
+# --------------------------------------------------------------------------- #
+
+
+def test_camera_entries_lead_with_id_and_name(qapp):
+    """A migrated camera otherwise appended them and read unlike its
+    neighbours, which is what made a re-saved rig look mangled."""
+    doc = {
+        "memory_buffer_size": 1000,
+        "facecam": {"type": "camera", "backend": "micromanager",
+                    "device": {"library": "TSI", "adapter": "TSICam"},
+                    "engine": "pupil"},
+    }
+    entry = _save_doc(HardwareBuilderDialog(None, doc=doc))["cameras"][0]
+    assert list(entry)[:2] == ["id", "name"]
+
+
+def test_null_valued_keys_are_dropped(qapp):
+    """`output: {bodycam: null}` is residue from an earlier edit, not a
+    setting -- preserving the unmodelled should not mean preserving noise."""
+    doc = {
+        "memory_buffer_size": 1000,
+        "cameras": [{"id": "ThorCam", "name": "pupil", "backend": "micromanager",
+                     "auto_contrast": None,
+                     "output": {"suffix": "pupil", "file_type": "mp4",
+                                "bids_type": "func", "bodycam": None}}],
+    }
+    entry = _save_doc(HardwareBuilderDialog(None, doc=doc))["cameras"][0]
+    assert "bodycam" not in entry["output"]
+    assert "auto_contrast" not in entry
+    assert entry["output"]["suffix"] == "pupil"     # real keys survive
+
+
+def test_paths_use_one_separator(qapp):
+    """Qt's pickers hand back native separators, so a rig could carry both."""
+    doc = {
+        "memory_buffer_size": 1000,
+        "cameras": [{"id": "ThorCam", "name": "pupil", "backend": "micromanager",
+                     "micromanager_path": "C:\Program Files\Micro-Manager-2.0"}],
+    }
+    entry = _save_doc(HardwareBuilderDialog(None, doc=doc))["cameras"][0]
+    assert entry["micromanager_path"] == "C:/Program Files/Micro-Manager-2.0"
