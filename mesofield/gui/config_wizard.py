@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QApplication,
     QFileDialog,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -130,7 +131,7 @@ class ConfigWizard(QWidget):
 
         json_path = getattr(cfg, "_json_file_path", "") or ""
         if json_path and os.path.isfile(json_path):
-            self._set_experiment_json(json_path, "experiment loaded")
+            self._set_experiment_json(json_path, "loaded")
             if not self._outdir_edit.text().strip():
                 self._outdir_edit.setText(os.path.dirname(json_path))
         elif getattr(cfg.hardware, "is_configured", False):
@@ -170,7 +171,7 @@ class ConfigWizard(QWidget):
     # the moment the button was relabelled.
     _BTN_HEIGHT = 28
     _BTN_COMPACT = 92
-    _BTN_SQUARE = 30
+    _BTN_SQUARE = 32
     # Width of the row labels, so button rows start on the same column as the
     # inputs above them instead of hanging off the group's left edge.
     _LABEL_COL = 52
@@ -187,7 +188,7 @@ class ConfigWizard(QWidget):
             button.setFixedWidth(self._BTN_SQUARE)
         else:
             button.setMinimumWidth(self._BTN_COMPACT)
-            button.setSizePolicy(QSizePolicy.Policy.Maximum,
+            button.setSizePolicy(QSizePolicy.Policy.Minimum,
                                  QSizePolicy.Policy.Fixed)
         if tooltip:
             button.setToolTip(tooltip)
@@ -213,7 +214,7 @@ class ConfigWizard(QWidget):
         row.setSpacing(4)
         for glyph, tip, slot in (
             ("file", "Open this file in your default editor", self._open_file),
-            ("folder", "Show this file in your file manager", self._reveal_file),
+            ("reveal", "Show this file in your file manager", self._reveal_file),
         ):
             button = self._button("", glyph, tip, square=True)
             button.clicked.connect(lambda _=False, s=slot: s(get_path()))
@@ -239,17 +240,6 @@ class ConfigWizard(QWidget):
         label.setStyleSheet(f"color: {theme.TEXT_DIM};")
         return label
 
-    @staticmethod
-    def _status_row(status: QLabel, actions: QWidget, *, indent: int = 0) -> QHBoxLayout:
-        """A status line with its file actions tucked to the right."""
-        row = QHBoxLayout()
-        row.setSpacing(8)
-        if indent:
-            row.addSpacing(indent)
-        row.addWidget(status, 1)
-        row.addWidget(actions)
-        return row
-
     def _build_ui(self) -> None:
         # Pending selections (no raw path fields in the UI — kept here and shown
         # as friendly status lines with the full path in a tooltip).
@@ -257,8 +247,8 @@ class ConfigWizard(QWidget):
         self._experiment_json: str = ""
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 14, 16, 14)
-        layout.setSpacing(12)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(10)
 
         # -- Title -----------------------------------------------------------
         title = QLabel("Configuration")
@@ -272,6 +262,7 @@ class ConfigWizard(QWidget):
         # === ① Rig (required) ==============================================
         rig_group = QGroupBox("①   Rig")
         rig_layout = QVBoxLayout(rig_group)
+        rig_layout.setContentsMargins(12, 10, 12, 10)
         rig_layout.setSpacing(6)
         rig_row = QHBoxLayout()
         rig_row.setSpacing(8)
@@ -298,53 +289,71 @@ class ConfigWizard(QWidget):
             "Browse…", "", "Use a hardware.yaml from outside the rig store")
         browse_yaml_btn.clicked.connect(self._browse_yaml)
         rig_btn_row.addWidget(browse_yaml_btn)
-        rig_btn_row.addStretch()
-        rig_layout.addLayout(rig_btn_row)
 
-        self._yaml_status = theme.dim_label("No rig selected")
+        self._yaml_status = theme.dim_label("no rig selected")
+        self._yaml_status.setWordWrap(False)
+        rig_btn_row.addWidget(self._yaml_status, 1)
         self._yaml_actions = self._file_actions(lambda: self._hardware_path)
         self._yaml_actions.setVisible(False)
-        rig_layout.addLayout(
-            self._status_row(self._yaml_status, self._yaml_actions,
-                             indent=self._LABEL_COL + self._LABEL_GAP))
+        rig_btn_row.addWidget(self._yaml_actions)
+        rig_layout.addLayout(rig_btn_row)
         layout.addWidget(rig_group)
 
         # === ② Experiment (optional) =======================================
         exp_group = QGroupBox("②   Experiment")
         exp_layout = QVBoxLayout(exp_group)
+        exp_layout.setContentsMargins(12, 10, 12, 10)
         exp_layout.setSpacing(6)
+        # Two separate things, so two labelled rows. They are only loosely
+        # coupled -- the output directory is where the wizard *looks* for a
+        # config, not where one has to live -- and the old single "Folder"
+        # row, with the config relegated to a status line, read as one.
         out_row = QHBoxLayout()
-        out_row.setSpacing(8)
-        out_row.addWidget(self._field_label("Folder"), 0, Qt.AlignmentFlag.AlignVCenter)
+        out_row.setSpacing(self._LABEL_GAP)
+        out_row.addWidget(self._field_label("Output"), 0, Qt.AlignmentFlag.AlignVCenter)
         self._outdir_edit = QLineEdit()
-        self._outdir_edit.setPlaceholderText("where data is written")
+        self._outdir_edit.setPlaceholderText("folder data is written to")
         self._outdir_edit.setText(self.procedure.config.experiment_dir)
         self._outdir_edit.setFixedHeight(self._BTN_HEIGHT)
+        self._outdir_edit.setToolTip("Where this session's data is written")
         out_row.addWidget(self._outdir_edit, 1)
         outdir_browse = self._button(
-            "", "folder", "Choose the experiment / output directory", square=True)
+            "", "folder", "Choose the output folder", square=True)
         outdir_browse.clicked.connect(self._browse_outdir)
         out_row.addWidget(outdir_browse)
         exp_layout.addLayout(out_row)
+
+        cfg_row = QHBoxLayout()
+        cfg_row.setSpacing(self._LABEL_GAP)
+        cfg_row.addWidget(self._field_label("Config"), 0, Qt.AlignmentFlag.AlignVCenter)
+        self._json_edit = QLineEdit()
+        self._json_edit.setReadOnly(True)
+        self._json_edit.setPlaceholderText("no experiment.json — hardware-only run")
+        self._json_edit.setFixedHeight(self._BTN_HEIGHT)
+        self._json_edit.setToolTip(
+            "The experiment.json to load. It does not have to sit in the "
+            "output folder — choose one from anywhere."
+        )
+        cfg_row.addWidget(self._json_edit, 1)
+        browse_json_btn = self._button(
+            "", "file", "Choose an experiment.json from anywhere on disk",
+            square=True)
+        browse_json_btn.clicked.connect(self._browse_json)
+        cfg_row.addWidget(browse_json_btn)
+        exp_layout.addLayout(cfg_row)
 
         json_btn_row = self._indented_row()
         self._create_json_btn = self._button(
             "New…", "", "Author a new experiment.json (subjects, tasks, variables)")
         self._create_json_btn.clicked.connect(self._create_experiment_json)
         json_btn_row.addWidget(self._create_json_btn)
-        browse_json_btn = self._button(
-            "Load…", "", "Load an existing experiment.json")
-        browse_json_btn.clicked.connect(self._browse_json)
-        json_btn_row.addWidget(browse_json_btn)
-        json_btn_row.addStretch()
-        exp_layout.addLayout(json_btn_row)
-
-        self._json_status = theme.dim_label("No experiment selected")
+        self._json_status = theme.dim_label("")
+        self._json_status.setWordWrap(False)
+        json_btn_row.addWidget(self._json_status, 1)
         self._json_actions = self._file_actions(lambda: self._experiment_json)
         self._json_actions.setVisible(False)
-        exp_layout.addLayout(
-            self._status_row(self._json_status, self._json_actions,
-                             indent=self._LABEL_COL + self._LABEL_GAP))
+        json_btn_row.addWidget(self._json_actions)
+        exp_layout.addLayout(json_btn_row)
         layout.addWidget(exp_group)
 
         self._outdir_edit.textChanged.connect(self._on_outdir_changed)
@@ -360,9 +369,13 @@ class ConfigWizard(QWidget):
             f"QPushButton:hover {{ background-color: {theme.PANEL_HI}; }}"
         )
         self._apply_btn.clicked.connect(self._apply)
-        layout.addWidget(self._apply_btn)
-
         layout.addStretch()
+
+        rule = QFrame()
+        rule.setFrameShape(QFrame.Shape.HLine)
+        rule.setStyleSheet(f"color: {theme.BORDER};")
+        layout.addWidget(rule)
+        layout.addWidget(self._apply_btn)
 
     # -- Recent paths persistence ---------------------------------------------
 
@@ -375,7 +388,7 @@ class ConfigWizard(QWidget):
         # Restore the experiment.json too 
         last_json = self._settings.value(self._SETTINGS_KEY_JSON, "", type=str)
         if last_json and os.path.isfile(last_json):
-            self._set_experiment_json(last_json, "experiment restored")
+            self._set_experiment_json(last_json, "restored")
             configured_dir = self._experiment_dir_from_json(last_json)
             self._outdir_edit.setText(configured_dir or os.path.dirname(last_json))
 
@@ -407,9 +420,12 @@ class ConfigWizard(QWidget):
         """Adopt *path* as the pending experiment.json and update the status line."""
         self._experiment_json = path
         self._json_actions.setVisible(bool(path))
+        self._json_edit.setText(path)
+        self._json_edit.setToolTip(path)
         self._json_status.setText(f"✔ {status}")
         self._json_status.setStyleSheet(f"color: {theme.ACCENT};")
         self._json_status.setToolTip(path)
+        self._mark_config_elsewhere()
 
     @staticmethod
     def _experiment_dir_from_json(json_path: str) -> str:
@@ -549,12 +565,29 @@ class ConfigWizard(QWidget):
         if path:
             self._outdir_edit.setText(path)
 
+    def _mark_config_elsewhere(self) -> None:
+        """Flag a config that lives outside the output folder.
+
+        This is allowed and sometimes deliberate -- one experiment definition
+        driving sessions that each write somewhere else -- but it is worth
+        saying, because the two rows otherwise look like one setting.
+        """
+        out_dir = self._outdir_edit.text().strip()
+        if not (self._experiment_json and out_dir):
+            return
+        same = os.path.abspath(os.path.dirname(self._experiment_json)) == \
+            os.path.abspath(out_dir)
+        if not same:
+            self._json_status.setText("from another folder")
+            self._json_status.setStyleSheet(f"color: {theme.WARN};")
+            self._json_status.setToolTip(self._experiment_json)
+
     def _on_outdir_changed(self, text: str) -> None:
         """Auto-detect an experiment.json in the chosen directory."""
         text = text.strip()
         candidate = os.path.join(text, "experiment.json") if text else ""
         if candidate and os.path.isfile(candidate):
-            self._set_experiment_json(candidate, "experiment.json found — will load")
+            self._set_experiment_json(candidate, "found here")
             self._create_json_btn.setText("Replace…")
             self._create_json_btn.setToolTip(
                 "Author a new experiment.json in place of the one found here")
@@ -564,12 +597,14 @@ class ConfigWizard(QWidget):
             if self._experiment_json and \
                     os.path.dirname(self._experiment_json) == os.path.abspath(text):
                 self._experiment_json = ""
+                self._json_edit.clear()
+                self._json_edit.setToolTip("")
+                self._json_actions.setVisible(False)
             if not self._experiment_json:
-                self._json_status.setText(
-                    "• no experiment.json here — create one, or run hardware-only"
-                )
+                self._json_status.setText("none here")
                 self._json_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
                 self._json_status.setToolTip("")
+            self._mark_config_elsewhere()
             self._create_json_btn.setText("New…")
             self._create_json_btn.setToolTip(
                 "Author a new experiment.json (subjects, tasks, variables)")
@@ -583,7 +618,7 @@ class ConfigWizard(QWidget):
         if dialog.exec() and dialog.json_path:
             if not self._outdir_edit.text().strip():
                 self._outdir_edit.setText(os.path.dirname(dialog.json_path))
-            self._set_experiment_json(dialog.json_path, "experiment.json created — will load")
+            self._set_experiment_json(dialog.json_path, "created")
 
     def _browse_json(self) -> None:
         """Select an experiment.json from anywhere on disk."""
@@ -595,7 +630,7 @@ class ConfigWizard(QWidget):
             return
         configured_dir = self._experiment_dir_from_json(path)
         self._outdir_edit.setText(configured_dir or os.path.dirname(path))
-        self._set_experiment_json(path, "experiment.json selected — will load")
+        self._set_experiment_json(path, "selected")
 
     def _apply(self) -> None:
         """Apply the selected configuration files to the Procedure."""

@@ -541,7 +541,7 @@ def apply_wizard_dark_fix(wizard) -> None:
 # at call time so they inherit the theme instead of fighting it.
 
 def mono_icon(kind: str, color: str = TEXT_DIM, size: int = 16) -> QIcon:
-    """A single-colour glyph: ``folder``, ``file``, ``play`` or ``dots``."""
+    """A single-colour glyph: ``folder``, ``file``, ``reveal``, ``play``, ``dots``."""
     scale = 2  # draw oversized so the glyph stays crisp on HiDPI
     pixmap = QPixmap(size * scale, size * scale)
     pixmap.fill(Qt.GlobalColor.transparent)
@@ -571,6 +571,18 @@ def mono_icon(kind: str, color: str = TEXT_DIM, size: int = 16) -> QIcon:
         painter.drawPolyline([
             QPointF(9.3 * u, 2.6 * u), QPointF(9.3 * u, 5.7 * u),
             QPointF(12.4 * u, 5.7 * u),
+        ])
+    elif kind == "reveal":
+        # "Show me where this lives" -- deliberately NOT a folder, so it never
+        # reads as a second "choose a directory" button.
+        painter.drawPolyline([
+            QPointF(8.5 * u, 3 * u), QPointF(3 * u, 3 * u),
+            QPointF(3 * u, 13 * u), QPointF(13 * u, 13 * u),
+            QPointF(13 * u, 7.5 * u),
+        ])
+        painter.drawLine(QPointF(7.5 * u, 8.5 * u), QPointF(13 * u, 3 * u))
+        painter.drawPolyline([
+            QPointF(9.5 * u, 3 * u), QPointF(13 * u, 3 * u), QPointF(13 * u, 6.5 * u),
         ])
     elif kind == "play":
         painter.setPen(Qt.PenStyle.NoPen)
