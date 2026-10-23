@@ -7,7 +7,8 @@ ways that round trip used to lose information:
   ``auto_contrast:``) was rebuilt out of existence;
 * cameras spelled as a ``cameras:`` list were invisible to the builder, so they
   could neither be edited nor counted when checking that exactly one camera is
-  primary;
+  primary -- and the builder wrote top-level ``camera:`` stanzas of its own, a
+  second shape the runtime does not treat the same way;
 * a device's ``type:`` is its DeviceRegistry key, which is not always the
   catalog key -- a treadmill written once as ``type: encoder`` stopped matching
   the catalog and dropped out of the form on the next edit.
@@ -76,11 +77,12 @@ def _save_doc(dialog: HardwareBuilderDialog) -> dict:
     """What :meth:`HardwareBuilderDialog._save` would write, minus the dialogs."""
     doc = {"memory_buffer_size": int(dialog._buffer_spin.value())}
     doc.update(dialog._passthrough)
-    cameras = [c for c in dialog._cards if c.from_camera_list]
+    cameras = [c.stanza() for c in dialog._cards if c.list_entry]
+    cameras.extend(dialog._camera_list_extras)
     if cameras:
-        doc["cameras"] = [c.stanza() for c in cameras]
+        doc["cameras"] = cameras
     for card in dialog._cards:
-        if not card.from_camera_list:
+        if not card.list_entry:
             doc[card.name()] = card.stanza()
     return doc
 
@@ -174,11 +176,14 @@ def test_unchecking_primary_removes_the_key(qapp):
 
 def test_camera_list_becomes_editable_cards(qapp):
     dialog = HardwareBuilderDialog(None, doc=_rig_with_camera_list())
-    names = [c.name() for c in dialog._cards]
 
-    assert names == ["mesoscope", "pupil", "bodycam", "encoder"]
+    assert [c.name() for c in dialog._cards] == [
+        "Dhyana", "ThorCam", "ArduCam", "encoder"]
+    assert [c.display_name() for c in dialog._cards if c.list_entry] == [
+        "mesoscope", "pupil", "bodycam"]
     assert "cameras" not in dialog._passthrough  # no longer invisible
     assert dialog._passthrough == {"blue_led_power_mw": "8.2"}
+    assert dialog._camera_list_extras == []
 
 
 def test_camera_list_survives_a_round_trip_unchanged(qapp):
@@ -189,9 +194,51 @@ def test_camera_list_survives_a_round_trip_unchanged(qapp):
     assert len(after["cameras"]) == 3
     for was, now in zip(before["cameras"], after["cameras"]):
         assert was.get("id") == now.get("id")
+        assert was.get("name") == now.get("name")
         assert was.get("properties") == now.get("properties")
         assert was.get("widgets") == now.get("widgets")
         assert was.get("output") == now.get("output")
+
+
+def test_camera_entries_carry_no_catalog_type(qapp):
+    """`cameras:` entries dispatch on `backend:`; `type:` is the catalog's."""
+    after = _save_doc(HardwareBuilderDialog(None, doc=_rig_with_camera_list()))
+    for entry in after["cameras"]:
+        assert "type" not in entry
+        assert entry["backend"] in {"micromanager", "opencv"}
+
+
+def test_top_level_camera_stanza_moves_onto_the_list(qapp):
+    """A camera an older build wrote as its own stanza settles onto the list,
+    keeping the stanza key as its id -- which is what the runtime read it as."""
+    doc = {
+        "memory_buffer_size": 1000,
+        "meso": {"type": "camera", "backend": "micromanager", "primary": True,
+                 "configuration_path": "C:/mm/mm.cfg",
+                 "output": {"suffix": "meso", "file_type": "ome.tiff",
+                            "bids_type": "func"}},
+        "wheel": {"type": "wheel", "port": "COM4", "baudrate": 115200},
+    }
+    after = _save_doc(HardwareBuilderDialog(None, doc=doc))
+
+    assert "meso" not in after              # no longer its own stanza
+    assert [c["id"] for c in after["cameras"]] == ["meso"]
+    assert after["cameras"][0]["primary"] is True
+    assert after["wheel"]["type"] == "wheel"
+
+
+def test_unmodelled_camera_backend_is_kept_verbatim(qapp):
+    """A backend with no card must not be forced into the wrong one."""
+    doc = {
+        "memory_buffer_size": 1000,
+        "cameras": [{"id": "X", "name": "x", "backend": "spinnaker"}],
+    }
+    dialog = HardwareBuilderDialog(None, doc=doc)
+
+    assert dialog._camera_list_extras == doc["cameras"]
+    assert not [c for c in dialog._cards if c.list_entry]
+    assert "spinnaker" in dialog._passthrough_label.text()
+    assert _save_doc(dialog)["cameras"] == doc["cameras"]
 
 
 def test_treadmill_stanza_survives_a_round_trip(qapp):
@@ -201,34 +248,44 @@ def test_treadmill_stanza_survives_a_round_trip(qapp):
     assert after["encoder"] == before["encoder"]
 
 
-def test_a_new_camera_joins_the_existing_list(qapp):
-    """Otherwise the rig would describe cameras two ways at once."""
+def test_a_new_camera_joins_the_list(qapp):
+    """Whatever the rig looked like, a camera is a `cameras:` entry."""
     dialog = HardwareBuilderDialog(None, doc=_rig_with_camera_list())
     card = dialog._make_card("camera")
-    card.from_camera_list = dialog._cameras_from_list
-    card.set_values("facecam", {
-        "type": "camera", "backend": "micromanager",
+    card.set_values("ThorCam2", {
+        "type": "camera", "backend": "micromanager", "name": "facecam",
         "device": {"library": "TSI", "adapter": "TSICam",
                    "pre_init": {"CameraID": "22801"}},
     })
 
     doc = _save_doc(dialog)
-    assert "facecam" not in doc                     # not a stray stanza
+    assert "ThorCam2" not in doc                    # not a stray stanza
     assert len(doc["cameras"]) == 4
+    assert doc["cameras"][-1]["id"] == "ThorCam2"
     assert doc["cameras"][-1]["name"] == "facecam"
     assert doc["cameras"][-1]["device"]["pre_init"] == {"CameraID": "22801"}
 
 
-def test_named_camera_stanza_is_not_pulled_into_the_list(qapp):
-    """A rig that already mixes both shapes keeps them as they were."""
+def test_cameras_use_the_list_even_in_a_rig_that_had_none(qapp):
+    """A fresh rig gets the same shape as a hand-written one."""
+    dialog = HardwareBuilderDialog(None, doc={"memory_buffer_size": 1000})
+
+    assert dialog._make_card("camera").list_entry is True
+    assert dialog._make_card("opencv_camera").list_entry is True
+    assert dialog._make_card("wheel").list_entry is False  # only cameras
+
+
+def test_a_rig_mixing_both_shapes_is_normalised(qapp):
+    """A rig split across both spellings ends up with one."""
     doc = _rig_with_camera_list()
     doc["facecam"] = {"type": "camera", "backend": "micromanager",
                       "output": {"suffix": "face", "file_type": "mp4",
                                  "bids_type": "beh"}}
 
     out = _save_doc(HardwareBuilderDialog(None, doc=doc))
-    assert len(out["cameras"]) == 3
-    assert out["facecam"]["type"] == "camera"
+    assert "facecam" not in out
+    assert [c["id"] for c in out["cameras"]] == [
+        "Dhyana", "ThorCam", "ArduCam", "facecam"]
 
 
 def test_every_camera_counts_towards_the_primary_check(qapp):
@@ -239,18 +296,14 @@ def test_every_camera_counts_towards_the_primary_check(qapp):
 
     dialog = HardwareBuilderDialog(None, doc=doc)
     primaries = [c.name() for c in dialog._cards if c.is_primary()]
-    assert sorted(primaries) == ["facecam", "mesoscope"]  # both now visible
+    assert sorted(primaries) == ["Dhyana", "facecam"]  # both now visible
 
 
-def test_rig_without_a_camera_list_keeps_named_stanzas(qapp):
-    doc = {
-        "memory_buffer_size": 1000,
-        "pupil": {"type": "camera", "backend": "micromanager", "primary": True,
-                  "output": {"suffix": "pupil", "file_type": "mp4", "bids_type": "func"}},
-    }
-    out = _save_doc(HardwareBuilderDialog(None, doc=doc))
-    assert "cameras" not in out
-    assert out["pupil"]["type"] == "camera"
+def test_non_cameras_keep_their_own_stanzas(qapp):
+    """Only cameras move to a list; everything else is a named stanza."""
+    out = _save_doc(HardwareBuilderDialog(None, doc=_rig_with_camera_list()))
+    assert out["encoder"]["type"] == "encoder"
+    assert "cameras" in out
 
 
 # --------------------------------------------------------------------------- #
@@ -327,23 +380,23 @@ def _send_wheel(widget) -> bool:
 def test_added_device_appears_at_the_top(qapp):
     """So it is visible without scrolling past the rig already there."""
     dialog = HardwareBuilderDialog(None, doc=_rig_with_camera_list())
-    dialog._make_card("camera", at_top=True)._name_edit.setText("facecam")
+    dialog._make_card("camera", at_top=True)._name_edit.setText("ThorCam2")
 
     layout = dialog._cards_layout
     widgets = [layout.itemAt(i).widget() for i in range(layout.count())]
     names = [w.name() for w in widgets if w is not None]
-    assert names[0] == "facecam"
+    assert names[0] == "ThorCam2"
 
 
 def test_adding_a_device_does_not_reorder_the_file(qapp):
     """Only the widget moves to the top; stanzas keep their order."""
     dialog = HardwareBuilderDialog(None, doc=_rig_with_camera_list())
     card = dialog._make_card("camera", at_top=True)
-    card.from_camera_list = True
-    card.set_values("facecam", {"type": "camera", "backend": "micromanager"})
+    card.set_values("ThorCam2", {"type": "camera", "backend": "micromanager",
+                                 "name": "facecam"})
 
-    cameras = [c["name"] for c in _save_doc(dialog)["cameras"]]
-    assert cameras == ["mesoscope", "pupil", "bodycam", "facecam"]
+    cameras = [c["id"] for c in _save_doc(dialog)["cameras"]]
+    assert cameras == ["Dhyana", "ThorCam", "ArduCam", "ThorCam2"]
 
 
 def test_scrolling_over_a_dropdown_does_not_change_it(qapp):
@@ -497,10 +550,10 @@ def test_added_camera_does_not_steal_primary_from_a_camera(qapp):
     already had one, because the cameras in a `cameras:` list were invisible
     to the check."""
     dialog = HardwareBuilderDialog(None, doc=_rig_with_camera_list())
-    assert _primaries(dialog) == ["mesoscope"]
+    assert _primaries(dialog) == ["Dhyana"]
 
     dialog._make_card("camera", at_top=True)
-    assert _primaries(dialog) == ["mesoscope"]
+    assert _primaries(dialog) == ["Dhyana"]
 
 
 def test_added_camera_takes_primary_from_a_non_camera(qapp):
@@ -527,10 +580,10 @@ def test_ticking_one_camera_unticks_the_others(qapp):
     """Primary is a choice between cameras, so the boxes behave like radios
     instead of letting two be ticked and complaining only at save time."""
     dialog = HardwareBuilderDialog(None, doc=_rig_with_camera_list())
-    pupil = next(c for c in dialog._cards if c.name() == "pupil")
+    pupil = next(c for c in dialog._cards if c.name() == "ThorCam")
 
     pupil._primary_check.setChecked(True)
-    assert _primaries(dialog) == ["pupil"]
+    assert _primaries(dialog) == ["ThorCam"]
 
 
 def test_a_file_with_two_primaries_is_reported_not_silently_fixed(qapp):
@@ -539,7 +592,7 @@ def test_a_file_with_two_primaries_is_reported_not_silently_fixed(qapp):
     doc["facecam"] = {"type": "camera", "backend": "micromanager", "primary": True}
 
     dialog = HardwareBuilderDialog(None, doc=doc)
-    assert sorted(_primaries(dialog)) == ["facecam", "mesoscope"]
+    assert sorted(_primaries(dialog)) == ["Dhyana", "facecam"]
 
 
 def test_non_camera_keeps_a_primary_flag_it_arrived_with(qapp):

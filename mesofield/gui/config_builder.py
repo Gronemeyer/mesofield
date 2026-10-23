@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
 from PyQt6.QtCore import Qt
+from mesofield.gui import theme
 from mesofield.gui.theme import NoScrollComboBox, NoScrollSpinBox
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -690,17 +691,24 @@ def spec_key_for_stanza(stanza: dict) -> Optional[str]:
     return None
 
 
-def camera_spec_key(entry: dict) -> str:
-    """Pick a camera spec for an entry in a ``cameras:`` list.
+# Backends the catalogue can actually model, by the `backend:` a camera
+# declares. Anything else -- a Spinnaker or Basler rig someone hand-wrote --
+# has no form to edit it in, so it is preserved verbatim rather than forced
+# into the wrong card and silently rewritten.
+CAMERA_BACKEND_SPECS = {"micromanager": "camera", "opencv": "opencv_camera"}
+
+
+def camera_spec_key(entry: dict) -> Optional[str]:
+    """Pick a camera spec for an entry in a ``cameras:`` list, if one fits.
 
     Those entries usually carry no ``type:`` at all -- the list position is
-    what marks them as cameras -- so the backend decides.
+    what marks them as cameras -- so the backend decides. ``None`` means the
+    catalogue cannot model this camera.
     """
     explicit = spec_key_for_stanza(entry)
     if explicit is not None:
         return explicit
-    backend = str(entry.get("backend", "")).lower()
-    return "opencv_camera" if backend == "opencv" else "camera"
+    return CAMERA_BACKEND_SPECS.get(str(entry.get("backend", "")).lower())
 
 
 class _DeviceCard(QFrame):
@@ -716,9 +724,11 @@ class _DeviceCard(QFrame):
         # and merged back in `stanza()`, so editing a device cannot silently
         # delete the parts of it the builder has no opinion about.
         self._original: dict = {}
-        # Set when this camera came out of a `cameras:` list, where the device
-        # name is a `name:` key inside the entry rather than the stanza key.
-        self.from_camera_list = False
+        # Cameras live in the rig's `cameras:` list rather than as a stanza of
+        # their own, so their card carries an `id` and a `name` instead of one
+        # stanza key. The two are not interchangeable: `id` is what MMCamera
+        # picks its MDA engine from.
+        self.list_entry = spec.type.endswith("camera")
         # Only camera-like devices get the checkbox -- choosing which camera
         # drives timing is a real decision. Everything else can still *be*
         # primary (a treadmill-only rig has to have one), it just isn't chosen
@@ -738,10 +748,24 @@ class _DeviceCard(QFrame):
         layout.addLayout(header)
 
         name_row = QHBoxLayout()
-        name_row.addWidget(QLabel("name:"))
+        name_row.addWidget(QLabel("id:" if self.list_entry else "name:"))
         self._name_edit = QLineEdit(spec.default_name)
-        self._name_edit.setToolTip("The hardware.yaml stanza key for this device")
+        self._name_edit.setToolTip(
+            "Device id. MMCamera picks its MDA engine from this, and it is the "
+            "Micro-Manager device label the `properties:` block is keyed by."
+            if self.list_entry else
+            "The hardware.yaml stanza key for this device"
+        )
         name_row.addWidget(self._name_edit)
+
+        # A camera also carries a human-facing name: the stream it writes.
+        self._display_edit = QLineEdit(spec.default_name) if self.list_entry else None
+        if self._display_edit is not None:
+            name_row.addWidget(QLabel("name:"))
+            self._display_edit.setToolTip(
+                "Name of the stream this camera records (used in filenames)")
+            name_row.addWidget(self._display_edit)
+
         self._primary_check = QCheckBox("primary")
         self._primary_check.setToolTip("The camera that drives acquisition timing (exactly one rig-wide)")
         self._primary_check.setVisible(self._supports_primary)
@@ -761,12 +785,25 @@ class _DeviceCard(QFrame):
     # -- accessors -----------------------------------------------------------
 
     def name(self) -> str:
+        """The device key: a camera's ``id``, else the stanza key."""
         return self._name_edit.text().strip()
 
+    def display_name(self) -> str:
+        """A camera's ``name`` (the stream it records); else the device key."""
+        if self._display_edit is None:
+            return self.name()
+        return self._display_edit.text().strip() or self.name()
+
     def set_values(self, name: str, stanza: dict) -> None:
-        """Populate this card from an existing ``hardware.yaml`` stanza."""
+        """Populate this card from an existing ``hardware.yaml`` stanza.
+
+        *name* is the device key -- a camera's ``id``, otherwise the stanza
+        key it was filed under.
+        """
         self._original = dict(stanza or {})
         self._name_edit.setText(str(name))
+        if self._display_edit is not None:
+            self._display_edit.setText(str(stanza.get("name") or name))
         self.set_primary(bool(stanza.get("primary", False)))
         if self._field_form is not None:
             self._field_form.set_values(stanza)
@@ -825,11 +862,12 @@ class _DeviceCard(QFrame):
             # Same merge: an `output:` block may carry keys the form omits.
             out["output"] = {**(self._original.get("output") or {}),
                              **self._output_form.values()}
-        if self.from_camera_list:
-            # Entries in a `cameras:` list name themselves; the stanza key is
-            # the list position, not a name.
-            out["name"] = self.name()
-            out.setdefault("id", self.name())
+        if self.list_entry:
+            # A `cameras:` entry names itself and dispatches on `backend:`,
+            # so it carries id/name and never the catalogue's `type:`.
+            out.pop("type", None)
+            out["id"] = self.name()
+            out["name"] = self.display_name()
         return out
 
 
@@ -856,10 +894,10 @@ class HardwareBuilderDialog(QDialog):
         # Stanzas/keys the builder doesn't model (custom devices, cameras: lists,
         # viewer_type, etc.) are preserved verbatim so editing never drops them.
         self._passthrough: dict = {}
-        # True when the loaded rig spelled its cameras as a `cameras:` list, so
-        # saving writes them back the same way instead of silently restructuring
-        # the file into one top-level stanza per camera.
-        self._cameras_from_list = False
+        # Entries of `cameras:` the catalogue cannot model (an unknown backend).
+        # Kept verbatim and written back, because a rig the builder cannot edit
+        # is still a rig it must not damage.
+        self._camera_list_extras: list = []
         # Guards for the "exactly one primary" rule. `_loading` keeps a file
         # with two primaries from being silently repaired on open -- `_save`
         # reports it instead, so the user knows their rig was wrong.
@@ -886,6 +924,12 @@ class HardwareBuilderDialog(QDialog):
         top.addWidget(self._add_combo)
         layout.addLayout(top)
 
+        # What the builder is preserving but cannot edit. Silence here used to
+        # mean a hand-written stanza looked like it had been dropped.
+        self._passthrough_label = theme.dim_label("")
+        self._passthrough_label.setVisible(False)
+        layout.addWidget(self._passthrough_label)
+
         # Scrollable device-card area
         self._cards_container = QWidget()
         self._cards_layout = QVBoxLayout(self._cards_container)
@@ -904,6 +948,7 @@ class HardwareBuilderDialog(QDialog):
 
         if doc:
             self._load_doc(doc)
+        self._refresh_passthrough_label()
 
     _CATEGORY_ORDER = ["Camera", "Encoder", "DAQ", "Stimulus", "Mock"]
 
@@ -963,17 +1008,20 @@ class HardwareBuilderDialog(QDialog):
             # excluded from the "exactly one primary" check, which is how a rig
             # could end up with two.
             if key == "cameras" and isinstance(val, list):
-                self._cameras_from_list = True
                 for entry in val:
-                    if not isinstance(entry, dict):
+                    spec_key = camera_spec_key(entry) if isinstance(entry, dict) else None
+                    if spec_key is None:
+                        self._camera_list_extras.append(entry)
                         continue
-                    card = self._make_card(camera_spec_key(entry))
-                    card.from_camera_list = True
-                    card.set_values(entry.get("name") or entry.get("id") or "camera", entry)
+                    card = self._make_card(spec_key)
+                    card.set_values(entry.get("id") or entry.get("name") or "camera", entry)
                 continue
             spec_key = spec_key_for_stanza(val) if isinstance(val, dict) else None
             if spec_key is not None:
                 card = self._make_card(spec_key)
+                # A camera written as a top-level stanza by an older build of
+                # this builder settles onto the list: its stanza key is the
+                # device id, which is what the runtime took it to be anyway.
                 card.set_values(key, val)
             else:
                 self._passthrough[key] = val  # preserve what we don't model
@@ -1014,6 +1062,22 @@ class HardwareBuilderDialog(QDialog):
                 self._make_sole_primary(card)
         return card
 
+    def _refresh_passthrough_label(self) -> None:
+        """Name whatever is being carried through without a form."""
+        kept = sorted(self._passthrough)
+        kept += [
+            str(entry.get("backend") or entry.get("id") or "camera")
+            for entry in self._camera_list_extras
+            if isinstance(entry, dict)
+        ]
+        if not kept:
+            self._passthrough_label.setVisible(False)
+            return
+        self._passthrough_label.setText(
+            "Kept as written (no form for these): " + ", ".join(kept)
+        )
+        self._passthrough_label.setVisible(True)
+
     def _on_primary_toggled(self, card: _DeviceCard, on: bool) -> None:
         """Keep `primary` to one device as the user ticks the boxes.
 
@@ -1043,13 +1107,7 @@ class HardwareBuilderDialog(QDialog):
         self._add_combo.setCurrentIndex(0)
         if not type_key:
             return
-        card = self._make_card(type_key, at_top=True)
-        # A camera added to a rig that keeps its cameras in a `cameras:` list
-        # joins that list, so the rig does not end up describing cameras two
-        # different ways at once. Stanzas loaded from the file keep the shape
-        # they already had.
-        if self._cameras_from_list and card.spec.type.endswith("camera"):
-            card.from_camera_list = True
+        self._make_card(type_key, at_top=True)
 
     def _remove_card(self, card: _DeviceCard) -> None:
         if card in self._cards:
@@ -1113,14 +1171,16 @@ class HardwareBuilderDialog(QDialog):
 
         doc: dict[str, Any] = {"memory_buffer_size": int(self._buffer_spin.value())}
         doc.update(self._passthrough)  # preserve stanzas the builder doesn't model
-        # Cameras go back in the shape they arrived in. A rig that spelled them
-        # as a `cameras:` list keeps that list -- including any camera added
-        # here -- rather than being restructured behind the user's back.
-        camera_list = [c for c in self._cards if c.from_camera_list]
-        if camera_list:
-            doc["cameras"] = [c.stanza() for c in camera_list]
+        # Cameras have one shape in hardware.yaml whoever wrote the rig: the
+        # `cameras:` list. A top-level `camera:` stanza is not equivalent at
+        # runtime -- it goes through `_init_extras`, which takes the device id
+        # from the stanza key -- so the builder never writes one.
+        cameras = [c.stanza() for c in self._cards if c.list_entry]
+        cameras.extend(self._camera_list_extras)
+        if cameras:
+            doc["cameras"] = cameras
         for card in self._cards:
-            if card.from_camera_list:
+            if card.list_entry:
                 continue
             doc[card.name()] = card.stanza()
 
