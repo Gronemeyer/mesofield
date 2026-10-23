@@ -68,6 +68,11 @@ class FieldSpec:
     help: str = ""
     file_filter: Optional[str] = None  # set -> render a "browse for file" row
     directory: bool = False            # set -> render a "browse for folder" row
+    # set -> render a summary + "Choose..." row driven by a dedicated dialog,
+    # whose value is a nested mapping rather than a scalar. The only kind today
+    # is "mm_device" (see mesofield.gui.mm_device_picker); it is a string
+    # rather than a callable so this catalog stays free of GUI imports.
+    picker: Optional[str] = None
 
     @property
     def is_path(self) -> bool:
@@ -98,6 +103,8 @@ class SchemaForm(QWidget):
             form.addRow(spec.label, editor)
 
     def _make_editor(self, spec: FieldSpec) -> QWidget:
+        if spec.picker:
+            return self._make_picker_row(spec)
         if spec.is_path:
             return self._make_file_row(spec)
         if spec.type is bool:
@@ -122,6 +129,72 @@ class SchemaForm(QWidget):
         editor = QLineEdit()
         editor.setText("" if spec.default is None else str(spec.default))
         return editor
+
+    def _make_picker_row(self, spec: FieldSpec) -> QWidget:
+        """A read-only summary plus a button that opens a dedicated dialog.
+
+        Used where the value is a nested mapping that has to be discovered from
+        the hardware rather than typed -- a Micro-Manager device, whose adapter
+        list and per-device settings are only knowable by asking the
+        installation.
+        """
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        summary = QLineEdit()
+        summary.setReadOnly(True)
+        summary.setPlaceholderText("Not set — click Choose…")
+        layout.addWidget(summary)
+        button = QPushButton("Choose…")
+        button.setFixedWidth(80)
+        layout.addWidget(button)
+
+        row._value = {}  # type: ignore[attr-defined]
+        row._line_edit = summary  # type: ignore[attr-defined]
+
+        def _describe(value: dict) -> str:
+            if not value:
+                return ""
+            head = f"{value.get('library', '?')} / {value.get('adapter', '?')}"
+            pre_init = value.get("pre_init") or {}
+            if pre_init:
+                head += " · " + ", ".join(f"{k}={v}" for k, v in pre_init.items())
+            return head
+
+        def _pick() -> None:
+            chosen = self._run_picker(spec.picker or "", row, row._value)  # type: ignore[attr-defined]
+            if chosen is None:
+                return
+            row._value = chosen  # type: ignore[attr-defined]
+            summary.setText(_describe(chosen))
+
+        button.clicked.connect(_pick)
+        row._describe = _describe  # type: ignore[attr-defined]
+        return row
+
+    def _run_picker(self, kind: str, parent: QWidget, current: dict) -> Optional[dict]:
+        """Open the dialog for *kind* and return its value, or ``None``.
+
+        The Micro-Manager picker needs the installation path, which lives in a
+        sibling field on the same form, and may well change it (the user can
+        point at a different install in the dialog). So the two are kept in
+        step here rather than inside the dialog.
+        """
+        if kind != "mm_device":
+            return None
+        from mesofield.gui.mm_device_picker import MMDevicePickerDialog
+
+        mm_editor = self._editors.get("micromanager_path")
+        mm_path = ""
+        if mm_editor is not None:
+            mm_path = mm_editor._line_edit.text().strip()  # type: ignore[attr-defined]
+
+        dialog = MMDevicePickerDialog(parent, mm_path=mm_path, device=current)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        if mm_editor is not None and dialog.mm_path() != mm_path:
+            mm_editor._line_edit.setText(dialog.mm_path())  # type: ignore[attr-defined]
+        return dialog.device_stanza()
 
     @staticmethod
     def _make_file_row(spec: FieldSpec) -> QWidget:
@@ -154,7 +227,10 @@ class SchemaForm(QWidget):
                 continue
             editor = self._editors[spec.key]
             val = values[spec.key]
-            if spec.is_path:
+            if spec.picker:
+                editor._value = dict(val) if isinstance(val, dict) else {}  # type: ignore[attr-defined]
+                editor._line_edit.setText(editor._describe(editor._value))  # type: ignore[attr-defined]
+            elif spec.is_path:
                 editor._line_edit.setText("" if val is None else str(val))  # type: ignore[attr-defined]
             elif isinstance(editor, QCheckBox):
                 editor.setChecked(bool(val))
@@ -175,7 +251,9 @@ class SchemaForm(QWidget):
         out: dict[str, Any] = {}
         for spec in self._fields:
             editor = self._editors[spec.key]
-            if spec.is_path:
+            if spec.picker:
+                out[spec.key] = dict(editor._value)  # type: ignore[attr-defined]
+            elif spec.is_path:
                 out[spec.key] = editor._line_edit.text().strip()  # type: ignore[attr-defined]
             elif isinstance(editor, QCheckBox):
                 out[spec.key] = editor.isChecked()
@@ -309,10 +387,29 @@ DEVICE_SPECS: dict[str, DeviceSpec] = {
                 help="Path to the Micro-Manager installation folder (optional)",
                 directory=True,
             ),
+            # The two routes to a camera, in order of preference. `device:`
+            # needs no .cfg at all and can tell identical cameras apart by
+            # serial number; `configuration_path:` remains for rigs whose
+            # config holds more than one device (serial ports, hubs, config
+            # groups). MMCamera rejects a stanza that sets both.
+            FieldSpec(
+                "device", "device", dict, None, picker="mm_device",
+                help="Pick the camera's device adapter directly — no .cfg "
+                     "file needed. Use this for a single camera.",
+            ),
             FieldSpec(
                 "configuration_path", "configuration_path", str, "",
-                help="Path to a MicroManager system .cfg (optional)",
+                help="Path to a MicroManager system .cfg. Only needed for rigs "
+                     "with serial ports, hubs or config groups; leave blank if "
+                     "you picked a device above.",
                 file_filter="MicroManager Config (*.cfg);;All Files (*)",
+            ),
+            FieldSpec(
+                "engine", "engine", str, "", choices=["", "pupil", "meso", "dev"],
+                help="MDA engine. Blank picks one from the camera id "
+                     "(ThorCam→pupil, Dhyana→meso, else dev), which cannot "
+                     "work when a rig has two of the same camera — set it "
+                     "explicitly in that case.",
             ),
         ],
         output=_output_fields("cam", "ome.tiff", ["ome.tiff", "mp4"], "func"),
@@ -484,7 +581,10 @@ class _DeviceCard(QFrame):
         out.update(self.spec.fixed)
         if self._field_form is not None:
             for key, val in self._field_form.values().items():
-                if val == "":  # drop empty optionals (e.g. configuration_path)
+                # Drop empty optionals: a blank configuration_path, an unset
+                # `device` picker. `0`/`False` are real values and survive,
+                # since neither equals "" nor {}.
+                if val == "" or val == {} or val is None:
                     continue
                 out[key] = val
         if self.is_primary():

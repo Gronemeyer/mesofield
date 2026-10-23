@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from contextlib import suppress
 from typing import Optional, Callable, Any, ClassVar, Dict
 from datetime import datetime
 from pathlib import Path
@@ -23,6 +24,47 @@ from mesofield.data.codecs import (
     default_cap_fourcc,
 )
 from mesofield import DeviceRegistry
+
+
+def load_camera_device(
+    core: CMMCorePlus,
+    label: str,
+    library: str,
+    adapter: str,
+    pre_init: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Build a camera on ``core`` from a device adapter, with no ``.cfg`` file.
+
+    This is the whole of what a single-camera Micro-Manager system config
+    does, which is why it is only four calls. Shared by
+    :meth:`MMCamera._load_mm_system` and the device picker's "Test" button so
+    that testing a camera in the GUI exercises the same path that the rig will
+    take at run time.
+
+    Pre-init properties have to be set in the window between ``loadDevice`` and
+    ``initializeDevice`` -- MMCore rejects them either side of it -- which is
+    why they cannot simply live in the camera's ``properties:`` block.
+    """
+    core.loadDevice(label, library, adapter)
+    for prop, value in (pre_init or {}).items():
+        core.setProperty(label, str(prop), str(value))
+    try:
+        core.initializeDevice(label)
+    except Exception as exc:
+        # MMCore's failure here is frequently just an error code -- Thorlabs'
+        # adapter answers 10014 with "(Error message unavailable)" -- and by
+        # far the most common cause is that the camera is already open: held
+        # by another camera in this same rig, by Micro-Manager, or by the
+        # vendor's own application. Say so, and show what we asked for.
+        asked = ", ".join(f"{k}={v}" for k, v in (pre_init or {}).items()) or "no settings"
+        raise RuntimeError(
+            f"Could not initialise {library}/{adapter} as '{label}' ({asked}): {exc}. "
+            "If the camera is already open elsewhere -- another camera in this "
+            "rig using the same ID, Micro-Manager, or the vendor's software -- "
+            "close it there first. Otherwise check that the ID matches a "
+            "camera that is actually plugged in."
+        ) from exc
+    core.setCameraDevice(label)
 
 
 @DeviceRegistry.register("camera")
@@ -106,14 +148,21 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
             except Exception:
                 pass
 
+    # Engines a rig may ask for by name in ``engine:``. The historical
+    # id->engine map below is kept as a fallback for configs written before
+    # the key existed.
+    _ENGINES: ClassVar[Dict[str, type]] = {
+        "pupil": PupilEngine,
+        "meso": MesoEngine,
+        "dev": DevEngine,
+    }
+
     def _setup_micromanager(self, cfg):
         core = CMMCorePlus(cfg.get("micromanager_path"))
-        cfg_path = cfg.get("configuration_path")
-        core.loadSystemConfiguration(cfg_path) if cfg_path else core.loadSystemConfiguration()
+        self._load_mm_system(core, cfg)
         self.camera_device = core.getDeviceObject(core.getCameraDevice(),
                                                   DeviceType.Camera)
-        Engine = {"ThorCam": PupilEngine,
-                  "Dhyana": MesoEngine}.get(self.id, DevEngine)
+        Engine = self._resolve_engine(cfg)
         self._engine = Engine(core, use_hardware_sequencing=True)
         # Back-reference so engines can call camera helpers (e.g. LED control).
         try:
@@ -122,6 +171,87 @@ class MMCamera(BaseCamera, DataProducer, HardwareDevice):
             pass
         core.mda.set_engine(self._engine)
         self.core = core
+
+    def _load_mm_system(self, core: CMMCorePlus, cfg: dict) -> None:
+        """Bring ``core`` up to a camera-ready state.
+
+        Two mutually exclusive routes, plus a fallback:
+
+        ``device:``
+            Build the camera straight from a device adapter. A Micro-Manager
+            system config is only a replay script of these same core calls, so
+            for a single camera with no peripherals this *is* the config --
+            which means adding e.g. a second ThorCam no longer requires
+            opening Micro-Manager to author a ``.cfg`` first.
+        ``configuration_path:``
+            Load a hand-authored ``.cfg``. Still the only route for rigs with
+            serial ports, hubs, ``Parent`` lines, labels or config groups (the
+            Dhyana + Arduino rig is the standing example).
+        neither
+            pymmcore-plus' own default, i.e. the demo config.
+        """
+        device = cfg.get("device")
+        cfg_path = cfg.get("configuration_path")
+        if device and cfg_path:
+            raise ValueError(
+                f"Camera '{self.id}' sets both `device:` and `configuration_path:`. "
+                "They are alternatives -- keep whichever one describes this rig."
+            )
+
+        if not device:
+            core.loadSystemConfiguration(cfg_path) if cfg_path else core.loadSystemConfiguration()
+            return
+
+        if not isinstance(device, dict):
+            raise ValueError(
+                f"Camera '{self.id}' `device:` must be a mapping with `library:` "
+                "and `adapter:` keys."
+            )
+        library = device.get("library")
+        adapter = device.get("adapter")
+        if not library or not adapter:
+            raise ValueError(
+                f"Camera '{self.id}' `device:` needs both `library:` and `adapter:` "
+                "(for a Thorlabs scientific camera: library: TSI, adapter: TSICam)."
+            )
+
+        # The MM device label. Defaults to the camera id so the `properties:`
+        # block -- which is keyed by device label -- lines up without the user
+        # having to know the two are the same string.
+        label = str(device.get("label") or self.id)
+        # `CameraID` is the pre-init property that matters for identical
+        # cameras: its allowed values are the hardware serial numbers, so two
+        # otherwise indistinguishable ThorCams differ here and nowhere else.
+        load_camera_device(
+            core, label, str(library), str(adapter), device.get("pre_init")
+        )
+        self.logger.info(
+            f"Loaded {library}/{adapter} as '{label}' directly (no .cfg file)"
+        )
+
+    def _resolve_engine(self, cfg: dict) -> type:
+        """Pick the MDA engine class for this camera.
+
+        An explicit ``engine:`` wins. Without it we fall back to the historical
+        exact-id map, which cannot survive a rig holding two of the same camera:
+        ids are unique per rig (``HardwareManager`` does ``setattr(self, cam.id,
+        cam)``), so a second ThorCam must be called something else and would
+        otherwise drop silently to :class:`DevEngine`.
+        """
+        name = cfg.get("engine")
+        if name:
+            try:
+                engine = self._ENGINES[str(name).lower()]
+            except KeyError:
+                raise ValueError(
+                    f"Camera '{self.id}' asks for unknown engine '{name}'. "
+                    f"Available: {', '.join(sorted(self._ENGINES))}."
+                ) from None
+        else:
+            engine = {"ThorCam": PupilEngine,
+                      "Dhyana": MesoEngine}.get(self.id, DevEngine)
+        self.logger.debug(f"Camera '{self.id}' using {engine.__name__}")
+        return engine
 
     # `set_writer` is inherited from BaseCamera: it resolves the output path
     # and picks the writer (OMEWriter for OME-TIFF, CV2Writer for MP4)
