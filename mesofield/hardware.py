@@ -534,7 +534,12 @@ class HardwareManager():
                     cpr=params.get('cpr'),
                     development_mode=params.get('development_mode'),
                 )
-            elif enc_type == 'treadmill':
+            # "encoder" is the DeviceRegistry key EncoderSerialInterface
+            # registers under, and it is what the rig builder writes into a
+            # stanza's `type:`. Under the reserved top-level `encoder:` key
+            # that used to fall through to "Unknown encoder type" and leave the
+            # rig with no encoder at all, silently.
+            elif enc_type in ('treadmill', 'encoder'):
                 try:
                     self.encoder = EncoderSerialInterface(
                         port=params.get('port'),
