@@ -1,3 +1,4 @@
+import math
 from contextlib import suppress
 from typing import Tuple, Union, Literal
 from time import perf_counter
@@ -393,7 +394,10 @@ class ImagePreview(QWidget):
 
     def _on_sequence_started(self, sequence, metadata) -> None:
         self._reset_fps_counter()
-        self._progress_total = len(list(sequence.iter_events()))
+        # Count from the axis sizes: building every MDAEvent here took 2-6 s of
+        # GUI-thread GIL per 20 min camera, starving the acquisition threads
+        # long enough to overflow a full-frame camera's circular buffer.
+        self._progress_total = math.prod(n for n in sequence.sizes.values() if n)
         self._progress_count = 0
         self.progress_bar.setRange(0, self._progress_total)
         self.progress_bar.setValue(0)

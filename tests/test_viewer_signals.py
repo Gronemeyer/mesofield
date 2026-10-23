@@ -67,6 +67,25 @@ def test_cleanup_disconnects_payload(preview_and_adapter, qtbot):
     preview.cleanup()
 
 
+def test_sequence_start_sizes_progress_without_building_every_event(preview_and_adapter):
+    """A 20 min run's sequenceStarted must not stall the GUI thread.
+
+    It used to build every MDAEvent to count them -- 2-6 s of GIL per camera,
+    which starved the pupil camera's MDA thread until its buffer overflowed.
+    """
+    import time
+
+    import useq
+
+    preview, _ = preview_and_adapter
+    sequence = useq.MDASequence(time_plan={"interval": 0, "loops": 360_000})
+
+    started = time.perf_counter()
+    preview._on_sequence_started(sequence, None)
+    assert time.perf_counter() - started < 0.5
+    assert preview._progress_total == 360_000
+
+
 def test_streaming_timer_starts_on_external_frame(preview_and_adapter, qtbot):
     preview, adapter = preview_and_adapter
 

@@ -42,6 +42,34 @@ def test_engine_selection_by_camera_id(cam_id, engine_name):
         cam.shutdown()
 
 
+@pytest.mark.parametrize(
+    "rig_mb,cam_mb,expected",
+    [
+        (1000, None, 1000),  # top-level key reaches every core
+        (1000, 600, 600),    # a camera's own key wins
+    ],
+)
+def test_memory_buffer_size_sizes_each_core(rig_mb, cam_mb, expected):
+    """`memory_buffer_size` must reach the core, not leave it at MMCore's 250 MB."""
+    import logging
+    from types import SimpleNamespace
+
+    from mesofield.hardware import HardwareManager
+
+    cam = _make_camera("ThorCam")
+    cfg = {"id": "ThorCam"}
+    if cam_mb is not None:
+        cfg["memory_buffer_size"] = cam_mb
+    manager = SimpleNamespace(
+        yaml={"memory_buffer_size": rig_mb}, logger=logging.getLogger(__name__)
+    )
+    try:
+        HardwareManager._apply_buffer_size(manager, cam, cfg)
+        assert cam.core.getCircularBufferMemoryFootprint() == expected
+    finally:
+        cam.shutdown()
+
+
 @pytest.mark.slow
 def test_mda_events_emit_device_signals():
     """A short MDA run drives signals.started / .frame / .finished."""

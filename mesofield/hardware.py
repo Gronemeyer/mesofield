@@ -511,12 +511,32 @@ class HardwareManager():
                 )
                 continue
             cam = CameraClass(cfg)
+            self._apply_buffer_size(cam, cfg)
             cam.is_primary = bool(cfg.get("primary", False))
             self._apply_output_args(cam, cfg.get('output', {}), cam.name)
             setattr(self, cam.id, cam)
             self.devices[cam.id] = cam
             cams.append(cam)
         self.cameras = tuple(cams)
+
+    def _apply_buffer_size(self, cam, cfg: dict) -> None:
+        """Size the camera's MMCore circular buffer from ``memory_buffer_size``.
+
+        Every Micro-Manager camera owns its own ``CMMCorePlus``, and each core
+        starts at MMCore's 250 MB default -- about 80 full-frame Zelux images,
+        or ~2 s of slack before a stalled consumer overflows the buffer. The
+        top-level key applies to every core; a camera may override it with
+        its own ``memory_buffer_size``.
+        """
+        core = getattr(cam, "core", None)
+        mb = cfg.get("memory_buffer_size", (self.yaml or {}).get("memory_buffer_size"))
+        if core is None or not mb:
+            return
+        core.setCircularBufferMemoryFootprint(int(mb))
+        self.logger.info(
+            f"Camera '{cam.id}' circular buffer: "
+            f"{core.getCircularBufferMemoryFootprint()} MB"
+        )
 
     def _init_encoder(self):
         params = self.yaml.get("encoder")

@@ -22,11 +22,10 @@ Three flavours are provided, all subclasses of
 import nidaqmx.system
 import useq
 import time
-from itertools import product
+from collections import abc
 
-from typing import TYPE_CHECKING, Iterable, Mapping, Sequence
+from typing import TYPE_CHECKING, Iterable, Iterator, Mapping, Sequence
 if TYPE_CHECKING:
-    from pymmcore_plus.core._sequencing import SequencedEvent
     from pymmcore_plus.mda.metadata import FrameMetaV1 # type: ignore
     from numpy.typing import NDArray
     from useq import MDAEvent
@@ -34,6 +33,7 @@ if TYPE_CHECKING:
     
 from pymmcore_plus.metadata import SummaryMetaV1
 from pymmcore_plus.mda import MDAEngine
+from pymmcore_plus.core._sequencing import SequencedEvent
 import nidaqmx
 from mesofield.utils._logger import get_logger
 
@@ -44,7 +44,46 @@ if TYPE_CHECKING:
     from mesofield.config import ExperimentConfig
     from pymmcore_plus import CMMCorePlus
 
-class MesoEngine(MDAEngine):
+class _FrameEvents(abc.Sequence):
+    """A burst's frame events, each copied from the first frame's event when read."""
+
+    def __init__(self, first: "MDAEvent", frames: int) -> None:
+        self._first, self._frames = first, frames
+
+    def __len__(self) -> int:
+        return self._frames
+
+    def __getitem__(self, i: int) -> "MDAEvent":
+        if not 0 <= i < self._frames:
+            raise IndexError(i)
+        return self._first.model_copy(update={"index": {**self._first.index, "t": i}})
+
+
+class BurstSequencing:
+    """Run a time-only, zero-interval sequence as one hardware-sequenced burst.
+
+    pymmcore-plus validates an ``MDAEvent`` for every frame before the camera
+    starts. For a 2 h, 50 fps sequence that holds the GIL for ~15 s while other
+    devices already record, and leaves 3.5 million objects for the garbage
+    collector to rescan all run. A burst makes each frame's event as it arrives.
+    """
+
+    def event_iterator(self, events: Iterable["MDAEvent"]) -> Iterator["MDAEvent"]:
+        burst = (
+            self.use_hardware_sequencing
+            and isinstance(events, useq.MDASequence)
+            and isinstance(events.time_plan, useq.TIntervalLoops)
+            and not events.time_plan.interval
+            and not any(size for axis, size in events.sizes.items() if axis != "t")
+        )
+        if not burst:
+            yield from super().event_iterator(events)
+            return
+        first = next(iter(events))
+        yield SequencedEvent.model_construct(**dict(first), events=_FrameEvents(first, events.sizes["t"]))
+
+
+class MesoEngine(BurstSequencing, MDAEngine):
     """MDA engine for the mesoscope camera.
 
     Loads an LED switching sequence onto an Arduino driver in
@@ -122,7 +161,7 @@ class MesoEngine(MDAEngine):
 
         n_channels = self._mmc.getNumberOfCameraChannels()
         count = 0
-        iter_events = product(event.events, range(n_channels))
+        iter_events = ((ev, ch) for ev in event.events for ch in range(n_channels))
         # block until the sequence is done, popping images in the meantime
         while self._mmc.isSequenceRunning():
             if remaining := self._mmc.getRemainingImageCount():
@@ -140,7 +179,8 @@ class MesoEngine(MDAEngine):
                 #time.sleep(0.001) #does not seem to optimize performance either way
 
         if self._mmc.isBufferOverflowed():  # pragma: no cover
-            self.logger.warning(f'OVERFLOW MDA: {self._mmc} with {count} events and {remaining} remaining with {self._mmc.getRemainingImageCount()} images in buffer')
+            cam_id = getattr(getattr(self, 'camera', None), 'id', self._mmc)
+            self.logger.warning(f'OVERFLOW MDA: camera {cam_id!r} after {count} images; circular buffer is {self._mmc.getCircularBufferMemoryFootprint()} MB ({self._mmc.getBufferTotalCapacity()} frames)')
             raise MemoryError("Buffer overflowed")
 
         while remaining := self._mmc.getRemainingImageCount():
@@ -164,7 +204,7 @@ class MesoEngine(MDAEngine):
             self._mmc.getPropertyObject('Arduino-Switch', 'State').stopSequence()
 
 
-class PupilEngine(MDAEngine):
+class PupilEngine(BurstSequencing, MDAEngine):
     """MDA engine for the pupil camera with optional NI-DAQ triggering.
 
     On :meth:`setup_sequence` an NI-DAQ object may be loaded from the
@@ -233,7 +273,7 @@ class PupilEngine(MDAEngine):
 
         n_channels = self._mmc.getNumberOfCameraChannels()
         count = 0
-        iter_events = product(event.events, range(n_channels))
+        iter_events = ((ev, ch) for ev in event.events for ch in range(n_channels))
 
 
         # block until the sequence is done, popping images in the meantime
@@ -256,7 +296,8 @@ class PupilEngine(MDAEngine):
                 break
 
         if self._mmc.isBufferOverflowed():  # pragma: no cover
-            self.logger.warning(f'OVERFLOW MDA: {self._mmc} with {count} events and {remaining} remaining with {self._mmc.getRemainingImageCount()} images in buffer')
+            cam_id = getattr(getattr(self, 'camera', None), 'id', self._mmc)
+            self.logger.warning(f'OVERFLOW MDA: camera {cam_id!r} after {count} images; circular buffer is {self._mmc.getCircularBufferMemoryFootprint()} MB ({self._mmc.getBufferTotalCapacity()} frames)')
             raise MemoryError("Buffer overflowed")
 
         while remaining := self._mmc.getRemainingImageCount():
@@ -290,7 +331,7 @@ class PupilEngine(MDAEngine):
 
 
 
-class DevEngine(MDAEngine):
+class DevEngine(BurstSequencing, MDAEngine):
     """Hardware-free development engine for mock cameras and CI.
 
     Streams images out of the camera's circular buffer with no Arduino
@@ -336,7 +377,7 @@ class DevEngine(MDAEngine):
 
         n_channels = self._mmc.getNumberOfCameraChannels()
         count = 0
-        iter_events = product(event.events, range(n_channels))
+        iter_events = ((ev, ch) for ev in event.events for ch in range(n_channels))
         # block until the sequence is done, popping images in the meantime
         while True:
             if self._mmc.isSequenceRunning():
@@ -357,7 +398,8 @@ class DevEngine(MDAEngine):
                 break
 
         if self._mmc.isBufferOverflowed():  # pragma: no cover
-            self.logger.warning(f'OVERFLOW MDA: {self._mmc} with {count} events and {remaining} remaining with {self._mmc.getRemainingImageCount()} images in buffer')
+            cam_id = getattr(getattr(self, 'camera', None), 'id', self._mmc)
+            self.logger.warning(f'OVERFLOW MDA: camera {cam_id!r} after {count} images; circular buffer is {self._mmc.getCircularBufferMemoryFootprint()} MB ({self._mmc.getBufferTotalCapacity()} frames)')
             raise MemoryError("Buffer overflowed")
 
         while remaining := self._mmc.getRemainingImageCount():
