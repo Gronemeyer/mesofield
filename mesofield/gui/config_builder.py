@@ -1242,6 +1242,52 @@ SESSION_FIELDS: List[FieldSpec] = [
 _FIXED_COLUMNS = ("subject", "session", "task")
 
 
+def experiment_doc_from_json(doc: dict) -> tuple:
+    """Read an ``experiment.json`` back into the builder's four inputs.
+
+    The inverse of :func:`build_experiment_doc`, and necessarily a lossy one:
+    the document records the *result* of the form, not the form. Two things
+    have to be inferred rather than read:
+
+    ``variables``
+        Any per-subject key that is not a fixed column. Its type is ``int``
+        only when every subject that sets it sets a whole number, and it
+        counts as "show in app" when ``DisplayKeys`` lists it.
+    ``tasks``
+        ``Configuration.task`` is a string for one and a list for several;
+        tasks only ever used per subject are picked up from the subjects.
+
+    Returns ``(configuration, tasks, variables, subjects)``.
+    """
+    configuration = dict(doc.get("Configuration") or {})
+    display = list(doc.get("DisplayKeys") or [])
+    raw_subjects = doc.get("Subjects") or {}
+
+    task = configuration.get("task")
+    tasks = [t for t in (task if isinstance(task, list) else [task]) if t]
+
+    subjects: List[dict] = []
+    var_values: dict[str, list] = {}
+    for sid, entry in raw_subjects.items():
+        entry = dict(entry or {})
+        row = {"subject": str(sid),
+               "session": str(entry.pop("session", "") or ""),
+               "task": str(entry.pop("task", "") or "")}
+        if row["task"] and row["task"] not in tasks:
+            tasks.append(row["task"])
+        for name, value in entry.items():
+            var_values.setdefault(name, []).append(value)
+            row[name] = value
+        subjects.append(row)
+
+    variables = []
+    for name, values in var_values.items():
+        numeric = all(isinstance(v, int) and not isinstance(v, bool) for v in values)
+        variables.append((name, int if numeric else str, name in display))
+
+    return configuration, tasks, variables, subjects
+
+
 def build_experiment_doc(
     configuration: dict,
     tasks: List[str],
@@ -1311,19 +1357,35 @@ class ExperimentBuilderDialog(QDialog):
 
     _COL_LABELS = {"subject": "Subject ID", "session": "session", "task": "task"}
 
-    def __init__(self, default_dir: str = "", parent: QWidget | None = None):
+    def __init__(self, default_dir: str = "", parent: QWidget | None = None,
+                 *, doc: Optional[dict] = None, json_path: str = ""):
+        """Author a new ``experiment.json``, or edit one.
+
+        Pass *doc* (and the *json_path* it came from) to open on an existing
+        experiment: the form fills from it and Save writes back to that file
+        instead of asking where to put a new one.
+        """
         super().__init__(parent)
-        self.setWindowTitle("New experiment.json")
+        editing = bool(doc)
+        self.setWindowTitle("Edit experiment.json" if editing else "New experiment.json")
         self.resize(640, 720)
         self._default_dir = default_dir or os.getcwd()
         self.json_path: Optional[str] = None
+        # Where Save writes when editing; blank means "ask".
+        self._target_path = json_path if editing else ""
 
-        self._tasks: List[str] = []                # defined by the user (no confusing default)
-        self._variables: List[tuple] = [           # (name, type, show_in_app) — examples to edit
-            ("sex", str, True),
-            ("age", int, True),
-        ]
-        self._subjects: List[dict] = []            # row-dicts keyed by column name
+        if editing:
+            configuration, tasks, variables, subjects = experiment_doc_from_json(doc)
+        else:
+            configuration, tasks, subjects = {}, [], []
+            variables = [          # (name, type, show_in_app) -- examples to edit
+                ("sex", str, True),
+                ("age", int, True),
+            ]
+        self._initial_configuration = configuration
+        self._tasks: List[str] = tasks
+        self._variables: List[tuple] = variables
+        self._subjects: List[dict] = subjects      # row-dicts keyed by column name
         self._rendering = False
 
         outer = QVBoxLayout(self)
@@ -1344,13 +1406,21 @@ class ExperimentBuilderDialog(QDialog):
         outer.addWidget(self._summary)
 
         buttons = QDialogButtonBox()
-        save_btn = buttons.addButton("Save experiment.json…", QDialogButtonBox.ButtonRole.AcceptRole)
+        save_btn = buttons.addButton(
+            "Save" if self._target_path else "Save experiment.json…",
+            QDialogButtonBox.ButtonRole.AcceptRole)
         buttons.addButton(QDialogButtonBox.StandardButton.Cancel)
         save_btn.clicked.connect(self._save)
         buttons.rejected.connect(self.reject)
         outer.addWidget(buttons)
 
-        self._add_subject_row()  # start with one subject
+        if self._initial_configuration:
+            self._session_form.set_values(self._initial_configuration)
+        if self._subjects:
+            self._render_table()
+            self._sync_count_spin()
+        else:
+            self._add_subject_row()  # start with one subject
         self._refresh_summary()
 
     # -- section builders ----------------------------------------------------
@@ -1648,13 +1718,15 @@ class ExperimentBuilderDialog(QDialog):
             QMessageBox.warning(self, "Duplicate IDs", "Subject IDs must be unique.")
             return
 
-        path, _ = QFileDialog.getSaveFileName(
-            self, "New experiment.json",
-            os.path.join(self._default_dir, "experiment.json"),
-            "JSON Config (*.json)",
-        )
+        path = self._target_path
         if not path:
-            return
+            path, _ = QFileDialog.getSaveFileName(
+                self, "New experiment.json",
+                os.path.join(self._default_dir, "experiment.json"),
+                "JSON Config (*.json)",
+            )
+            if not path:
+                return
         doc = build_experiment_doc(
             self._session_form.values(),
             self._tasks,

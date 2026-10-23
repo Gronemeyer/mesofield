@@ -347,6 +347,11 @@ class ConfigWizard(QWidget):
             "New…", "", "Author a new experiment.json (subjects, tasks, variables)")
         self._create_json_btn.clicked.connect(self._create_experiment_json)
         json_btn_row.addWidget(self._create_json_btn)
+        self._edit_json_btn = self._button(
+            "Edit…", "", "Edit the selected experiment.json (subjects, tasks, variables)")
+        self._edit_json_btn.clicked.connect(self._edit_experiment_json)
+        self._edit_json_btn.setEnabled(False)
+        json_btn_row.addWidget(self._edit_json_btn)
         self._json_status = theme.dim_label("")
         self._json_status.setWordWrap(False)
         json_btn_row.addWidget(self._json_status, 1)
@@ -420,6 +425,7 @@ class ConfigWizard(QWidget):
         """Adopt *path* as the pending experiment.json and update the status line."""
         self._experiment_json = path
         self._json_actions.setVisible(bool(path))
+        self._edit_json_btn.setEnabled(bool(path))
         self._json_edit.setText(path)
         self._json_edit.setToolTip(path)
         self._json_status.setText(f"✔ {status}")
@@ -600,6 +606,7 @@ class ConfigWizard(QWidget):
                 self._json_edit.clear()
                 self._json_edit.setToolTip("")
                 self._json_actions.setVisible(False)
+                self._edit_json_btn.setEnabled(False)
             if not self._experiment_json:
                 self._json_status.setText("none here")
                 self._json_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
@@ -619,6 +626,34 @@ class ConfigWizard(QWidget):
             if not self._outdir_edit.text().strip():
                 self._outdir_edit.setText(os.path.dirname(dialog.json_path))
             self._set_experiment_json(dialog.json_path, "created")
+
+    def _edit_experiment_json(self) -> None:
+        """Open the selected experiment.json in the guided builder.
+
+        Saves back over the same file, so editing a subject list does not
+        scatter near-identical experiment.json files around the drive.
+        """
+        from mesofield.gui.config_builder import ExperimentBuilderDialog
+
+        path = self._experiment_json
+        if not path or not os.path.isfile(path):
+            QMessageBox.information(
+                self, "No experiment selected",
+                "Choose an experiment.json first, or create one with New….")
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                doc = json.load(fh)
+        except Exception as exc:
+            QMessageBox.warning(self, "Could not read experiment.json", str(exc))
+            return
+
+        dialog = ExperimentBuilderDialog(
+            default_dir=os.path.dirname(path), parent=self,
+            doc=doc, json_path=path,
+        )
+        if dialog.exec() and dialog.json_path:
+            self._set_experiment_json(dialog.json_path, "edited")
 
     def _browse_json(self) -> None:
         """Select an experiment.json from anywhere on disk."""
