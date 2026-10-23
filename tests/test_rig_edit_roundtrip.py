@@ -390,6 +390,100 @@ def test_scrolling_over_the_buffer_size_does_not_change_it(qapp):
 
 
 # --------------------------------------------------------------------------- #
+# device: and configuration_path: are alternatives
+# --------------------------------------------------------------------------- #
+
+
+def _camera_form(stanza: dict):
+    card = _DeviceCard(DEVICE_SPECS["camera"])
+    card.set_values("mesoscope", {"type": "camera", "backend": "micromanager",
+                                  **stanza})
+    return card, card._field_form
+
+
+def _choose_device(form, value: dict) -> None:
+    """Stand in for the picker dialog returning *value*."""
+    editor = form._editors["device"]
+    editor._value = dict(value)
+    editor._refresh()
+    form._clear_conflicts(next(f for f in form._fields if f.key == "device"))
+
+
+def _clear_button(form):
+    """The picker row's Clear button."""
+    return form._editors["device"].layout().itemAt(2).widget()
+
+
+DEVICE = {"library": "TSI", "adapter": "TSICam"}
+
+
+def test_choosing_a_device_clears_the_cfg_path(qapp):
+    """Otherwise the rig is saved with both and the runtime refuses to load
+    it, naming the camera but not where to fix it."""
+    card, form = _camera_form({"configuration_path": "C:/MM/mm-sipefield.cfg"})
+    _choose_device(form, DEVICE)
+
+    assert form.values()["configuration_path"] == ""
+    assert "configuration_path" not in card.stanza()
+    assert card.stanza()["device"] == DEVICE
+
+
+def test_typing_a_cfg_path_clears_the_device(qapp):
+    card, form = _camera_form({})
+    _choose_device(form, DEVICE)
+    form._editors["configuration_path"]._line_edit.setText("C:/MM/rig.cfg")
+
+    assert form.values()["device"] == {}
+    assert "device" not in card.stanza()
+    assert card.stanza()["configuration_path"] == "C:/MM/rig.cfg"
+
+
+def test_clear_button_undoes_the_device_choice(qapp):
+    """The gap that made this necessary: Choose… had no counterpart, so an
+    accidental pick could not be taken back."""
+    card, form = _camera_form({})
+    _choose_device(form, DEVICE)
+    assert card.stanza()["device"] == DEVICE
+
+    _clear_button(form).click()
+    assert form.values()["device"] == {}
+    assert "device" not in card.stanza()
+
+
+def test_clear_restores_the_cfg_path_it_displaced(qapp):
+    """A real undo: picking a device by accident on a .cfg camera must not
+    cost the user the path."""
+    card, form = _camera_form({"configuration_path": "C:/MM/mm-sipefield.cfg"})
+    _choose_device(form, DEVICE)
+    _clear_button(form).click()
+
+    assert card.stanza()["configuration_path"] == "C:/MM/mm-sipefield.cfg"
+    assert "device" not in card.stanza()
+
+
+def test_clear_button_is_enabled_only_when_a_device_is_set(qapp):
+    _card, form = _camera_form({})
+    assert _clear_button(form).isEnabled() is False
+
+    _choose_device(form, DEVICE)
+    assert _clear_button(form).isEnabled() is True
+
+    _clear_button(form).click()
+    assert _clear_button(form).isEnabled() is False
+
+
+def test_loading_a_stanza_with_a_device_enables_clear(qapp):
+    _card, form = _camera_form({"device": DEVICE})
+    assert _clear_button(form).isEnabled() is True
+
+
+def test_conflicting_fields_are_declared_on_the_camera_spec():
+    fields = {f.key: f for f in DEVICE_SPECS["camera"].fields}
+    assert fields["device"].conflicts_with == ("configuration_path",)
+    assert fields["configuration_path"].conflicts_with == ("device",)
+
+
+# --------------------------------------------------------------------------- #
 # Exactly one primary
 # --------------------------------------------------------------------------- #
 

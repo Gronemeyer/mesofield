@@ -74,6 +74,11 @@ class FieldSpec:
     # is "mm_device" (see mesofield.gui.mm_device_picker); it is a string
     # rather than a callable so this catalog stays free of GUI imports.
     picker: Optional[str] = None
+    # Other field keys this one excludes. Giving this field a value blanks
+    # them, so a form cannot produce a stanza the runtime will reject --
+    # a camera may be described by a `device:` or a `configuration_path:`,
+    # never both.
+    conflicts_with: tuple = ()
 
     @property
     def is_path(self) -> bool:
@@ -94,6 +99,11 @@ class SchemaForm(QWidget):
         self._fields = fields
         self._editors: dict[str, QWidget] = {}
 
+        self._syncing = False
+        # What each field displaced when it cleared its conflicts, so undoing
+        # the field puts the other one back rather than leaving both blank.
+        self._displaced: dict[str, dict] = {}
+
         form = QFormLayout(self)
         form.setContentsMargins(0, 0, 0, 0)
         for spec in fields:
@@ -102,6 +112,19 @@ class SchemaForm(QWidget):
             if spec.help:
                 editor.setToolTip(spec.help)
             form.addRow(spec.label, editor)
+
+        # Mutually exclusive fields clear each other as they are filled in.
+        # The picker row does this from its own handler (it knows when a
+        # device was actually chosen); text fields need a signal.
+        for spec in fields:
+            if not spec.conflicts_with or spec.picker:
+                continue
+            editor = self._editors[spec.key]
+            line_edit = getattr(editor, "_line_edit", editor)
+            if hasattr(line_edit, "textChanged"):
+                line_edit.textChanged.connect(
+                    lambda text, s=spec: self._clear_conflicts(s) if text.strip() else None
+                )
 
     def _make_editor(self, spec: FieldSpec) -> QWidget:
         if spec.picker:
@@ -149,6 +172,12 @@ class SchemaForm(QWidget):
         button = QPushButton("Choose…")
         button.setFixedWidth(80)
         layout.addWidget(button)
+        clear_btn = QPushButton("Clear")
+        clear_btn.setFixedWidth(60)
+        clear_btn.setToolTip("Unset this device and go back to describing the "
+                             "camera with a Micro-Manager .cfg")
+        clear_btn.setEnabled(False)
+        layout.addWidget(clear_btn)
 
         row._value = {}  # type: ignore[attr-defined]
         row._line_edit = summary  # type: ignore[attr-defined]
@@ -162,16 +191,86 @@ class SchemaForm(QWidget):
                 head += " · " + ", ".join(f"{k}={v}" for k, v in pre_init.items())
             return head
 
+        def _refresh() -> None:
+            value = row._value  # type: ignore[attr-defined]
+            summary.setText(_describe(value))
+            clear_btn.setEnabled(bool(value))
+
         def _pick() -> None:
             chosen = self._run_picker(spec.picker or "", row, row._value)  # type: ignore[attr-defined]
             if chosen is None:
                 return
             row._value = chosen  # type: ignore[attr-defined]
-            summary.setText(_describe(chosen))
+            _refresh()
+            if chosen:
+                self._clear_conflicts(spec)
+
+        def _clear() -> None:
+            row._value = {}  # type: ignore[attr-defined]
+            _refresh()
+            self._restore_conflicts(spec)
 
         button.clicked.connect(_pick)
+        clear_btn.clicked.connect(_clear)
         row._describe = _describe  # type: ignore[attr-defined]
+        row._refresh = _refresh  # type: ignore[attr-defined]
         return row
+
+    def _clear_conflicts(self, spec: FieldSpec) -> None:
+        """Blank the fields *spec* excludes, now that it has a value.
+
+        Guarded against the obvious loop: clearing a text field fires its own
+        ``textChanged``, which would otherwise clear the field that just
+        triggered this.
+        """
+        if self._syncing:
+            return
+        self._syncing = True
+        displaced: dict = {}
+        try:
+            for key in spec.conflicts_with:
+                editor = self._editors.get(key)
+                if editor is None:
+                    continue
+                other = next((f for f in self._fields if f.key == key), None)
+                if other is not None and other.picker:
+                    displaced[key] = dict(editor._value)  # type: ignore[attr-defined]
+                    editor._value = {}  # type: ignore[attr-defined]
+                    editor._refresh()  # type: ignore[attr-defined]
+                else:
+                    line_edit = getattr(editor, "_line_edit", editor)
+                    if hasattr(line_edit, "clear"):
+                        displaced[key] = line_edit.text()
+                        line_edit.clear()
+        finally:
+            self._syncing = False
+        self._displaced[spec.key] = {k: v for k, v in displaced.items() if v}
+
+    def _restore_conflicts(self, spec: FieldSpec) -> None:
+        """Put back whatever *spec* displaced when it was set.
+
+        Makes Clear a real undo: picking a device by accident on a camera that
+        already had a ``.cfg`` does not cost the user the path they had.
+        """
+        restore = self._displaced.pop(spec.key, None)
+        if not restore:
+            return
+        self._syncing = True
+        try:
+            for key, value in restore.items():
+                editor = self._editors.get(key)
+                if editor is None:
+                    continue
+                other = next((f for f in self._fields if f.key == key), None)
+                if other is not None and other.picker:
+                    editor._value = dict(value)  # type: ignore[attr-defined]
+                    editor._refresh()  # type: ignore[attr-defined]
+                else:
+                    line_edit = getattr(editor, "_line_edit", editor)
+                    if hasattr(line_edit, "setText"):
+                        line_edit.setText(str(value))
+        finally:
+            self._syncing = False
 
     def _run_picker(self, kind: str, parent: QWidget, current: dict) -> Optional[dict]:
         """Open the dialog for *kind* and return its value, or ``None``.
@@ -230,7 +329,7 @@ class SchemaForm(QWidget):
             val = values[spec.key]
             if spec.picker:
                 editor._value = dict(val) if isinstance(val, dict) else {}  # type: ignore[attr-defined]
-                editor._line_edit.setText(editor._describe(editor._value))  # type: ignore[attr-defined]
+                editor._refresh()  # type: ignore[attr-defined]
             elif spec.is_path:
                 editor._line_edit.setText("" if val is None else str(val))  # type: ignore[attr-defined]
             elif isinstance(editor, QCheckBox):
@@ -395,14 +494,18 @@ DEVICE_SPECS: dict[str, DeviceSpec] = {
             # groups). MMCamera rejects a stanza that sets both.
             FieldSpec(
                 "device", "device", dict, None, picker="mm_device",
+                conflicts_with=("configuration_path",),
                 help="Pick the camera's device adapter directly — no .cfg "
-                     "file needed. Use this for a single camera.",
+                     "file needed. Use this for a single camera. Setting this "
+                     "clears configuration_path; use Clear to go back.",
             ),
             FieldSpec(
                 "configuration_path", "configuration_path", str, "",
-                help="Path to a MicroManager system .cfg. Only needed for rigs "
-                     "with serial ports, hubs or config groups; leave blank if "
-                     "you picked a device above.",
+                conflicts_with=("device",),
+                help="Path to a MicroManager system .cfg. Needed for rigs with "
+                     "serial ports, hubs or config groups. Setting this clears "
+                     "the device above — a camera is described one way or the "
+                     "other, never both.",
                 file_filter="MicroManager Config (*.cfg);;All Files (*)",
             ),
             FieldSpec(
@@ -923,6 +1026,23 @@ class HardwareBuilderDialog(QDialog):
                 self, "No recording device",
                 "Add at least one camera or encoder — a stimulus app alone can't "
                 "drive acquisition.",
+            )
+            return
+
+        # The form clears conflicting fields as they are filled, but a stanza
+        # can also arrive from a hand-edited file, and the runtime refuses it
+        # at load time with a dialog that does not say which rig to fix.
+        conflicted = [
+            c.name() for c in self._cards
+            if c.stanza().get("device") and c.stanza().get("configuration_path")
+        ]
+        if conflicted:
+            QMessageBox.warning(
+                self, "Camera described twice",
+                f"{', '.join(conflicted)} has both a device and a "
+                "configuration_path. A camera is described one way or the "
+                "other — use Clear on the device, or empty the "
+                "configuration_path.",
             )
             return
 
