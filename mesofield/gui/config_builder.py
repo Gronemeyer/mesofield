@@ -79,6 +79,11 @@ class FieldSpec:
     # a camera may be described by a `device:` or a `configuration_path:`,
     # never both.
     conflicts_with: tuple = ()
+    # Opens a dedicated authoring tool for this field's value and writes the
+    # result back into it. The only kind today is "mm_config", the pymmcore
+    # Hardware Configuration Wizard, which is how a multi-device Micro-Manager
+    # config gets written in the first place.
+    wizard: Optional[str] = None
 
     @property
     def is_path(self) -> bool:
@@ -296,8 +301,7 @@ class SchemaForm(QWidget):
             mm_editor._line_edit.setText(dialog.mm_path())  # type: ignore[attr-defined]
         return dialog.device_stanza()
 
-    @staticmethod
-    def _make_file_row(spec: FieldSpec) -> QWidget:
+    def _make_file_row(self, spec: FieldSpec) -> QWidget:
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -317,8 +321,56 @@ class SchemaForm(QWidget):
 
         browse.clicked.connect(_pick)
         layout.addWidget(browse)
+
+        if spec.wizard:
+            wizard_btn = QPushButton("Wizard…")
+            wizard_btn.setFixedWidth(80)
+            wizard_btn.setToolTip(
+                "Author a Micro-Manager system configuration: serial ports, "
+                "hubs, labels and config groups. For a single camera, pick a "
+                "device above instead."
+            )
+            wizard_btn.clicked.connect(
+                lambda _=False: self._run_wizard(spec, row, edit)
+            )
+            layout.addWidget(wizard_btn)
+
         row._line_edit = edit  # type: ignore[attr-defined]
         return row
+
+    def _run_wizard(self, spec: FieldSpec, parent: QWidget, edit: QLineEdit) -> None:
+        """Open pymmcore-widgets' Hardware Configuration Wizard.
+
+        This is the tool that writes a real Micro-Manager system config, and
+        the only way to describe a rig with serial ports, hubs or config
+        groups. It used to be reachable from a section in the launcher that
+        edited a *live* core; here it just produces a file, and the rig records
+        the path.
+        """
+        if spec.wizard != "mm_config":
+            return
+        try:
+            from pymmcore_widgets import ConfigWizard
+        except ImportError:
+            QMessageBox.information(
+                parent, "pymmcore-widgets not available",
+                "The Hardware Configuration Wizard needs the pymmcore-widgets "
+                "package:\n\n    pip install pymmcore-widgets",
+            )
+            return
+
+        from mesofield.gui import theme
+
+        wizard = ConfigWizard(config_file=edit.text().strip() or "",
+                              parent=parent.window())
+        wizard.setWindowModality(Qt.WindowModality.ApplicationModal)
+        theme.apply_wizard_dark_fix(wizard)
+        if not wizard.exec():
+            return
+        saved = wizard.field("dest_config") or ""
+        if saved and os.path.isfile(saved):
+            edit.setText(saved)
+            self._clear_conflicts(spec)
 
     def set_values(self, values: dict) -> None:
         """Populate editors from a mapping (the inverse of :meth:`values`)."""
@@ -502,6 +554,7 @@ DEVICE_SPECS: dict[str, DeviceSpec] = {
             FieldSpec(
                 "configuration_path", "configuration_path", str, "",
                 conflicts_with=("device",),
+                wizard="mm_config",
                 help="Path to a MicroManager system .cfg. Needed for rigs with "
                      "serial ports, hubs or config groups. Setting this clears "
                      "the device above — a camera is described one way or the "

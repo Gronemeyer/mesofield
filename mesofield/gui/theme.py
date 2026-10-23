@@ -406,6 +406,132 @@ class NoScrollDoubleSpinBox(QDoubleSpinBox):
         event.ignore()
 
 
+# ---------------------------------------------------------------------------
+# Dark-theme fix for pymmcore-widgets ConfigWizard on Windows
+# ---------------------------------------------------------------------------
+
+def _is_dark_palette(widget: QWidget) -> bool:
+    """Return True if the widget's palette suggests a dark theme."""
+    bg = widget.palette().color(widget.backgroundRole())
+    # Use perceived luminance; a value < 128 indicates a dark background
+    return bg.lightness() < 128
+
+
+_DARK_WIZARD_QSS = """
+/* ---- top-level wizard and every nested widget ---- */
+QWizard, QWizard > QWidget {
+    background-color: #2b2b2b;
+    color: #e0e0e0;
+}
+
+/* ---- wizard-page content area ---- */
+QWizardPage, QWizardPage > QWidget, QWizardPage QFrame {
+    background-color: #2b2b2b;
+    color: #e0e0e0;
+}
+
+/* ---- Modern-style header (title / subtitle banner) ---- */
+QWizard QWidget#qt_wizard_header {
+    background-color: #333333;
+    border-bottom: 1px solid #555;
+}
+
+/* Side widget (step labels panel) */
+QWizard QWidget#qt_wizard_sidebar {
+    background-color: #252525;
+}
+
+QLabel {
+    color: #e0e0e0;
+    background: transparent;
+}
+QComboBox {
+    background-color: #3c3c3c;
+    color: #e0e0e0;
+    border: 1px solid #555;
+    padding: 4px;
+}
+QComboBox QAbstractItemView {
+    background-color: #3c3c3c;
+    color: #e0e0e0;
+    selection-background-color: #0078d4;
+    selection-color: #ffffff;
+}
+QComboBox::drop-down {
+    border-left: 1px solid #555;
+}
+QLineEdit {
+    background-color: #3c3c3c;
+    color: #e0e0e0;
+    border: 1px solid #555;
+    padding: 4px;
+}
+QCheckBox {
+    color: #e0e0e0;
+}
+QCheckBox::indicator {
+    border: 1px solid #888;
+}
+QRadioButton {
+    color: #e0e0e0;
+}
+QPushButton {
+    background-color: #3c3c3c;
+    color: #e0e0e0;
+    border: 1px solid #555;
+    padding: 4px 12px;
+}
+QPushButton:hover {
+    background-color: #4a4a4a;
+}
+QPushButton:pressed {
+    background-color: #555;
+}
+QTableWidget, QTableView, QTreeView {
+    background-color: #2b2b2b;
+    alternate-background-color: #323232;
+    color: #e0e0e0;
+    gridline-color: #555;
+}
+QHeaderView::section {
+    background-color: #3c3c3c;
+    color: #e0e0e0;
+    border: 1px solid #555;
+    padding: 4px;
+}
+QTableWidget::item, QTableView::item, QTreeView::item {
+    color: #e0e0e0;
+}
+QGroupBox {
+    color: #e0e0e0;
+    border: 1px solid #555;
+    margin-top: 8px;
+    padding-top: 8px;
+}
+QGroupBox::title {
+    color: #e0e0e0;
+}
+QSplitter::handle {
+    background-color: #555;
+}
+QFormLayout {
+    background: transparent;
+}
+"""
+
+
+def apply_wizard_dark_fix(wizard) -> None:
+    """Apply a dark-theme stylesheet to the wizard if the system palette is dark.
+
+    The pymmcore-widgets ConfigWizard was designed for light themes.  On
+    Windows 11 with dark mode, Qt applies dark backgrounds to native controls
+    (QComboBox, etc.) but leaves the text colour dark ⇒ invisible text.
+    This function detects a dark palette and overlays a comprehensive QSS fix.
+    """
+    if _is_dark_palette(wizard):
+        wizard.setStyleSheet(_DARK_WIZARD_QSS)
+
+
 def record_button_qss() -> str:
     """QSS for the record button: idle gunmetal → armed bright phosphor.
 

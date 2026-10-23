@@ -11,13 +11,12 @@ Provides a unified widget for selecting and applying:
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Optional, List
+from typing import TYPE_CHECKING, Optional
 
 from PyQt6.QtCore import pyqtSignal, Qt, QSettings, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QApplication,
-    QComboBox,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
@@ -28,7 +27,6 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QMessageBox,
-    QFrame,
 )
 
 from mesofield.gui import theme
@@ -59,341 +57,6 @@ def _reveal_in_file_manager(path: str) -> None:
         subprocess.run(["explorer", f"/select,{os.path.normpath(path)}"], check=False)
     else:
         QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
-
-
-# ---------------------------------------------------------------------------
-# Dark-theme fix for pymmcore-widgets ConfigWizard on Windows
-# ---------------------------------------------------------------------------
-
-def _is_dark_palette(widget: QWidget) -> bool:
-    """Return True if the widget's palette suggests a dark theme."""
-    bg = widget.palette().color(widget.backgroundRole())
-    # Use perceived luminance; a value < 128 indicates a dark background
-    return bg.lightness() < 128
-
-
-_DARK_WIZARD_QSS = """
-/* ---- top-level wizard and every nested widget ---- */
-QWizard, QWizard > QWidget {
-    background-color: #2b2b2b;
-    color: #e0e0e0;
-}
-
-/* ---- wizard-page content area ---- */
-QWizardPage, QWizardPage > QWidget, QWizardPage QFrame {
-    background-color: #2b2b2b;
-    color: #e0e0e0;
-}
-
-/* ---- Modern-style header (title / subtitle banner) ---- */
-QWizard QWidget#qt_wizard_header {
-    background-color: #333333;
-    border-bottom: 1px solid #555;
-}
-
-/* Side widget (step labels panel) */
-QWizard QWidget#qt_wizard_sidebar {
-    background-color: #252525;
-}
-
-QLabel {
-    color: #e0e0e0;
-    background: transparent;
-}
-QComboBox {
-    background-color: #3c3c3c;
-    color: #e0e0e0;
-    border: 1px solid #555;
-    padding: 4px;
-}
-QComboBox QAbstractItemView {
-    background-color: #3c3c3c;
-    color: #e0e0e0;
-    selection-background-color: #0078d4;
-    selection-color: #ffffff;
-}
-QComboBox::drop-down {
-    border-left: 1px solid #555;
-}
-QLineEdit {
-    background-color: #3c3c3c;
-    color: #e0e0e0;
-    border: 1px solid #555;
-    padding: 4px;
-}
-QCheckBox {
-    color: #e0e0e0;
-}
-QCheckBox::indicator {
-    border: 1px solid #888;
-}
-QRadioButton {
-    color: #e0e0e0;
-}
-QPushButton {
-    background-color: #3c3c3c;
-    color: #e0e0e0;
-    border: 1px solid #555;
-    padding: 4px 12px;
-}
-QPushButton:hover {
-    background-color: #4a4a4a;
-}
-QPushButton:pressed {
-    background-color: #555;
-}
-QTableWidget, QTableView, QTreeView {
-    background-color: #2b2b2b;
-    alternate-background-color: #323232;
-    color: #e0e0e0;
-    gridline-color: #555;
-}
-QHeaderView::section {
-    background-color: #3c3c3c;
-    color: #e0e0e0;
-    border: 1px solid #555;
-    padding: 4px;
-}
-QTableWidget::item, QTableView::item, QTreeView::item {
-    color: #e0e0e0;
-}
-QGroupBox {
-    color: #e0e0e0;
-    border: 1px solid #555;
-    margin-top: 8px;
-    padding-top: 8px;
-}
-QGroupBox::title {
-    color: #e0e0e0;
-}
-QSplitter::handle {
-    background-color: #555;
-}
-QFormLayout {
-    background: transparent;
-}
-"""
-
-
-def _apply_dark_fix(wizard: QWidget) -> None:
-    """Apply a dark-theme stylesheet to the wizard if the system palette is dark.
-
-    The pymmcore-widgets ConfigWizard was designed for light themes.  On
-    Windows 11 with dark mode, Qt applies dark backgrounds to native controls
-    (QComboBox, etc.) but leaves the text colour dark ⇒ invisible text.
-    This function detects a dark palette and overlays a comprehensive QSS fix.
-    """
-    if _is_dark_palette(wizard):
-        wizard.setStyleSheet(_DARK_WIZARD_QSS)
-
-# ---------------------------------------------------------------------------
-# Per-camera config card
-# ---------------------------------------------------------------------------
-
-class _CameraConfigCard(QFrame):
-    """Displays the current .cfg status for a single MicroManager camera
-    and provides controls to load a different .cfg or launch the Hardware Wizard."""
-
-    cfgChanged = pyqtSignal()  # emitted after a new .cfg is loaded
-
-    def __init__(
-        self,
-        cam: MMCamera,
-        core: CMMCorePlus,
-        index: int,
-        parent: QWidget | None = None,
-    ):
-        super().__init__(parent)
-        self._cam = cam
-        self._core = core
-        self.setFrameShape(QFrame.Shape.StyledPanel)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 6, 8, 6)
-
-        # Header
-        header = QLabel(f"<b>Camera {index + 1}:</b> {cam.name}  "
-                        f"<span style='color:gray'>({cam.id} / {cam.backend})</span>")
-        layout.addWidget(header)
-
-        # Status label showing which .cfg is loaded
-        self._status = QLabel()
-        layout.addWidget(self._status)
-
-        # File picker + buttons row
-        action_row = QHBoxLayout()
-        self._cfg_edit = QLineEdit()
-        self._cfg_edit.setPlaceholderText("Select a .cfg file…")
-        action_row.addWidget(self._cfg_edit)
-
-        browse_btn = QPushButton("Browse…")
-        browse_btn.setFixedWidth(80)
-        browse_btn.clicked.connect(self._browse_cfg)
-        action_row.addWidget(browse_btn)
-
-        load_btn = QPushButton("Load .cfg")
-        load_btn.setFixedWidth(80)
-        load_btn.clicked.connect(self._load_cfg)
-        action_row.addWidget(load_btn)
-
-        wizard_btn = QPushButton("🔧 Hardware Wizard…")
-        wizard_btn.setToolTip(
-            "Open the pymmcore-widgets Hardware Configuration Wizard\n"
-            "to inspect/edit devices, roles, delays, and labels."
-        )
-        wizard_btn.clicked.connect(self._open_hw_wizard)
-        action_row.addWidget(wizard_btn)
-
-        layout.addLayout(action_row)
-
-        # Initialise status from the core's current state
-        self._refresh_status()
-
-    # -- public --------------------------------------------------------------
-
-    def _refresh_status(self) -> None:
-        """Update the status label from the core's loaded config file."""
-        cfg_file = self._core.systemConfigurationFile() or ""
-        yaml_cfg_path = self._cam.cfg.get("configuration_path", "")
-
-        if yaml_cfg_path:
-            self._cfg_edit.setText(yaml_cfg_path)
-
-        if cfg_file:
-            display = os.path.basename(cfg_file)
-            if "MMConfig_demo" in cfg_file or cfg_file.endswith("MMConfig_demo.cfg"):
-                self._status.setText(
-                    f"✔ Loaded: <b>{display}</b>  "
-                    "<span style='color:#888'>(pymmcore-plus demo default)</span>"
-                )
-                self._status.setStyleSheet(f"color: {theme.ACCENT};")
-            else:
-                self._status.setText(f"✔ Loaded: <b>{display}</b>")
-                self._status.setStyleSheet(f"color: {theme.ACCENT};")
-        else:
-            self._status.setText("⚠ No system configuration loaded")
-            self._status.setStyleSheet(f"color: {theme.WARN};")
-
-    # -- slots ---------------------------------------------------------------
-
-    def _browse_cfg(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select MicroManager Configuration", "",
-            "MicroManager Config (*.cfg);;All Files (*)",
-        )
-        if path:
-            self._cfg_edit.setText(path)
-            self._load_cfg()  # auto-load after selection
-
-    def _load_cfg(self) -> None:
-        path = self._cfg_edit.text().strip()
-        if not path:
-            QMessageBox.information(self, "No file", "Please select a .cfg file first.")
-            return
-        if not os.path.isfile(path):
-            QMessageBox.warning(self, "File not found", f"Cannot find:\n{path}")
-            return
-        try:
-            self._core.loadSystemConfiguration(path)
-        except Exception as exc:
-            QMessageBox.critical(
-                self, "Load Error",
-                f"Failed to load .cfg:\n\n{exc}",
-            )
-            return
-        self._refresh_status()
-        self.cfgChanged.emit()
-
-    def _open_hw_wizard(self) -> None:
-        """Launch the pymmcore-widgets Hardware Configuration Wizard as a popup dialog."""
-        try:
-            from pymmcore_widgets import ConfigWizard as _MMConfigWizard
-        except ImportError:
-            QMessageBox.information(
-                self,
-                "pymmcore-widgets not available",
-                "The Hardware Configuration Wizard requires the\n"
-                "pymmcore-widgets package.\n\n"
-                "Install it with:\n  pip install pymmcore-widgets",
-            )
-            return
-
-        current_cfg = self._cfg_edit.text().strip() or ""
-        wizard = _MMConfigWizard(
-            config_file=current_cfg,
-            core=self._core,
-            parent=self.window(),
-        )
-        wizard.setWindowModality(Qt.WindowModality.ApplicationModal)
-        _apply_dark_fix(wizard)
-        result = wizard.exec()  # blocks until closed
-
-        if result:
-            # Wizard accepted – grab the saved .cfg path and auto-load it
-            saved_path = wizard.field("dest_config") or ""
-            if saved_path and os.path.isfile(saved_path):
-                self._cfg_edit.setText(saved_path)
-                try:
-                    self._core.loadSystemConfiguration(saved_path)
-                except Exception:
-                    pass  # refresh_status will show current state
-
-        # Refresh status regardless of accept/reject (wizard may have changed state)
-        self._refresh_status()
-        if result:
-            self.cfgChanged.emit()
-
-
-# ---------------------------------------------------------------------------
-# MicroManager config section (container for camera cards)
-# ---------------------------------------------------------------------------
-
-class _MMConfigSection(QGroupBox):
-    """Holds a :class:`_CameraConfigCard` for each MicroManager camera.
-
-    Shows a placeholder when no cameras have been initialised yet.
-    """
-
-    cfgChanged = pyqtSignal()
-
-    def __init__(self, parent: QWidget | None = None):
-        super().__init__("MicroManager System Config (.cfg)", parent)
-        self._layout = QVBoxLayout(self)
-        self._cards: List[_CameraConfigCard] = []
-
-        self._placeholder = QLabel(
-            "<i>Load a hardware config first to enable MicroManager .cfg loading.</i>"
-        )
-        self._layout.addWidget(self._placeholder)
-
-    def set_cameras(self, cameras) -> None:
-        """Populate the section with one card per MicroManager camera."""
-        # Clear existing content
-        while self._layout.count():
-            item = self._layout.takeAt(0)
-            if item is not None:
-                w = item.widget()
-                if w is not None:
-                    w.deleteLater()
-        self._cards.clear()
-
-        mm_cams = [
-            cam for cam in cameras
-            if cam.backend == "micromanager" and hasattr(cam, "core")
-        ]
-
-        if not mm_cams:
-            self._placeholder = QLabel(
-                "<i>No MicroManager cameras detected in hardware config.</i>"
-            )
-            self._layout.addWidget(self._placeholder)
-            return
-
-        for i, cam in enumerate(mm_cams):
-            card = _CameraConfigCard(cam, cam.core, index=i)
-            card.cfgChanged.connect(self.cfgChanged.emit)
-            self._cards.append(card)
-            self._layout.addWidget(card)
 
 
 # ---------------------------------------------------------------------------
@@ -438,16 +101,16 @@ class ConfigWizard(QWidget):
         self._restore_recent_paths()
         self.sync_from_procedure()
 
-        # If hardware is already configured, pre-populate the MM section
-        if self.procedure.config.hardware.is_configured:
-            self._mm_section.set_cameras(self.procedure.config.hardware.cameras)
-
     # -- public API ----------------------------------------------------------
 
     def refresh_mm_section(self) -> None:
-        """Re-populate the MicroManager config section from current hardware."""
-        cameras = self.procedure.config.hardware.cameras
-        self._mm_section.set_cameras(cameras)
+        """Deprecated no-op, kept so older callers don't break.
+
+        The launcher no longer hosts a MicroManager .cfg section: a camera is
+        described by its rig file, and loading a different .cfg into a live
+        core changed the running hardware out from under the rig that
+        described it. Camera setup now lives in the rig builder.
+        """
 
     def sync_from_procedure(self) -> None:
         """Reflect the live procedure's actually-loaded config files in the UI.
@@ -502,25 +165,49 @@ class ConfigWizard(QWidget):
 
     # -- UI ------------------------------------------------------------------
 
+    # Every button on this tab is one of three widths, so the rows line up
+    # whatever text they carry: a full-width action, a compact secondary, or
+    # an icon-only square.
+    _BTN_HEIGHT = 28
+    _BTN_COMPACT = 96
+    _BTN_SQUARE = 32
+
     def _icon(self, sp: QStyle.StandardPixmap):
         """Return a themed standard icon for buttons."""
         return self.style().standardIcon(sp)
 
-    def _file_action_row(self, get_path) -> QHBoxLayout:
-        """Open / Reveal buttons acting on the path returned by *get_path*."""
-        row = QHBoxLayout()
-        open_btn = QPushButton(" Open")
-        open_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_FileIcon))
-        open_btn.setToolTip("Open this file in your default editor")
-        open_btn.clicked.connect(lambda: self._open_file(get_path()))
-        reveal_btn = QPushButton(" Reveal")
-        reveal_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_DirOpenIcon))
-        reveal_btn.setToolTip("Show this file in your file manager")
-        reveal_btn.clicked.connect(lambda: self._reveal_file(get_path()))
-        row.addWidget(open_btn)
-        row.addWidget(reveal_btn)
-        row.addStretch()
-        return row
+    def _button(self, text: str, sp, tooltip: str = "", *, width: int = 0):
+        """A button sized to this tab's shared metrics."""
+        button = QPushButton(f"  {text}" if text else "")
+        button.setIcon(self._icon(sp))
+        button.setFixedHeight(self._BTN_HEIGHT)
+        if width:
+            button.setFixedWidth(width)
+        if tooltip:
+            button.setToolTip(tooltip)
+        return button
+
+    def _file_actions(self, get_path) -> QWidget:
+        """Open / Reveal for *get_path*, as two icon buttons beside the status.
+
+        These were a full-width pair under each section -- four buttons of
+        chrome for two rarely-used actions, always visible even with nothing
+        selected to act on. The caller hides the widget until a file exists.
+        """
+        holder = QWidget()
+        row = QHBoxLayout(holder)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(4)
+        for text, pixmap, tip, slot in (
+            ("", QStyle.StandardPixmap.SP_FileIcon,
+             "Open this file in your default editor", self._open_file),
+            ("", QStyle.StandardPixmap.SP_DirOpenIcon,
+             "Show this file in your file manager", self._reveal_file),
+        ):
+            button = self._button(text, pixmap, tip, width=self._BTN_SQUARE)
+            button.clicked.connect(lambda _=False, s=slot: s(get_path()))
+            row.addWidget(button)
+        return holder
 
     def _open_file(self, path: str) -> None:
         if not path or not os.path.isfile(path):
@@ -534,6 +221,22 @@ class ConfigWizard(QWidget):
             return
         _reveal_in_file_manager(path)
 
+    def _field_label(self, text: str) -> QLabel:
+        """A fixed-width row label, so the rig and folder rows line up."""
+        label = QLabel(text)
+        label.setFixedWidth(52)
+        label.setStyleSheet(f"color: {theme.TEXT_DIM};")
+        return label
+
+    @staticmethod
+    def _status_row(status: QLabel, actions: QWidget) -> QHBoxLayout:
+        """A status line with its file actions tucked to the right."""
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        row.addWidget(status, 1)
+        row.addWidget(actions)
+        return row
+
     def _build_ui(self) -> None:
         # Pending selections (no raw path fields in the UI — kept here and shown
         # as friendly status lines with the full path in a tooltip).
@@ -541,89 +244,102 @@ class ConfigWizard(QWidget):
         self._experiment_json: str = ""
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(10)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(12)
 
         # -- Title -----------------------------------------------------------
-        title = QLabel("<h3>⚙ &nbsp;Configuration Wizard</h3>")
+        title = QLabel("Configuration")
+        title.setStyleSheet(
+            f"font-size: 15px; font-weight: 600; color: {theme.TEXT};"
+        )
         layout.addWidget(title)
-        subtitle = QLabel("Pick a rig to launch. An experiment is optional.")
-        subtitle.setStyleSheet(f"color: {theme.TEXT_DIM};")
+        subtitle = theme.dim_label("Pick a rig to launch. An experiment is optional.")
         layout.addWidget(subtitle)
 
         # === ① Rig (required) ==============================================
-        rig_group = QGroupBox("①   Rig  ·  required")
+        rig_group = QGroupBox("①   Rig")
         rig_layout = QVBoxLayout(rig_group)
         rig_layout.setSpacing(6)
         rig_row = QHBoxLayout()
-        rig_lbl = QLabel("🔧")
-        rig_lbl.setToolTip("Hardware rig (hardware.yaml)")
-        rig_row.addWidget(rig_lbl)
+        rig_row.setSpacing(8)
+        rig_row.addWidget(self._field_label("Rig"))
         self._rig_combo = theme.NoScrollComboBox()
+        self._rig_combo.setFixedHeight(self._BTN_HEIGHT)
         self._rig_combo.setToolTip("Bring up a canonical rig from this machine's rig store")
         self._populate_rig_combo()
         self._rig_combo.currentIndexChanged.connect(self._on_rig_selected)
         rig_row.addWidget(self._rig_combo, 1)
         rig_layout.addLayout(rig_row)
 
+        # Most-used action first, then the two authoring ones.
         rig_btn_row = QHBoxLayout()
-        browse_yaml_btn = QPushButton(" Browse hardware.yaml…")
-        browse_yaml_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_DialogOpenButton))
-        browse_yaml_btn.clicked.connect(self._browse_yaml)
-        rig_btn_row.addWidget(browse_yaml_btn)
-        new_rig_btn = QPushButton(" New rig…")
-        new_rig_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_FileDialogNewFolder))
-        new_rig_btn.setToolTip("Build a new hardware.yaml from a guided device list")
+        rig_btn_row.setSpacing(6)
+        new_rig_btn = self._button(
+            "New…", QStyle.StandardPixmap.SP_FileDialogNewFolder,
+            "Build a new hardware.yaml from a guided device list",
+            width=self._BTN_COMPACT)
         new_rig_btn.clicked.connect(self._new_rig)
         rig_btn_row.addWidget(new_rig_btn)
-        edit_rig_btn = QPushButton(" Edit rig…")
-        edit_rig_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_FileDialogDetailedView))
-        edit_rig_btn.setToolTip("Edit the selected rig's devices (e.g. fix a camera backend)")
+        edit_rig_btn = self._button(
+            "Edit…", QStyle.StandardPixmap.SP_FileDialogDetailedView,
+            "Edit the selected rig's devices",
+            width=self._BTN_COMPACT)
         edit_rig_btn.clicked.connect(self._edit_rig)
         rig_btn_row.addWidget(edit_rig_btn)
+        browse_yaml_btn = self._button(
+            "Browse…", QStyle.StandardPixmap.SP_DialogOpenButton,
+            "Use a hardware.yaml from outside the rig store",
+            width=self._BTN_COMPACT)
+        browse_yaml_btn.clicked.connect(self._browse_yaml)
+        rig_btn_row.addWidget(browse_yaml_btn)
+        rig_btn_row.addStretch()
         rig_layout.addLayout(rig_btn_row)
 
-        self._yaml_status = QLabel("• no rig selected")
-        self._yaml_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
-        rig_layout.addWidget(self._yaml_status)
-        rig_layout.addLayout(self._file_action_row(lambda: self._hardware_path))
+        self._yaml_status = theme.dim_label("No rig selected")
+        self._yaml_actions = self._file_actions(lambda: self._hardware_path)
+        self._yaml_actions.setVisible(False)
+        rig_layout.addLayout(self._status_row(self._yaml_status, self._yaml_actions))
         layout.addWidget(rig_group)
 
         # === ② Experiment (optional) =======================================
-        exp_group = QGroupBox("②   Experiment  ·  optional")
+        exp_group = QGroupBox("②   Experiment")
         exp_layout = QVBoxLayout(exp_group)
         exp_layout.setSpacing(6)
         out_row = QHBoxLayout()
-        dir_lbl = QLabel("📁")
-        dir_lbl.setToolTip("Experiment / output directory (where data is written)")
-        out_row.addWidget(dir_lbl)
+        out_row.setSpacing(8)
+        out_row.addWidget(self._field_label("Folder"))
         self._outdir_edit = QLineEdit()
-        self._outdir_edit.setPlaceholderText("experiment / output directory")
+        self._outdir_edit.setPlaceholderText("where data is written")
         self._outdir_edit.setText(self.procedure.config.experiment_dir)
+        self._outdir_edit.setFixedHeight(self._BTN_HEIGHT)
         out_row.addWidget(self._outdir_edit, 1)
-        outdir_browse = QPushButton()
-        outdir_browse.setIcon(self._icon(QStyle.StandardPixmap.SP_DirOpenIcon))
-        outdir_browse.setToolTip("Choose the experiment / output directory")
-        outdir_browse.setFixedWidth(40)
+        outdir_browse = self._button(
+            "", QStyle.StandardPixmap.SP_DirOpenIcon,
+            "Choose the experiment / output directory", width=self._BTN_SQUARE)
         outdir_browse.clicked.connect(self._browse_outdir)
         out_row.addWidget(outdir_browse)
         exp_layout.addLayout(out_row)
 
-        self._json_status = QLabel("")
-        self._json_status.setStyleSheet(f"color: {theme.TEXT_DIM};")
-        exp_layout.addWidget(self._json_status)
-        exp_layout.addLayout(self._file_action_row(lambda: self._experiment_json))
-
         json_btn_row = QHBoxLayout()
-        self._create_json_btn = QPushButton(" Create experiment.json…")
-        self._create_json_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_FileDialogNewFolder))
-        self._create_json_btn.setToolTip("Author a new experiment.json (subjects, tasks, variables)")
+        json_btn_row.setSpacing(6)
+        self._create_json_btn = self._button(
+            "New…", QStyle.StandardPixmap.SP_FileDialogNewFolder,
+            "Author a new experiment.json (subjects, tasks, variables)",
+            width=self._BTN_COMPACT)
         self._create_json_btn.clicked.connect(self._create_experiment_json)
         json_btn_row.addWidget(self._create_json_btn)
-        browse_json_btn = QPushButton(" Load .json…")
-        browse_json_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_DialogOpenButton))
+        browse_json_btn = self._button(
+            "Load…", QStyle.StandardPixmap.SP_DialogOpenButton,
+            "Load an existing experiment.json", width=self._BTN_COMPACT)
         browse_json_btn.clicked.connect(self._browse_json)
         json_btn_row.addWidget(browse_json_btn)
+        json_btn_row.addStretch()
         exp_layout.addLayout(json_btn_row)
+
+        self._json_status = theme.dim_label("No experiment selected")
+        self._json_actions = self._file_actions(lambda: self._experiment_json)
+        self._json_actions.setVisible(False)
+        exp_layout.addLayout(self._status_row(self._json_status, self._json_actions))
         layout.addWidget(exp_group)
 
         self._outdir_edit.textChanged.connect(self._on_outdir_changed)
@@ -632,6 +348,7 @@ class ConfigWizard(QWidget):
         # === Apply (primary CTA) ===========================================
         self._apply_btn = QPushButton("  Apply Configuration")
         self._apply_btn.setIcon(self._icon(QStyle.StandardPixmap.SP_MediaPlay))
+        self._apply_btn.setFixedHeight(36)
         self._apply_btn.setStyleSheet(
             f"QPushButton {{ padding: 10px 16px; font-weight: bold; "
             f"border: 1px solid {theme.ACCENT}; color: {theme.ACCENT}; }}"
@@ -640,12 +357,7 @@ class ConfigWizard(QWidget):
         self._apply_btn.clicked.connect(self._apply)
         layout.addWidget(self._apply_btn)
 
-        # -- Spacer ----------------------------------------------------------
         layout.addStretch()
-
-        # === MicroManager .cfg (secondary; populated once MM cameras exist) =
-        self._mm_section = _MMConfigSection()
-        layout.addWidget(self._mm_section)
 
     # -- Recent paths persistence ---------------------------------------------
 
@@ -679,6 +391,8 @@ class ConfigWizard(QWidget):
     def _set_hardware_path(self, path: str, status: str = "") -> None:
         """Adopt *path* as the pending hardware.yaml and update the status line."""
         self._hardware_path = path
+        # Open / Reveal only make sense once there is a file to act on.
+        self._yaml_actions.setVisible(bool(path))
         if status:
             self._yaml_status.setText(f"✔ {status}")
             self._yaml_status.setStyleSheet(f"color: {theme.ACCENT};")
@@ -687,6 +401,7 @@ class ConfigWizard(QWidget):
     def _set_experiment_json(self, path: str, status: str) -> None:
         """Adopt *path* as the pending experiment.json and update the status line."""
         self._experiment_json = path
+        self._json_actions.setVisible(bool(path))
         self._json_status.setText(f"✔ {status}")
         self._json_status.setStyleSheet(f"color: {theme.ACCENT};")
         self._json_status.setToolTip(path)
@@ -930,10 +645,6 @@ class ConfigWizard(QWidget):
 
         # Persist the selected paths for next launch
         self._save_recent_paths()
-
-        # Refresh the MM config section now that cameras are available
-        cameras = self.procedure.config.hardware.cameras
-        self._mm_section.set_cameras(cameras)
 
         self.configApplied.emit()
 
