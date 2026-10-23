@@ -826,10 +826,19 @@ class HardwareBuilderDialog(QDialog):
         if cameras and not any(c.is_primary() for c in cameras):
             cameras[0].set_primary(True)
 
-    def _make_card(self, type_key: str) -> _DeviceCard:
+    def _make_card(self, type_key: str, *, at_top: bool = False) -> _DeviceCard:
+        """Add a card for *type_key*.
+
+        ``at_top`` puts the widget at the head of the scroll area so a device
+        the user just added is visible without scrolling past the rig they
+        already have. Only the *widget* moves: ``self._cards`` stays in
+        creation order, which is the order stanzas are written, so adding a
+        device never reshuffles the devices already in the file.
+        """
         card = _DeviceCard(DEVICE_SPECS[type_key])
         card.remove_btn.clicked.connect(lambda _=False, c=card: self._remove_card(c))
-        self._cards_layout.insertWidget(self._cards_layout.count() - 1, card)
+        # The layout's last item is a stretch that keeps cards packed upwards.
+        self._cards_layout.insertWidget(0 if at_top else self._cards_layout.count() - 1, card)
         self._cards.append(card)
         if card.supports_primary:
             card.primary_toggled.connect(
@@ -878,7 +887,7 @@ class HardwareBuilderDialog(QDialog):
         self._add_combo.setCurrentIndex(0)
         if not type_key:
             return
-        card = self._make_card(type_key)
+        card = self._make_card(type_key, at_top=True)
         # A camera added to a rig that keeps its cameras in a `cameras:` list
         # joins that list, so the rig does not end up describing cameras two
         # different ways at once. Stanzas loaded from the file keep the shape

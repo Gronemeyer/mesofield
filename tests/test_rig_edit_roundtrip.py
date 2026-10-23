@@ -324,6 +324,28 @@ def _send_wheel(widget) -> bool:
     return event.isAccepted()
 
 
+def test_added_device_appears_at_the_top(qapp):
+    """So it is visible without scrolling past the rig already there."""
+    dialog = HardwareBuilderDialog(None, doc=_rig_with_camera_list())
+    dialog._make_card("camera", at_top=True)._name_edit.setText("facecam")
+
+    layout = dialog._cards_layout
+    widgets = [layout.itemAt(i).widget() for i in range(layout.count())]
+    names = [w.name() for w in widgets if w is not None]
+    assert names[0] == "facecam"
+
+
+def test_adding_a_device_does_not_reorder_the_file(qapp):
+    """Only the widget moves to the top; stanzas keep their order."""
+    dialog = HardwareBuilderDialog(None, doc=_rig_with_camera_list())
+    card = dialog._make_card("camera", at_top=True)
+    card.from_camera_list = True
+    card.set_values("facecam", {"type": "camera", "backend": "micromanager"})
+
+    cameras = [c["name"] for c in _save_doc(dialog)["cameras"]]
+    assert cameras == ["mesoscope", "pupil", "bodycam", "facecam"]
+
+
 def test_scrolling_over_a_dropdown_does_not_change_it(qapp):
     from mesofield.gui.config_builder import SchemaForm
 
