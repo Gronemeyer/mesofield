@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -49,6 +50,11 @@ from PyQt6.QtWidgets import (
 from mesofield.gui import theme
 
 logger = logging.getLogger(__name__)
+
+# On-screen height of the test-snap preview. A Zelux frame is 1440x1080, so
+# this is a thumbnail; it only has to answer "is this the camera I meant, and
+# is it seeing anything".
+PREVIEW_HEIGHT = 240
 
 
 # ---------------------------------------------------------------------------
@@ -190,17 +196,28 @@ def probe_pre_init_properties(
             logger.debug("probe: unloadDevice(%s) failed", label, exc_info=True)
 
 
+@dataclass
+class TestSnap:
+    """One frame from a test load, plus what the driver said about it."""
+
+    image: "Any"  # np.ndarray, kept untyped so this module needn't import numpy
+    bit_depth: int
+    summary: str
+
+
 def test_device(
     mm_path: str, library: str, adapter: str, pre_init: Dict[str, Any]
-) -> str:
-    """Build the camera for real and snap one frame. Returns a summary line.
+) -> TestSnap:
+    """Build the camera for real and snap one frame.
 
     Goes through :func:`mesofield.devices.cameras.load_camera_device`, the same
     function the rig uses at run time, so a camera that tests clean here is a
     camera that will load. Raises whatever that raises; the caller reports it.
     This is the only function here that touches hardware, and it answers "did I
     pick the right serial number?" -- the single question a user adding a
-    second identical camera actually has.
+    second identical camera actually has. Returning the frame rather than only
+    a description is the point: with two identical cameras, the numbers look
+    alike and only the picture says which one you selected.
     """
     from mesofield.devices.cameras import load_camera_device
 
@@ -210,17 +227,51 @@ def test_device(
         load_camera_device(core, label, library, adapter, pre_init)
         core.snapImage()
         image = core.getImage()
-        depth = core.getImageBitDepth()
-        return (
+        depth = int(core.getImageBitDepth())
+        summary = (
             f"{image.shape[1]}×{image.shape[0]} {image.dtype}, "
-            f"{depth}-bit (white level {(1 << int(depth)) - 1}), "
-            f"mean {image.mean():.0f}"
+            f"{depth}-bit (white level {(1 << depth) - 1}), "
+            f"range {image.min()}–{image.max()}, mean {image.mean():.0f}"
         )
+        return TestSnap(image=image, bit_depth=depth, summary=summary)
     finally:
         try:
             core.unloadAllDevices()
         except Exception:
             logger.debug("test: unloadAllDevices failed", exc_info=True)
+
+
+def snap_to_qimage(image, bit_depth: int) -> "QImage":
+    """Render a snapped frame for on-screen preview.
+
+    Contrast is stretched to the frame's own min/max rather than the sensor's
+    white level. A test snap is usually of an unlit bench, and a Zelux fills
+    10 of its 16 bits, so a true-scale rendering of one is reliably a black
+    rectangle -- which answers neither "is this the right camera" nor "is it
+    seeing anything".
+    """
+    import numpy as np
+
+    frame = np.asarray(image)
+    if frame.ndim == 3 and frame.shape[2] >= 3:
+        rgb = np.ascontiguousarray(frame[:, :, :3].astype(np.uint8))
+        height, width, _ = rgb.shape
+        qimage = QImage(rgb.data, width, height, 3 * width, QImage.Format.Format_RGB888)
+        qimage._buffer = rgb  # keep the buffer alive for the QImage's lifetime
+        return qimage
+
+    low, high = float(frame.min()), float(frame.max())
+    if high <= low:  # a uniform frame: show it at its true level, not noise
+        full = float((1 << bit_depth) - 1) if bit_depth else 255.0
+        scaled = np.full(frame.shape, min(255.0, low / full * 255.0), dtype=np.uint8)
+    else:
+        scaled = ((frame.astype(np.float32) - low) * (255.0 / (high - low)))
+        scaled = np.ascontiguousarray(scaled.clip(0, 255).astype(np.uint8))
+
+    height, width = scaled.shape
+    qimage = QImage(scaled.data, width, height, width, QImage.Format.Format_Grayscale8)
+    qimage._buffer = scaled
+    return qimage
 
 
 # ---------------------------------------------------------------------------
@@ -346,6 +397,17 @@ class MMDevicePickerDialog(QDialog):
         self._test_result.setWordWrap(True)
         layout.addWidget(self._test_result)
 
+        # The frame itself. Hidden until a test actually snaps one -- an empty
+        # grey box next to an untested camera reads as a failed capture.
+        self._preview = QLabel()
+        self._preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._preview.setMinimumHeight(PREVIEW_HEIGHT)
+        self._preview.setStyleSheet(
+            f"background: {theme.BG}; border: 1px solid {theme.BORDER};"
+        )
+        self._preview.setVisible(False)
+        layout.addWidget(self._preview)
+
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -441,6 +503,8 @@ class MMDevicePickerDialog(QDialog):
     def _on_device_selected(self, *_args) -> None:
         self._clear_props()
         self._test_result.clear()
+        self._preview.clear()
+        self._preview.setVisible(False)
         device = self.selected_device()
         self._ok_btn.setEnabled(device is not None)
         self._test_btn.setEnabled(device is not None)
@@ -512,17 +576,38 @@ class MMDevicePickerDialog(QDialog):
         self._test_result.setStyleSheet(f"color: {theme.TEXT_DIM};")
         self._test_result.repaint()
         try:
-            summary = test_device(
+            snap = test_device(
                 self.mm_path(), device.library, device.adapter, self._pre_init_values()
             )
         except Exception as exc:
+            self._preview.clear()
+            self._preview.setVisible(False)
             self._test_result.setText(f"✗ {exc}")
             self._test_result.setStyleSheet(f"color: {theme.DANGER};")
         else:
-            self._test_result.setText(f"✓ Snapped {summary}")
+            self._test_result.setText(f"✓ Snapped {snap.summary}")
             self._test_result.setStyleSheet(f"color: {theme.ACCENT};")
+            self._show_preview(snap)
         finally:
             self._test_btn.setEnabled(True)
+
+    def _show_preview(self, snap: TestSnap) -> None:
+        """Draw the snapped frame under the Test button."""
+        try:
+            pixmap = QPixmap.fromImage(snap_to_qimage(snap.image, snap.bit_depth))
+        except Exception as exc:  # a frame shape we do not know how to draw
+            logger.debug("preview render failed", exc_info=True)
+            self._preview.setVisible(False)
+            self._test_result.setText(
+                f"{self._test_result.text()} (no preview: {exc})"
+            )
+            return
+        self._preview.setPixmap(pixmap.scaled(
+            self._preview.width() or pixmap.width(), PREVIEW_HEIGHT,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        ))
+        self._preview.setVisible(True)
 
     # -- result ------------------------------------------------------------
 

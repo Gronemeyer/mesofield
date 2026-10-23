@@ -462,3 +462,48 @@ def test_non_camera_without_the_flag_does_not_gain_one(qapp):
     card = _DeviceCard(DEVICE_SPECS["treadmill"])
     card.set_values("encoder", {"type": "encoder", "port": "COM8"})
     assert "primary" not in card.stanza()
+
+
+# --------------------------------------------------------------------------- #
+# Rendering a test snap
+# --------------------------------------------------------------------------- #
+
+
+def test_snap_renders_a_grayscale_preview(qapp):
+    """A 10-bit frame has to be stretched to 8 bits to be visible at all."""
+    import numpy as np
+
+    from mesofield.gui.mm_device_picker import snap_to_qimage
+
+    frame = np.linspace(24, 1022, 64 * 48, dtype=np.uint16).reshape(48, 64)
+    image = snap_to_qimage(frame, bit_depth=10)
+
+    assert (image.width(), image.height()) == (64, 48)
+    assert image.format().name == "Format_Grayscale8"
+    # Stretched to the frame's own range, not the sensor's white level: a
+    # true-scale 10-bit bench snap renders as a black rectangle.
+    assert image.pixelColor(0, 0).value() == 0
+    assert image.pixelColor(63, 47).value() == 255
+
+
+def test_uniform_snap_does_not_render_as_noise(qapp):
+    """min == max would divide by zero; show the true level instead."""
+    import numpy as np
+
+    from mesofield.gui.mm_device_picker import snap_to_qimage
+
+    image = snap_to_qimage(np.full((8, 8), 512, dtype=np.uint16), bit_depth=10)
+    assert image.pixelColor(4, 4).value() == pytest.approx(127, abs=2)
+
+
+def test_colour_snap_renders_as_rgb(qapp):
+    import numpy as np
+
+    from mesofield.gui.mm_device_picker import snap_to_qimage
+
+    frame = np.zeros((8, 8, 3), dtype=np.uint8)
+    frame[..., 0] = 255
+    image = snap_to_qimage(frame, bit_depth=8)
+
+    assert image.format().name == "Format_RGB888"
+    assert image.pixelColor(0, 0).red() == 255
